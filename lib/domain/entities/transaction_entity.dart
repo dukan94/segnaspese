@@ -17,6 +17,10 @@ class TransactionEntity {
   final String? receiptImagePath;
   final int? recurringId;
 
+  /// Se questa transazione è un rimborso collegato a una spesa esistente,
+  /// è l'id di quella spesa. null = rimborso non collegato o spesa normale.
+  final int? refundOfId;
+
   /// Spesa/entrata "una tantum" (straordinaria).
   final bool isExtraordinary;
 
@@ -34,6 +38,7 @@ class TransactionEntity {
     this.note,
     this.receiptImagePath,
     this.recurringId,
+    this.refundOfId,
     this.isExtraordinary = false,
     this.isRefund = false,
   });
@@ -60,6 +65,7 @@ class TransactionEntity {
     String? note,
     String? receiptImagePath,
     int? recurringId,
+    int? refundOfId,
     bool? isExtraordinary,
     bool? isRefund,
   }) {
@@ -74,6 +80,7 @@ class TransactionEntity {
       note: note ?? this.note,
       receiptImagePath: receiptImagePath ?? this.receiptImagePath,
       recurringId: recurringId ?? this.recurringId,
+      refundOfId: refundOfId ?? this.refundOfId,
       isExtraordinary: isExtraordinary ?? this.isExtraordinary,
       isRefund: isRefund ?? this.isRefund,
     );

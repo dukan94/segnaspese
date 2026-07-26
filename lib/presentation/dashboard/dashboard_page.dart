@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/utils/formatters.dart';
 import 'dashboard_providers.dart';
 import 'widgets/annual_totals.dart';
 import 'widgets/category_donut.dart';
@@ -21,13 +22,38 @@ class DashboardPage extends ConsumerStatefulWidget {
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
   late int _year = DateTime.now().year;
+  int? _month; // null = intero anno; valorizzato = mese specifico
   int? _selectedCategoryId;
   bool _includeExtraordinary = false;
+
+  void _goPrev() {
+    if (_month == null) {
+      _year--;
+    } else if (_month == 1) {
+      _month = 12;
+      _year--;
+    } else {
+      _month = _month! - 1;
+    }
+  }
+
+  void _goNext() {
+    if (_month == null) {
+      _year++;
+    } else if (_month == 12) {
+      _month = 1;
+      _year++;
+    } else {
+      _month = _month! + 1;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final dataAsync = ref.watch(
-      dashboardDataProvider((year: _year, includeExtra: _includeExtraordinary)),
+      dashboardDataProvider(
+        (year: _year, month: _month, includeExtra: _includeExtraordinary),
+      ),
     );
 
     return Scaffold(
@@ -58,10 +84,21 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
       children: [
-        _YearSelector(
+        _PeriodSelector(
           year: _year,
-          onPrev: () => setState(() => _year--),
-          onNext: () => setState(() => _year++),
+          month: _month,
+          onModeChanged: (monthMode) => setState(() {
+            if (monthMode) {
+              // Passa a "Mese": default al mese corrente se siamo nell'anno
+              // corrente, altrimenti dicembre.
+              final now = DateTime.now();
+              _month = (_year == now.year) ? now.month : 12;
+            } else {
+              _month = null;
+            }
+          }),
+          onPrev: () => setState(_goPrev),
+          onNext: () => setState(_goNext),
         ),
         const SizedBox(height: 8),
         AnnualTotals(
@@ -69,6 +106,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           expense: data.totalExpense,
           budget: data.totalBudget,
           isOverBudget: data.isOverBudget,
+          savings: data.savings,
         ),
         SwitchListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -95,48 +133,76 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               slices: data.subByCategory[selectedId] ?? const [],
             ),
           ),
-        _SectionCard(
-          title: 'Andamento 12 mesi',
-          child: MonthlyTrendChart(
-            monthlyExpense: data.monthlyExpense,
-            monthlyBudget: data.monthlyBudget,
+        // L'andamento è una vista annuale: ha senso solo in modalità "Anno".
+        if (_month == null)
+          _SectionCard(
+            title: 'Andamento 12 mesi',
+            child: MonthlyTrendChart(
+              monthlyExpense: data.monthlyExpense,
+              monthlyBudget: data.monthlyBudget,
+            ),
           ),
-        ),
       ],
     );
   }
 }
 
-class _YearSelector extends StatelessWidget {
-  const _YearSelector({
+/// Selettore del periodo della Dashboard: alterna tra vista annuale e mese
+/// specifico, con le frecce per scorrere anno/mese.
+class _PeriodSelector extends StatelessWidget {
+  const _PeriodSelector({
     required this.year,
+    required this.month,
+    required this.onModeChanged,
     required this.onPrev,
     required this.onNext,
   });
 
   final int year;
+  final int? month;
+  final ValueChanged<bool> onModeChanged; // true = mese, false = anno
   final VoidCallback onPrev;
   final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    final isMonth = month != null;
+    final label = isMonth
+        ? _capitalize(AppFormatters.monthYear(year, month!))
+        : '$year';
+
+    return Column(
       children: [
-        IconButton(
-          onPressed: onPrev,
-          icon: const Icon(Icons.chevron_left),
-          tooltip: 'Anno precedente',
+        SegmentedButton<bool>(
+          segments: const [
+            ButtonSegment(value: false, label: Text('Anno')),
+            ButtonSegment(value: true, label: Text('Mese')),
+          ],
+          selected: {isMonth},
+          onSelectionChanged: (s) => onModeChanged(s.first),
         ),
-        Text('$year', style: Theme.of(context).textTheme.titleLarge),
-        IconButton(
-          onPressed: onNext,
-          icon: const Icon(Icons.chevron_right),
-          tooltip: 'Anno successivo',
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              onPressed: onPrev,
+              icon: const Icon(Icons.chevron_left),
+              tooltip: isMonth ? 'Mese precedente' : 'Anno precedente',
+            ),
+            Text(label, style: Theme.of(context).textTheme.titleLarge),
+            IconButton(
+              onPressed: onNext,
+              icon: const Icon(Icons.chevron_right),
+              tooltip: isMonth ? 'Mese successivo' : 'Anno successivo',
+            ),
+          ],
         ),
       ],
     );
   }
+
+  static String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 }
 
 class _SectionCard extends StatelessWidget {

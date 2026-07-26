@@ -11,7 +11,7 @@ import 'default_subcategories_seed.dart';
 /// avvio successivo il database viene riportato ("reset pulito") alla nuova
 /// tassonomia. Evita di dover individuare ed eliminare a mano il file SQLite
 /// in AppData.
-const int kSeedVersion = 2;
+const int kSeedVersion = 3;
 
 const String _seedVersionKey = 'seed_version';
 
@@ -41,6 +41,7 @@ Future<void> runSeed(AppDatabase db) async {
     await db.transaction(() async {
       await db.delete(db.budgets).go();
       await db.delete(db.transactions).go();
+      await db.delete(db.recurringTransactions).go();
       await db.delete(db.merchantRules).go();
       await db.delete(db.merchants).go();
       await db.delete(db.subCategories).go();

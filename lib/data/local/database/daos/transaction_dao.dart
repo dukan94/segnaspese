@@ -78,6 +78,14 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     return into(transactions).insert(entry);
   }
 
+  /// Inserisce più transazioni in un'unica operazione atomica (usato
+  /// dall'import): o vanno a buon fine tutte, o nessuna. [batch] esegue gli
+  /// insert dentro una singola transazione DB e notifica i `watch()` una
+  /// sola volta al termine.
+  Future<void> insertAll(List<TransactionsCompanion> entries) async {
+    await batch((b) => b.insertAll(transactions, entries));
+  }
+
   Future<bool> updateTransaction(TransactionsCompanion entry) {
     return update(transactions).replace(entry);
   }

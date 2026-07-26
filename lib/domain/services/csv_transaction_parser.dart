@@ -188,10 +188,28 @@ class CsvTransactionParser {
     if (t.isEmpty) return null;
     final lastComma = t.lastIndexOf(',');
     final lastDot = t.lastIndexOf('.');
-    if (lastComma >= 0 || lastDot >= 0) {
+
+    if (lastComma >= 0 && lastDot >= 0) {
+      // Entrambi i separatori presenti: quello più a destra è il decimale,
+      // l'altro è il separatore delle migliaia (es. "1.234,56" o "1,234.56").
       final decimalSep = lastComma > lastDot ? ',' : '.';
       final thousandsSep = decimalSep == ',' ? '.' : ',';
       t = t.replaceAll(thousandsSep, '').replaceAll(decimalSep, '.');
+    } else if (lastComma >= 0) {
+      // Solo virgole: in convenzione italiana la virgola è il decimale; più
+      // virgole = separatori delle migliaia (es. "1,234,567").
+      t = ','.allMatches(t).length > 1
+          ? t.replaceAll(',', '')
+          : t.replaceAll(',', '.');
+    } else if (lastDot >= 0) {
+      // Solo punti: è un decimale solo se c'è un unico punto seguito da 1-2
+      // cifre (es. "12.50"). Altrimenti è separatore delle migliaia e va
+      // rimosso — così "1.500" resta 1500, non 1,5 (bug precedente).
+      final decimals = t.length - lastDot - 1;
+      final singleDot = '.'.allMatches(t).length == 1;
+      if (!(singleDot && decimals >= 1 && decimals <= 2)) {
+        t = t.replaceAll('.', '');
+      }
     }
     return double.tryParse(t);
   }

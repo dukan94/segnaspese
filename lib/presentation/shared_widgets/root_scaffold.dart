@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 /// Scaffold condiviso da tutte le tab principali, con la bottom navigation
-/// bar a 5 voci definita nel wireframe di progettazione.
+/// bar a 4 voci (Home · Dashboard · Budget · Altro). Le sezioni secondarie
+/// (Storico, Ricorrenze, Impostazioni) sono raggruppate sotto "Altro".
 class RootScaffold extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
@@ -25,19 +26,9 @@ class RootScaffold extends StatelessWidget {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'Storico',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.bar_chart_outlined),
             selectedIcon: Icon(Icons.bar_chart),
             label: 'Dashboard',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.autorenew_outlined),
-            selectedIcon: Icon(Icons.autorenew),
-            label: 'Ricorrenze',
           ),
           NavigationDestination(
             icon: Icon(Icons.savings_outlined),
@@ -45,9 +36,9 @@ class RootScaffold extends StatelessWidget {
             label: 'Budget',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings),
-            label: 'Impostazioni',
+            icon: Icon(Icons.apps_outlined),
+            selectedIcon: Icon(Icons.apps),
+            label: 'Altro',
           ),
         ],
       ),

@@ -24,6 +24,10 @@ abstract class TransactionRepository {
 
   Future<int> add(TransactionEntity transaction);
 
+  /// Inserisce più transazioni in modo atomico (usato dall'import CSV):
+  /// o vengono salvate tutte, o nessuna.
+  Future<void> addAll(List<TransactionEntity> transactions);
+
   Future<void> update(TransactionEntity transaction);
 
   /// Soft delete (necessario per propagare la cancellazione in sync).

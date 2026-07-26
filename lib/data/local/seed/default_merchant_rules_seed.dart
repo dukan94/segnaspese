@@ -26,21 +26,27 @@ Future<void> seedDefaultMerchantRules(AppDatabase db) async {
   final shoppingId = categoryIdByName('Shopping');
   final viaggioId = categoryIdByName('Viaggio');
 
+  // NOTA sui pattern: il matcher applica queste regex al TESTO GREZZO dello
+  // scontrino (v. RuleMatcherService), quindi i pattern sono ancorati con il
+  // confine di parola `\b` per evitare falsi positivi. I marchi lunghi usano
+  // `\b` come prefisso (es. `\bESSEL` intercetta "ESSELUNGA"); i codici corti
+  // e generici (MD, Q8, ENI, LIDL) richiedono la parola intera `\b...\b`, così
+  // "ENI" non scatta su parole come "beni"/"generi" né "MD" dentro altre.
   final rules = <(String, int, int?)>[
-    (r'ESSEL.*', spesaId, subCategoryIdByName('Supermercato')),
-    (r'IPERAL.*', spesaId, subCategoryIdByName('Supermercato')),
-    (r'EUROSPIN.*', spesaId, subCategoryIdByName('Supermercato')),
-    (r'MD.*', spesaId, subCategoryIdByName('Supermercato')),
-    (r'LIDL.*', spesaId, subCategoryIdByName('Supermercato')),
-    (r'Q8.*', veicoliId, subCategoryIdByName('Carburante')),
-    (r'ENI.*', veicoliId, subCategoryIdByName('Carburante')),
-    (r'TAMOIL.*', veicoliId, subCategoryIdByName('Carburante')),
-    (r'MCDONALD.*', fuoriCasaId, subCategoryIdByName('Ristorante / Uscita')),
-    (r'BURGER KING.*', fuoriCasaId, subCategoryIdByName('Ristorante / Uscita')),
-    (r'AMAZON.*', shoppingId, subCategoryIdByName('Acquisti Extra / Altro')),
-    (r'IKEA.*', casaId, subCategoryIdByName('Arredamento / Elettrodomestici')),
-    (r'TRENITALIA.*', viaggioId, subCategoryIdByName('Trasporti di Viaggio')),
-    (r'RYANAIR.*', viaggioId, subCategoryIdByName('Voli / Hotel')),
+    (r'\bESSEL', spesaId, subCategoryIdByName('Supermercato')),
+    (r'\bIPERAL', spesaId, subCategoryIdByName('Supermercato')),
+    (r'\bEUROSPIN', spesaId, subCategoryIdByName('Supermercato')),
+    (r'\bMD\b', spesaId, subCategoryIdByName('Supermercato')),
+    (r'\bLIDL\b', spesaId, subCategoryIdByName('Supermercato')),
+    (r'\bQ8\b', veicoliId, subCategoryIdByName('Carburante')),
+    (r'\bENI\b', veicoliId, subCategoryIdByName('Carburante')),
+    (r'\bTAMOIL', veicoliId, subCategoryIdByName('Carburante')),
+    (r'\bMCDONALD', fuoriCasaId, subCategoryIdByName('Ristorante / Uscita')),
+    (r'\bBURGER KING', fuoriCasaId, subCategoryIdByName('Ristorante / Uscita')),
+    (r'\bAMAZON', shoppingId, subCategoryIdByName('Acquisti Extra / Altro')),
+    (r'\bIKEA\b', casaId, subCategoryIdByName('Arredamento / Elettrodomestici')),
+    (r'\bTRENITALIA', viaggioId, subCategoryIdByName('Trasporti di Viaggio')),
+    (r'\bRYANAIR', viaggioId, subCategoryIdByName('Voli / Hotel')),
   ];
 
   await db.transaction(() async {

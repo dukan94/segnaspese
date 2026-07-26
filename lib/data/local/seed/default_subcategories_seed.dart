@@ -64,8 +64,6 @@ Future<void> seedDefaultSubCategories(AppDatabase db) async {
     ('Stipendio', 'Guadagno Extra', '💳'),
 
     ('Regalo', 'Regalo (ricevuto)', '🎁'),
-
-    ('Rimborsi', 'Restituzione / Rimborso', '🔄'),
   ];
 
   await db.transaction(() async {

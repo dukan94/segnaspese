@@ -6,20 +6,26 @@ import '../../presentation/transaction/add_transaction_page.dart';
 import '../../presentation/receipt/receipt_scan_page.dart';
 import '../../presentation/dashboard/dashboard_page.dart';
 import '../../presentation/recurring/recurring_list_page.dart';
+import '../../presentation/recurring/recurring_edit_page.dart';
+import '../../domain/entities/recurring_entity.dart';
 import '../../presentation/budget/budget_page.dart';
 import '../../presentation/budget/budget_month_page.dart';
+import '../../presentation/altro/altro_page.dart';
 import '../../presentation/settings/settings_page.dart';
 import '../../presentation/settings/categories_manage_page.dart';
 import '../../presentation/settings/merchant_rules_page.dart';
 import '../../presentation/settings/import_page.dart';
+import '../../presentation/settings/export_page.dart';
 import '../../presentation/shared_widgets/root_scaffold.dart';
 
 /// Configurazione di navigazione dell'app.
 ///
-/// Bottom navigation a 5 voci (Home | Dashboard | Ricorrenze | Budget |
-/// Impostazioni), come da wireframe approvato. Le schermate di dettaglio
-/// (Nuova Operazione, Scansione Scontrino, ecc.) verranno aggiunte come
-/// route push nelle milestone M1-M3.
+/// Bottom navigation a 4 voci (Home | Dashboard | Budget | Altro). Le sezioni
+/// secondarie (Storico, Ricorrenze, Impostazioni) non sono tab: sono
+/// raggruppate sotto "Altro" e si aprono a schermo intero come route
+/// top-level (con pulsante Indietro), fuori dallo StatefulShellRoute. In
+/// questo modo i loro percorsi restano invariati (es. /settings/categories),
+/// e la barra non supera le 5 voci consigliate da Material.
 final appRouter = GoRouter(
   initialLocation: '/home',
   routes: [
@@ -49,24 +55,8 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/history',
-              builder: (context, state) => const HistoryPage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
               path: '/dashboard',
               builder: (context, state) => const DashboardPage(),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/recurring',
-              builder: (context, state) => const RecurringListPage(),
             ),
           ],
         ),
@@ -90,24 +80,55 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/settings',
-              builder: (context, state) => const SettingsPage(),
-              routes: [
-                GoRoute(
-                  path: 'categories',
-                  builder: (context, state) => const CategoriesManagePage(),
-                ),
-                GoRoute(
-                  path: 'rules',
-                  builder: (context, state) => const MerchantRulesPage(),
-                ),
-                GoRoute(
-                  path: 'import',
-                  builder: (context, state) => const ImportPage(),
-                ),
-              ],
+              path: '/altro',
+              builder: (context, state) => const AltroPage(),
             ),
           ],
+        ),
+      ],
+    ),
+
+    // --- Sezioni secondarie (fuori dallo shell): si aprono a schermo intero
+    // sopra la barra, con pulsante Indietro automatico. ---
+    GoRoute(
+      path: '/history',
+      builder: (context, state) => const HistoryPage(),
+    ),
+    GoRoute(
+      path: '/recurring',
+      builder: (context, state) => const RecurringListPage(),
+      routes: [
+        GoRoute(
+          path: 'new',
+          builder: (context, state) => const RecurringEditPage(),
+        ),
+        GoRoute(
+          path: 'edit',
+          builder: (context, state) => RecurringEditPage(
+            existing: state.extra as RecurringEntity?,
+          ),
+        ),
+      ],
+    ),
+    GoRoute(
+      path: '/settings',
+      builder: (context, state) => const SettingsPage(),
+      routes: [
+        GoRoute(
+          path: 'categories',
+          builder: (context, state) => const CategoriesManagePage(),
+        ),
+        GoRoute(
+          path: 'rules',
+          builder: (context, state) => const MerchantRulesPage(),
+        ),
+        GoRoute(
+          path: 'import',
+          builder: (context, state) => const ImportPage(),
+        ),
+        GoRoute(
+          path: 'export',
+          builder: (context, state) => const ExportPage(),
         ),
       ],
     ),

@@ -74,12 +74,13 @@ class DashboardData {
   bool get isOverBudget => totalBudget > 0 && totalExpense > totalBudget;
 }
 
-/// Parametri della Dashboard: anno + se includere le operazioni straordinarie.
-typedef DashboardParams = ({int year, bool includeExtra});
+/// Parametri della Dashboard: anno, mese opzionale (null = intero anno) e se
+/// includere le operazioni straordinarie.
+typedef DashboardParams = ({int year, int? month, bool includeExtra});
 
 /// Aggregato completo per la Dashboard dell'anno.
 final dashboardDataProvider =
-    Provider.family<AsyncValue<DashboardData>, DashboardParams>((ref, params) {
+    Provider.autoDispose.family<AsyncValue<DashboardData>, DashboardParams>((ref, params) {
   final transactions = ref.watch(yearTransactionsProvider(params.year));
   final budgets = ref.watch(budgetsForYearProvider(params.year));
   final categories =
@@ -99,17 +100,22 @@ final dashboardDataProvider =
     for (final t in txns) {
       // Escludi le straordinarie se il toggle è disattivato.
       if (t.isExtraordinary && !params.includeExtra) continue;
+      // Filtro periodo: se è impostato un mese, totali/categorie/sottocategorie
+      // considerano solo quel mese; l'andamento 12 mesi resta sempre annuale.
+      final inPeriod = params.month == null || t.date.month == params.month;
       if (t.type == TransactionType.income) {
-        totalIncome += t.amount;
+        if (inPeriod) totalIncome += t.amount;
       } else {
-        totalExpense += t.netExpense;
-        expenseByCategory[t.categoryId] =
-            (expenseByCategory[t.categoryId] ?? 0) + t.netExpense;
-        if (t.subCategoryId != null) {
-          expenseBySubcat[t.subCategoryId!] =
-              (expenseBySubcat[t.subCategoryId!] ?? 0) + t.netExpense;
-        }
         monthlyExpense[t.date.month - 1] += t.netExpense;
+        if (inPeriod) {
+          totalExpense += t.netExpense;
+          expenseByCategory[t.categoryId] =
+              (expenseByCategory[t.categoryId] ?? 0) + t.netExpense;
+          if (t.subCategoryId != null) {
+            expenseBySubcat[t.subCategoryId!] =
+                (expenseBySubcat[t.subCategoryId!] ?? 0) + t.netExpense;
+          }
+        }
       }
     }
 
@@ -127,7 +133,11 @@ final dashboardDataProvider =
     final monthlyBudget = [
       for (var m = 1; m <= 12; m++) totalByMonth[m] ?? (catSumByMonth[m] ?? 0),
     ];
-    final totalBudget = monthlyBudget.fold<double>(0, (s, v) => s + v);
+    // Budget del periodo: nel mese selezionato è il budget di quel mese,
+    // nell'intero anno è la somma dei 12 mesi.
+    final totalBudget = params.month == null
+        ? monthlyBudget.fold<double>(0, (s, v) => s + v)
+        : monthlyBudget[params.month! - 1];
 
     // Fette per categoria (con nome/icona/colore), decrescente.
     final catById = {for (final c in catList) c.id: c};

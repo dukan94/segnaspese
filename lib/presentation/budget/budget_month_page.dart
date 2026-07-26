@@ -21,13 +21,19 @@ class BudgetMonthPage extends ConsumerWidget {
     final key = MonthKey(year, month);
     final detailAsync = ref.watch(monthDetailProvider(key));
     final title = AppFormatters.monthYear(year, month);
+    final now = DateTime.now();
+    // Mese già passato: consultabile ma non impostabile (niente pulsanti di
+    // modifica del budget).
+    final readOnly =
+        year < now.year || (year == now.year && month < now.month);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(title[0].toUpperCase() + title.substring(1)),
       ),
       body: detailAsync.when(
-        data: (detail) => _MonthDetailBody(detail: detail, monthKey: key),
+        data: (detail) =>
+            _MonthDetailBody(detail: detail, monthKey: key, readOnly: readOnly),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Errore: $e')),
       ),
@@ -36,10 +42,15 @@ class BudgetMonthPage extends ConsumerWidget {
 }
 
 class _MonthDetailBody extends StatelessWidget {
-  const _MonthDetailBody({required this.detail, required this.monthKey});
+  const _MonthDetailBody({
+    required this.detail,
+    required this.monthKey,
+    required this.readOnly,
+  });
 
   final MonthBudgetDetail detail;
   final MonthKey monthKey;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +59,12 @@ class _MonthDetailBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       children: [
-        _TotalCard(detail: detail, monthKey: monthKey, monthLabel: monthLabel),
+        _TotalCard(
+          detail: detail,
+          monthKey: monthKey,
+          monthLabel: monthLabel,
+          readOnly: readOnly,
+        ),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
@@ -64,7 +80,12 @@ class _MonthDetailBody extends StatelessWidget {
           )
         else
           for (final line in detail.lines)
-            _CategoryBudgetTile(line: line, monthKey: monthKey, monthLabel: monthLabel),
+            _CategoryBudgetTile(
+              line: line,
+              monthKey: monthKey,
+              monthLabel: monthLabel,
+              readOnly: readOnly,
+            ),
       ],
     );
   }
@@ -75,11 +96,13 @@ class _TotalCard extends StatelessWidget {
     required this.detail,
     required this.monthKey,
     required this.monthLabel,
+    required this.readOnly,
   });
 
   final MonthBudgetDetail detail;
   final MonthKey monthKey;
   final String monthLabel;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -110,18 +133,19 @@ class _TotalCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                FilledButton.tonalIcon(
-                  onPressed: () => showBudgetAmountDialog(
-                    context,
-                    month: monthKey,
-                    title: 'Budget totale — $monthLabel',
-                    subtitle: 'Importo complessivo che vuoi spendere nel mese.',
-                    initialAmount: detail.total,
-                    existingId: detail.totalBudgetId,
+                if (!readOnly)
+                  FilledButton.tonalIcon(
+                    onPressed: () => showBudgetAmountDialog(
+                      context,
+                      month: monthKey,
+                      title: 'Budget totale — $monthLabel',
+                      subtitle: 'Importo complessivo che vuoi spendere nel mese.',
+                      initialAmount: detail.total,
+                      existingId: detail.totalBudgetId,
+                    ),
+                    icon: Icon(detail.hasTotal ? Icons.edit_outlined : Icons.add),
+                    label: Text(detail.hasTotal ? 'Modifica' : 'Imposta'),
                   ),
-                  icon: Icon(detail.hasTotal ? Icons.edit_outlined : Icons.add),
-                  label: Text(detail.hasTotal ? 'Modifica' : 'Imposta'),
-                ),
               ],
             ),
             if (detail.hasTotal) ...[
@@ -200,11 +224,13 @@ class _CategoryBudgetTile extends StatelessWidget {
     required this.line,
     required this.monthKey,
     required this.monthLabel,
+    required this.readOnly,
   });
 
   final CategoryBudgetLine line;
   final MonthKey monthKey;
   final String monthLabel;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -216,15 +242,17 @@ class _CategoryBudgetTile extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => showBudgetAmountDialog(
-          context,
-          month: monthKey,
-          categoryId: category.id,
-          title: '${category.name} — $monthLabel',
-          subtitle: 'Quanto vuoi destinare a questa categoria nel mese.',
-          initialAmount: line.allocation,
-          existingId: line.budgetId,
-        ),
+        onTap: readOnly
+            ? null
+            : () => showBudgetAmountDialog(
+                  context,
+                  month: monthKey,
+                  categoryId: category.id,
+                  title: '${category.name} — $monthLabel',
+                  subtitle: 'Quanto vuoi destinare a questa categoria nel mese.',
+                  initialAmount: line.allocation,
+                  existingId: line.budgetId,
+                ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
           child: Column(
@@ -249,6 +277,10 @@ class _CategoryBudgetTile extends StatelessWidget {
                       '${AppFormatters.currency(line.spent)} / ${AppFormatters.currency(line.allocation!)}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     )
+                  else if (readOnly)
+                    // Mese passato: niente invito ad aggiungere un budget.
+                    Text('Nessun budget',
+                        style: TextStyle(color: colorScheme.outline))
                   else
                     Row(
                       mainAxisSize: MainAxisSize.min,

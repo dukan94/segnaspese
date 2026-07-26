@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/di/category_providers.dart';
 import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
+import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../home/home_providers.dart';
 import 'widgets/amount_keypad.dart';
 import 'widgets/category_picker.dart';
 
@@ -15,11 +18,16 @@ import 'widgets/category_picker.dart';
 /// (Milestone M3/M6): per ora l'utente può comunque annotare il negozio nel
 /// campo Note.
 class AddTransactionPage extends ConsumerStatefulWidget {
-  const AddTransactionPage({super.key, this.existing});
+  const AddTransactionPage({super.key, this.existing, this.refundOf});
 
   /// Se valorizzata, la schermata modifica questa operazione invece di crearne
   /// una nuova.
   final TransactionEntity? existing;
+
+  /// Se valorizzata, la schermata parte come RIMBORSO collegato a questa spesa:
+  /// eredita categoria, sottocategoria e data (modificabili); l'utente inserisce
+  /// solo l'importo. Usato dall'azione "Rimborsa" nello Storico.
+  final TransactionEntity? refundOf;
 
   @override
   ConsumerState<AddTransactionPage> createState() => _AddTransactionPageState();
@@ -35,23 +43,46 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
   bool _isRefund = false;
   bool _saving = false;
 
+  /// Id della spesa a cui il rimborso è collegato (null = rimborso libero).
+  int? _refundOfId;
+
+  /// Spesa collegata, tenuta per mostrarne i dettagli nel form (dalla spesa
+  /// passata a `refundOf`, o scelta dal selettore).
+  TransactionEntity? _linkedExpense;
+
   bool get _isEditing => widget.existing != null;
 
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
+    final r = widget.refundOf;
     if (e != null) {
       _type = e.type;
       _amount = e.amount;
       _date = e.date;
       _isExtraordinary = e.isExtraordinary;
       _isRefund = e.isRefund;
+      _refundOfId = e.refundOfId;
       _noteController.text = e.note ?? '';
       if (e.subCategoryId != null) {
         _selection = SubCategorySelection(
           categoryId: e.categoryId,
           subCategoryId: e.subCategoryId!,
+        );
+      }
+    } else if (r != null) {
+      // Rimborso avviato da una spesa esistente: eredita categoria, data e
+      // sottocategoria; l'importo lo inserisce l'utente.
+      _isRefund = true;
+      _type = TransactionType.expense;
+      _date = r.date;
+      _refundOfId = r.id;
+      _linkedExpense = r;
+      if (r.subCategoryId != null) {
+        _selection = SubCategorySelection(
+          categoryId: r.categoryId,
+          subCategoryId: r.subCategoryId!,
         );
       }
     }
@@ -79,6 +110,47 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     }
   }
 
+  /// Apre il selettore delle spese esistenti da collegare al rimborso.
+  Future<void> _pickExpenseToRefund() async {
+    final all = ref.read(allTransactionsProvider).valueOrNull ?? const [];
+    final categories = ref.read(allCategoriesProvider).valueOrNull ?? const [];
+    final catById = {for (final c in categories) c.id: c};
+    final expenses = all
+        .where((t) =>
+            t.type == TransactionType.expense &&
+            !t.isRefund &&
+            t.id != null &&
+            t.id != widget.existing?.id)
+        .toList();
+
+    if (expenses.isEmpty) {
+      showErrorSnackBar(context, 'Nessuna spesa da collegare');
+      return;
+    }
+
+    final picked = await showModalBottomSheet<TransactionEntity>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ExpensePickerSheet(expenses: expenses, catById: catById),
+    );
+    if (picked != null) {
+      setState(() {
+        _linkedExpense = picked;
+        _refundOfId = picked.id;
+        _isRefund = true;
+        _type = TransactionType.expense;
+        _date = picked.date; // eredita la data della spesa (modificabile)
+        if (picked.subCategoryId != null) {
+          _selection = SubCategorySelection(
+            categoryId: picked.categoryId,
+            subCategoryId: picked.subCategoryId!,
+          );
+        }
+      });
+    }
+  }
+
   Future<void> _save() async {
     if (!_canSave) return;
     setState(() => _saving = true);
@@ -95,6 +167,8 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
       note: note,
       isExtraordinary: _isExtraordinary,
       isRefund: _isRefund,
+      // Il collegamento vale solo per i rimborsi.
+      refundOfId: _isRefund ? _refundOfId : null,
       merchantId: widget.existing?.merchantId,
       receiptImagePath: widget.existing?.receiptImagePath,
       recurringId: widget.existing?.recurringId,
@@ -119,6 +193,21 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Risolve la spesa collegata per la visualizzazione (se in modifica di un
+    // rimborso già collegato non abbiamo l'oggetto in memoria).
+    final all = ref.watch(allTransactionsProvider).valueOrNull ?? const [];
+    final categories = ref.watch(allCategoriesProvider).valueOrNull ?? const [];
+    final catById = {for (final c in categories) c.id: c};
+    TransactionEntity? linked = _linkedExpense;
+    if (linked == null && _refundOfId != null) {
+      for (final t in all) {
+        if (t.id == _refundOfId) {
+          linked = t;
+          break;
+        }
+      }
+    }
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
@@ -178,12 +267,30 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
                 _isRefund = v;
                 // Un rimborso è sempre relativo a una spesa: forza il tipo a
                 // uscita e azzera la scelta, così il picker mostra le spese.
-                if (v) _type = TransactionType.expense;
+                if (v) {
+                  _type = TransactionType.expense;
+                } else {
+                  // Disattivando il rimborso si scollega la spesa.
+                  _refundOfId = null;
+                  _linkedExpense = null;
+                }
                 _selection = null;
               }),
               title: const Text('Rimborso ricevuto'),
               subtitle: const Text('Riduce la spesa della categoria scelta'),
             ),
+            if (_isRefund) ...[
+              const SizedBox(height: 4),
+              _LinkedExpenseField(
+                linked: linked,
+                category: linked == null ? null : catById[linked.categoryId],
+                onPick: _pickExpenseToRefund,
+                onClear: () => setState(() {
+                  _refundOfId = null;
+                  _linkedExpense = null;
+                }),
+              ),
+            ],
             const SizedBox(height: 12),
             SubCategoryPicker(
               key: ValueKey('$_type-$_isRefund'),
@@ -228,6 +335,151 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Riga "Collega a una spesa" mostrata quando l'operazione è un rimborso.
+class _LinkedExpenseField extends StatelessWidget {
+  const _LinkedExpenseField({
+    required this.linked,
+    required this.category,
+    required this.onPick,
+    required this.onClear,
+  });
+
+  final TransactionEntity? linked;
+  final Category? category;
+  final VoidCallback onPick;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (linked == null) {
+      return OutlinedButton.icon(
+        onPressed: onPick,
+        icon: const Icon(Icons.link),
+        label: const Text('Collega a una spesa (opzionale)'),
+      );
+    }
+
+    final hasNote = linked!.note?.isNotEmpty == true;
+    final catName = category?.name ?? 'Senza categoria';
+    return Card(
+      color: theme.colorScheme.surfaceContainerHighest,
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: Icon(Icons.link, color: theme.colorScheme.primary),
+        title: Text(hasNote ? linked!.note! : catName),
+        subtitle: Text(
+          '$catName · ${AppFormatters.shortDate(linked!.date)} · '
+          '${AppFormatters.currency(linked!.amount)}',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 20),
+              tooltip: 'Cambia spesa',
+              onPressed: onPick,
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 20),
+              tooltip: 'Scollega',
+              onPressed: onClear,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet con l'elenco delle spese esistenti, per collegarne una al
+/// rimborso. Ricerca per note/categoria/importo.
+class _ExpensePickerSheet extends StatefulWidget {
+  const _ExpensePickerSheet({required this.expenses, required this.catById});
+
+  final List<TransactionEntity> expenses;
+  final Map<int, Category> catById;
+
+  @override
+  State<_ExpensePickerSheet> createState() => _ExpensePickerSheetState();
+}
+
+class _ExpensePickerSheetState extends State<_ExpensePickerSheet> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final filtered = _query.isEmpty
+        ? widget.expenses
+        : widget.expenses.where((t) {
+            final cat = widget.catById[t.categoryId]?.name ?? '';
+            final hay = [
+              t.note ?? '',
+              cat,
+              AppFormatters.shortDate(t.date),
+              t.amount.toStringAsFixed(2).replaceAll('.', ','),
+            ].join(' ').toLowerCase();
+            return hay.contains(_query);
+          }).toList();
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                hintText: 'Cerca la spesa da rimborsare...',
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
+            ),
+            const SizedBox(height: 8),
+            Flexible(
+              child: filtered.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Text('Nessun risultato'),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: filtered.length,
+                      itemBuilder: (context, i) {
+                        final t = filtered[i];
+                        final cat = widget.catById[t.categoryId];
+                        final hasNote = t.note?.isNotEmpty == true;
+                        final catName = cat?.name ?? 'Senza categoria';
+                        return ListTile(
+                          leading: Text(cat?.icon ?? '💶',
+                              style: const TextStyle(fontSize: 20)),
+                          title: Text(hasNote ? t.note! : catName),
+                          subtitle: Text(
+                            '$catName · ${AppFormatters.shortDate(t.date)}',
+                          ),
+                          trailing: Text(AppFormatters.currency(t.amount)),
+                          onTap: () => Navigator.of(context).pop(t),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),

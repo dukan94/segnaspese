@@ -42,7 +42,7 @@ final searchTransactionsProvider = Provider<SearchTransactions>((ref) {
 /// Tutte le transazioni di un anno solare. Sorgente condivisa da Dashboard e
 /// dal riepilogo/previsione annuale del Budget.
 final yearTransactionsProvider =
-    StreamProvider.family<List<TransactionEntity>, int>((ref, year) {
+    StreamProvider.autoDispose.family<List<TransactionEntity>, int>((ref, year) {
   final from = DateTime(year, 1, 1);
   final to = DateTime(year + 1, 1, 1).subtract(const Duration(milliseconds: 1));
   return ref

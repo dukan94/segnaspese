@@ -17,6 +17,7 @@ import 'daos/transaction_dao.dart';
 import 'daos/category_dao.dart';
 import 'daos/budget_dao.dart';
 import 'daos/merchant_rule_dao.dart';
+import 'daos/recurring_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -42,6 +43,7 @@ part 'app_database.g.dart';
     CategoryDao,
     BudgetDao,
     MerchantRuleDao,
+    RecurringDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -51,7 +53,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -68,6 +70,10 @@ class AppDatabase extends _$AppDatabase {
           // v3: colonna "isRefund" (rimborso ricevuto su una spesa).
           if (from < 3) {
             await m.addColumn(transactions, transactions.isRefund);
+          }
+          // v4: colonna "refundOfId" (collegamento rimborso → spesa originale).
+          if (from < 4) {
+            await m.addColumn(transactions, transactions.refundOfId);
           }
         },
         // NOTA: l'ordine manuale (drag & drop) di categorie/sottocategorie

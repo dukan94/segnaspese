@@ -2294,6 +2294,12 @@ class $TransactionsTable extends Transactions
       requiredDuringInsert: false,
       defaultConstraints: GeneratedColumn.constraintIsAlways(
           'REFERENCES recurring_transactions (id)'));
+  static const VerificationMeta _refundOfIdMeta =
+      const VerificationMeta('refundOfId');
+  @override
+  late final GeneratedColumn<int> refundOfId = GeneratedColumn<int>(
+      'refund_of_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -2334,6 +2340,7 @@ class $TransactionsTable extends Transactions
         isRefund,
         receiptImagePath,
         recurringId,
+        refundOfId,
         createdAt,
         updatedAt,
         isDeleted
@@ -2409,6 +2416,12 @@ class $TransactionsTable extends Transactions
           recurringId.isAcceptableOrUnknown(
               data['recurring_id']!, _recurringIdMeta));
     }
+    if (data.containsKey('refund_of_id')) {
+      context.handle(
+          _refundOfIdMeta,
+          refundOfId.isAcceptableOrUnknown(
+              data['refund_of_id']!, _refundOfIdMeta));
+    }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
           createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
@@ -2455,6 +2468,8 @@ class $TransactionsTable extends Transactions
           DriftSqlType.string, data['${effectivePrefix}receipt_image_path']),
       recurringId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}recurring_id']),
+      refundOfId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}refund_of_id']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
       updatedAt: attachedDatabase.typeMapping
@@ -2500,6 +2515,13 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   /// Valorizzato se la transazione è stata generata automaticamente da una
   /// ricorrenza (es. Netflix mensile).
   final int? recurringId;
+
+  /// Se questa transazione è un rimborso collegato a una spesa esistente,
+  /// contiene l'id di quella spesa (auto-riferimento alla stessa tabella).
+  /// Volutamente senza vincolo FK: le cancellazioni sono soft-delete e la
+  /// sync è last-write-wins, quindi un vincolo rigido creerebbe solo attriti
+  /// (es. impossibile eliminare una spesa che ha un rimborso collegato).
+  final int? refundOfId;
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
@@ -2516,6 +2538,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       required this.isRefund,
       this.receiptImagePath,
       this.recurringId,
+      this.refundOfId,
       required this.createdAt,
       required this.updatedAt,
       required this.isDeleted});
@@ -2547,6 +2570,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     if (!nullToAbsent || recurringId != null) {
       map['recurring_id'] = Variable<int>(recurringId);
     }
+    if (!nullToAbsent || refundOfId != null) {
+      map['refund_of_id'] = Variable<int>(refundOfId);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
@@ -2575,6 +2601,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       recurringId: recurringId == null && nullToAbsent
           ? const Value.absent()
           : Value(recurringId),
+      refundOfId: refundOfId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refundOfId),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
@@ -2598,6 +2627,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isRefund: serializer.fromJson<bool>(json['isRefund']),
       receiptImagePath: serializer.fromJson<String?>(json['receiptImagePath']),
       recurringId: serializer.fromJson<int?>(json['recurringId']),
+      refundOfId: serializer.fromJson<int?>(json['refundOfId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
@@ -2620,6 +2650,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'isRefund': serializer.toJson<bool>(isRefund),
       'receiptImagePath': serializer.toJson<String?>(receiptImagePath),
       'recurringId': serializer.toJson<int?>(recurringId),
+      'refundOfId': serializer.toJson<int?>(refundOfId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
@@ -2639,6 +2670,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           bool? isRefund,
           Value<String?> receiptImagePath = const Value.absent(),
           Value<int?> recurringId = const Value.absent(),
+          Value<int?> refundOfId = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt,
           bool? isDeleted}) =>
@@ -2658,6 +2690,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
             ? receiptImagePath.value
             : this.receiptImagePath,
         recurringId: recurringId.present ? recurringId.value : this.recurringId,
+        refundOfId: refundOfId.present ? refundOfId.value : this.refundOfId,
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
@@ -2685,6 +2718,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           : this.receiptImagePath,
       recurringId:
           data.recurringId.present ? data.recurringId.value : this.recurringId,
+      refundOfId:
+          data.refundOfId.present ? data.refundOfId.value : this.refundOfId,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
@@ -2706,6 +2741,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('isRefund: $isRefund, ')
           ..write('receiptImagePath: $receiptImagePath, ')
           ..write('recurringId: $recurringId, ')
+          ..write('refundOfId: $refundOfId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted')
@@ -2727,6 +2763,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       isRefund,
       receiptImagePath,
       recurringId,
+      refundOfId,
       createdAt,
       updatedAt,
       isDeleted);
@@ -2746,6 +2783,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.isRefund == this.isRefund &&
           other.receiptImagePath == this.receiptImagePath &&
           other.recurringId == this.recurringId &&
+          other.refundOfId == this.refundOfId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
           other.isDeleted == this.isDeleted);
@@ -2764,6 +2802,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<bool> isRefund;
   final Value<String?> receiptImagePath;
   final Value<int?> recurringId;
+  final Value<int?> refundOfId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
@@ -2780,6 +2819,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isRefund = const Value.absent(),
     this.receiptImagePath = const Value.absent(),
     this.recurringId = const Value.absent(),
+    this.refundOfId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -2797,6 +2837,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.isRefund = const Value.absent(),
     this.receiptImagePath = const Value.absent(),
     this.recurringId = const Value.absent(),
+    this.refundOfId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
@@ -2817,6 +2858,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<bool>? isRefund,
     Expression<String>? receiptImagePath,
     Expression<int>? recurringId,
+    Expression<int>? refundOfId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
@@ -2834,6 +2876,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (isRefund != null) 'is_refund': isRefund,
       if (receiptImagePath != null) 'receipt_image_path': receiptImagePath,
       if (recurringId != null) 'recurring_id': recurringId,
+      if (refundOfId != null) 'refund_of_id': refundOfId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
@@ -2853,6 +2896,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<bool>? isRefund,
       Value<String?>? receiptImagePath,
       Value<int?>? recurringId,
+      Value<int?>? refundOfId,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
       Value<bool>? isDeleted}) {
@@ -2869,6 +2913,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       isRefund: isRefund ?? this.isRefund,
       receiptImagePath: receiptImagePath ?? this.receiptImagePath,
       recurringId: recurringId ?? this.recurringId,
+      refundOfId: refundOfId ?? this.refundOfId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
@@ -2915,6 +2960,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (recurringId.present) {
       map['recurring_id'] = Variable<int>(recurringId.value);
     }
+    if (refundOfId.present) {
+      map['refund_of_id'] = Variable<int>(refundOfId.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2942,6 +2990,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('isRefund: $isRefund, ')
           ..write('receiptImagePath: $receiptImagePath, ')
           ..write('recurringId: $recurringId, ')
+          ..write('refundOfId: $refundOfId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted')
@@ -3541,6 +3590,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final BudgetDao budgetDao = BudgetDao(this as AppDatabase);
   late final MerchantRuleDao merchantRuleDao =
       MerchantRuleDao(this as AppDatabase);
+  late final RecurringDao recurringDao = RecurringDao(this as AppDatabase);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6217,6 +6267,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   Value<bool> isRefund,
   Value<String?> receiptImagePath,
   Value<int?> recurringId,
+  Value<int?> refundOfId,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
@@ -6235,6 +6286,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<bool> isRefund,
   Value<String?> receiptImagePath,
   Value<int?> recurringId,
+  Value<int?> refundOfId,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
@@ -6342,6 +6394,9 @@ class $$TransactionsTableFilterComposer
   ColumnFilters<String> get receiptImagePath => $composableBuilder(
       column: $table.receiptImagePath,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get refundOfId => $composableBuilder(
+      column: $table.refundOfId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -6469,6 +6524,9 @@ class $$TransactionsTableOrderingComposer
       column: $table.receiptImagePath,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get refundOfId => $composableBuilder(
+      column: $table.refundOfId, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
 
@@ -6592,6 +6650,9 @@ class $$TransactionsTableAnnotationComposer
 
   GeneratedColumn<String> get receiptImagePath => $composableBuilder(
       column: $table.receiptImagePath, builder: (column) => column);
+
+  GeneratedColumn<int> get refundOfId => $composableBuilder(
+      column: $table.refundOfId, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -6723,6 +6784,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<bool> isRefund = const Value.absent(),
             Value<String?> receiptImagePath = const Value.absent(),
             Value<int?> recurringId = const Value.absent(),
+            Value<int?> refundOfId = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
@@ -6740,6 +6802,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             isRefund: isRefund,
             receiptImagePath: receiptImagePath,
             recurringId: recurringId,
+            refundOfId: refundOfId,
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
@@ -6757,6 +6820,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<bool> isRefund = const Value.absent(),
             Value<String?> receiptImagePath = const Value.absent(),
             Value<int?> recurringId = const Value.absent(),
+            Value<int?> refundOfId = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
@@ -6774,6 +6838,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             isRefund: isRefund,
             receiptImagePath: receiptImagePath,
             recurringId: recurringId,
+            refundOfId: refundOfId,
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,

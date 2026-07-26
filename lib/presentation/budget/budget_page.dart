@@ -25,7 +25,9 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
 
   @override
   Widget build(BuildContext context) {
-    final overviewAsync = ref.watch(yearOverviewProvider(_year));
+    final overviewAsync = ref.watch(
+      yearOverviewProvider((year: _year, includeExtra: _includeExtraordinary)),
+    );
     final now = DateTime.now();
 
     return Scaffold(
@@ -61,6 +63,8 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
                       _MonthTile(
                         overview: m,
                         isCurrent: _year == now.year && m.month == now.month,
+                        isPast: m.year < now.year ||
+                            (m.year == now.year && m.month < now.month),
                         onTap: () => _openMonth(m.year, m.month),
                       ),
                   ],
@@ -171,11 +175,17 @@ class _MonthTile extends StatelessWidget {
   const _MonthTile({
     required this.overview,
     required this.isCurrent,
+    required this.isPast,
     required this.onTap,
   });
 
   final MonthBudgetOverview overview;
   final bool isCurrent;
+
+  /// Mese già passato: non ha senso impostarci un budget. Resta consultabile
+  /// (tap per vedere lo speso), ma viene mostrato in modo attenuato e senza
+  /// l'invito "Imposta".
+  final bool isPast;
   final VoidCallback onTap;
 
   @override
@@ -184,7 +194,7 @@ class _MonthTile extends StatelessWidget {
     final barColor = overview.isOverBudget ? colorScheme.error : colorScheme.primary;
     final monthLabel = AppFormatters.monthName(overview.year, overview.month);
 
-    return Card(
+    final card = Card(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
       shape: isCurrent
           ? RoundedRectangleBorder(
@@ -212,6 +222,12 @@ class _MonthTile extends StatelessWidget {
                     Text(
                       '${AppFormatters.currency(overview.spent)} / ${AppFormatters.currency(overview.total!)}',
                       style: Theme.of(context).textTheme.bodyMedium,
+                    )
+                  else if (isPast)
+                    // Mese passato senza budget: niente invito "Imposta".
+                    Text(
+                      'Nessun budget',
+                      style: TextStyle(color: colorScheme.outline),
                     )
                   else
                     Row(
@@ -266,5 +282,9 @@ class _MonthTile extends StatelessWidget {
         ),
       ),
     );
+
+    // Mese passato: attenua l'intera card (resta comunque toccabile per la
+    // consultazione).
+    return isPast ? Opacity(opacity: 0.55, child: card) : card;
   }
 }

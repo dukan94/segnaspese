@@ -12,18 +12,26 @@ import '../../domain/entities/transaction_entity.dart';
 // Spese aggregate (sorgente per il confronto budget vs speso reale)
 // ---------------------------------------------------------------------------
 
+/// Parametri (anno + inclusione straordinarie) per gli aggregati annuali del
+/// Budget: così il toggle "Includi straordinarie" influenza anche le barre
+/// "speso" dei mesi, non solo la card di riepilogo.
+typedef YearExpensesParams = ({int year, bool includeExtra});
+
 /// Uscite dell'anno raggruppate per mese (1..12). Alimenta la pagina Budget
-/// (barra speso di ogni mese).
+/// (barra speso di ogni mese). Le spese straordinarie sono escluse a meno che
+/// [YearExpensesParams.includeExtra] non sia true (coerente con la Dashboard).
 final yearExpensesByMonthProvider =
-    StreamProvider.family<Map<int, double>, int>((ref, year) {
-  final from = DateTime(year, 1, 1);
-  final to = DateTime(year + 1, 1, 1).subtract(const Duration(milliseconds: 1));
+    StreamProvider.autoDispose.family<Map<int, double>, YearExpensesParams>((ref, params) {
+  final from = DateTime(params.year, 1, 1);
+  final to =
+      DateTime(params.year + 1, 1, 1).subtract(const Duration(milliseconds: 1));
   return ref
       .watch(transactionRepositoryProvider)
       .watchByPeriod(from: from, to: to)
       .map((list) {
     final map = <int, double>{};
     for (final t in list) {
+      if (t.isExtraordinary && !params.includeExtra) continue;
       if (t.type == TransactionType.expense) {
         map[t.date.month] = (map[t.date.month] ?? 0) + t.netExpense;
       }
@@ -35,7 +43,7 @@ final yearExpensesByMonthProvider =
 /// Uscite di un mese raggruppate per categoria. Alimenta il dettaglio mese e
 /// il riepilogo Home.
 final monthExpensesByCategoryProvider =
-    StreamProvider.family<Map<int, double>, MonthKey>((ref, key) {
+    StreamProvider.autoDispose.family<Map<int, double>, MonthKey>((ref, key) {
   final from = key.firstDay;
   final to = DateTime(key.year, key.month + 1, 1)
       .subtract(const Duration(milliseconds: 1));
@@ -90,9 +98,9 @@ class MonthBudgetOverview {
 /// Panoramica dei 12 mesi dell'anno: totale impostato, speso reale e se il
 /// mese è già suddiviso in categorie.
 final yearOverviewProvider =
-    Provider.family<AsyncValue<List<MonthBudgetOverview>>, int>((ref, year) {
-  final budgets = ref.watch(budgetsForYearProvider(year));
-  final expenses = ref.watch(yearExpensesByMonthProvider(year));
+    Provider.autoDispose.family<AsyncValue<List<MonthBudgetOverview>>, YearExpensesParams>((ref, params) {
+  final budgets = ref.watch(budgetsForYearProvider(params.year));
+  final expenses = ref.watch(yearExpensesByMonthProvider(params));
 
   return _combine2(budgets, expenses, (budgetList, expByMonth) {
     final totalByMonth = <int, double>{};
@@ -108,7 +116,7 @@ final yearOverviewProvider =
     return [
       for (var m = 1; m <= 12; m++)
         MonthBudgetOverview(
-          year: year,
+          year: params.year,
           month: m,
           total: totalByMonth[m],
           spent: expByMonth[m] ?? 0,
@@ -198,7 +206,7 @@ class MonthBudgetDetail {
 /// Dettaglio del mese: combina categorie di uscita, budget del mese e uscite
 /// per categoria.
 final monthDetailProvider =
-    Provider.family<AsyncValue<MonthBudgetDetail>, MonthKey>((ref, key) {
+    Provider.autoDispose.family<AsyncValue<MonthBudgetDetail>, MonthKey>((ref, key) {
   final categories =
       ref.watch(categoriesByTypeProvider(TransactionKind.expense));
   final budgets = ref.watch(budgetsForMonthProvider(key));
@@ -264,7 +272,8 @@ class HomeBudgetSummary {
   bool get isOverBudget => budget != null && spent > budget!;
 }
 
-final homeBudgetSummaryProvider = Provider<AsyncValue<HomeBudgetSummary>>((ref) {
+final homeBudgetSummaryProvider =
+    Provider.autoDispose<AsyncValue<HomeBudgetSummary>>((ref) {
   final key = MonthKey.of(DateTime.now());
   final budgets = ref.watch(budgetsForMonthProvider(key));
   final expenses = ref.watch(monthExpensesByCategoryProvider(key));
@@ -359,7 +368,7 @@ class AnnualForecast {
 }
 
 final annualForecastProvider =
-    Provider.family<AsyncValue<AnnualForecast>, ForecastParams>((ref, params) {
+    Provider.autoDispose.family<AsyncValue<AnnualForecast>, ForecastParams>((ref, params) {
   final transactions = ref.watch(yearTransactionsProvider(params.year));
   final goal = ref.watch(annualSavingsGoalProvider);
   final incomeSubs =

@@ -25,10 +25,16 @@ class SettingsPage extends StatelessWidget {
             onTap: () => context.push('/settings/rules'),
           ),
           ListTile(
-            leading: const Icon(Icons.import_export),
+            leading: const Icon(Icons.file_upload_outlined),
             title: const Text('Importa operazioni da CSV'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/import'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_download_outlined),
+            title: const Text('Esporta operazioni in CSV'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/export'),
           ),
           const ListTile(
             leading: Icon(Icons.sync_outlined),

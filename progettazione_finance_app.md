@@ -300,7 +300,11 @@ RecurringTransactions 1—N Transactions (generate)
                               → [Salva] → Home
 ```
 
-Bottom Navigation Bar a 5 voci: **Home | Dashboard | Ricorrenze | Budget | Impostazioni**.
+Bottom Navigation Bar a 4 voci: **Home | Dashboard | Budget | Altro**. Le
+sezioni secondarie (Storico, Ricorrenze, Impostazioni) sono raggruppate sotto
+**Altro** e si aprono a schermo intero, per non superare le 5 voci consigliate
+da Material (in origine erano previste 5 voci, poi salite a 6 aggiungendo lo
+Storico: da qui il raggruppamento).
 Il pulsante **FAB centrale "Nuova Operazione"** apre un bottom sheet con due opzioni: *Inserimento manuale* / *Scansiona scontrino*.
 **Ricerca** è accessibile da un'icona in Home/Dashboard (non tab, per non affollare la nav bar).
 
@@ -455,13 +459,23 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 - Integrazione fl_chart: andamento mensile/annuale, per categoria/sottocategoria, top negozi
 - Filtri (mese, anno, categoria, sottocategoria)
 
-**M5 — Ricorrenze**
-- CRUD movimenti ricorrenti
-- Job di generazione automatica (all'avvio app, controlla `nextOccurrence` dovute)
+**M5 — Ricorrenze** — ✅ **Completata**
+- CRUD movimenti ricorrenti (entità/usecase/repository/DAO, lista con
+  pausa-riattiva e swipe-to-delete, schermata di creazione/modifica con
+  frequenza settimanale/mensile/annuale e giorno del mese opzionale)
+- Job di generazione automatica all'avvio app (`GenerateDueRecurring`):
+  controlla le `nextOccurrence` dovute e recupera anche le occorrenze
+  arretrate se l'app non veniva aperta da più periodi, avanzando la data
+  della prossima occorrenza. Nessuna modifica di schema (la tabella
+  `RecurringTransactions` esisteva già dallo scaffold M0).
 
-**M6 — Ricerca, Import/Export**
-- Ricerca full-text su negozio/categoria/importo/note/data
-- Import/Export Excel (.xlsx) e CSV
+**M6 — Ricerca, Import/Export** — ✅ **Completata**
+- Ricerca full-text su negozio/categoria/importo/note/data (schermata Storico)
+- Import CSV (parser tollerante, anteprima con righe valide/da saltare,
+  inserimento atomico) ed **export CSV per anno** (`TransactionCsvExporter`,
+  colonne compatibili con l'import → round-trip senza perdite, UTF-8 con BOM,
+  salvataggio via file picker). Export `.xlsx` e condivisione mobile rimandati
+  come possibili estensioni.
 
 **M7 — Sync multi-dispositivo (Turso)**
 - Setup database Turso (piano Free) + embedded replica libSQL
@@ -484,4 +498,23 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 
 ---
 
-**Stato attuale (24 lug 2026): M0, M1 e M2 completate. Prossima milestone: M3 — OCR e Scontrini.**
+**Stato attuale (26 lug 2026):** completate M0, M1, M2, M4, M5 e M6. **M3
+parziale** (parser scontrini, regole merchant e flusso di apprendimento
+presenti; manca l'acquisizione reale da fotocamera + OCR ML Kit). Extra già
+implementati oltre la roadmap: storico movimenti, import/export CSV, rimborsi
+come uscite con collegamento alla spesa originale (`refundOfId`), navigazione a
+4 voci con hub "Altro", filtro mese in Dashboard, mesi passati non impostabili
+nel Budget.
+
+**Prossimi passi:** M3 (OCR reale — richiede un dispositivo Android/mobile),
+poi M7 (sync Turso) e M8 (test automatici).
+
+> NOTA PIATTAFORME: al momento è generata **solo la piattaforma Windows**
+> (`windows/`). Per lo sviluppo mobile va aggiunta la piattaforma Android con
+> `flutter create --platforms=android .`; poi vanno configurati i permessi
+> fotocamera nel `AndroidManifest.xml` e verificato il `minSdk` per
+> `google_mlkit_text_recognition` e `camera` (≥ 21).
+
+> NOTA BUILD: modifiche allo schema Drift o ai provider Riverpod richiedono
+> `dart run build_runner build --delete-conflicting-outputs`. L'ultima
+> migrazione DB è la v4 (`refundOfId`).

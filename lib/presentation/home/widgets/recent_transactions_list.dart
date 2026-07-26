@@ -1,4 +1,3 @@
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,7 +5,10 @@ import '../../../core/di/category_providers.dart';
 import '../../../core/di/transaction_providers.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../data/local/database/app_database.dart';
 import '../../../domain/entities/transaction_entity.dart';
+import '../../shared_widgets/linked_expense_sheet.dart';
+import '../home_providers.dart';
 
 /// Lista "Ultime operazioni" della Home. Risolve categoria/icona tramite
 /// [allCategoriesProvider] (semplice lookup per id, niente join SQL: per i
@@ -23,26 +25,32 @@ class RecentTransactionsList extends ConsumerWidget {
     }
 
     final categoriesAsync = ref.watch(allCategoriesProvider);
+    // Lookup id → categoria costruito una sola volta, invece di scandire la
+    // lista categorie per ogni riga (due volte, per icona e nome).
+    final categoriesById = <int, Category>{
+      for (final c in categoriesAsync.asData?.value ?? const <Category>[])
+        c.id: c,
+    };
+
+    // Lookup id → transazione, per risolvere la spesa collegata a un rimborso.
+    final allTx = ref.watch(allTransactionsProvider).asData?.value ??
+        const <TransactionEntity>[];
+    final txById = <int, TransactionEntity>{
+      for (final t in allTx)
+        if (t.id != null) t.id!: t,
+    };
 
     return Column(
       children: [
         for (final transaction in transactions)
           _TransactionTile(
             transaction: transaction,
-            categoryIcon: categoriesAsync.maybeWhen(
-              data: (categories) => categories
-                  .where((c) => c.id == transaction.categoryId)
-                  .map((c) => c.icon)
-                  .firstOrNull,
-              orElse: () => null,
-            ),
-            categoryName: categoriesAsync.maybeWhen(
-              data: (categories) => categories
-                  .where((c) => c.id == transaction.categoryId)
-                  .map((c) => c.name)
-                  .firstOrNull,
-              orElse: () => null,
-            ),
+            categoryIcon: categoriesById[transaction.categoryId]?.icon,
+            categoryName: categoriesById[transaction.categoryId]?.name,
+            linkedExpense: transaction.refundOfId != null
+                ? txById[transaction.refundOfId]
+                : null,
+            categoriesById: categoriesById,
           ),
       ],
     );
@@ -54,11 +62,17 @@ class _TransactionTile extends ConsumerWidget {
     required this.transaction,
     required this.categoryIcon,
     required this.categoryName,
+    this.linkedExpense,
+    this.categoriesById = const {},
   });
 
   final TransactionEntity transaction;
   final String? categoryIcon;
   final String? categoryName;
+
+  /// Spesa originale a cui un eventuale rimborso è collegato.
+  final TransactionEntity? linkedExpense;
+  final Map<int, Category> categoriesById;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -83,6 +97,18 @@ class _TransactionTile extends ConsumerWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (linkedExpense != null)
+              IconButton(
+                icon: const Icon(Icons.link, size: 20),
+                tooltip: 'Spesa collegata',
+                color: theme.colorScheme.primary,
+                visualDensity: VisualDensity.compact,
+                onPressed: () => showLinkedExpenseSheet(
+                  context,
+                  linkedExpense!,
+                  categoriesById[linkedExpense!.categoryId],
+                ),
+              ),
             Text(
               AppFormatters.signedCurrency(transaction.signedAmount),
               style: theme.textTheme.titleSmall?.copyWith(
@@ -96,6 +122,7 @@ class _TransactionTile extends ConsumerWidget {
               icon: const Icon(Icons.delete_outline, size: 20),
               tooltip: 'Elimina',
               color: theme.colorScheme.outline,
+              visualDensity: VisualDensity.compact,
               onPressed: transaction.id == null
                   ? null
                   : () => _confirmDelete(context, ref, transaction),

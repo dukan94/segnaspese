@@ -56,6 +56,13 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
+  Future<void> addAll(List<TransactionEntity> transactions) {
+    return _dao.insertAll(
+      transactions.map((t) => t.toInsertCompanion()).toList(),
+    );
+  }
+
+  @override
   Future<void> update(TransactionEntity transaction) async {
     await _dao.updateTransaction(transaction.toUpdateCompanion());
   }

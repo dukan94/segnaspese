@@ -13,10 +13,14 @@ Future<void> seedDefaultCategories(AppDatabase db) async {
   final existing = await db.select(db.categories).get();
   if (existing.isNotEmpty) return; // già inizializzato
 
+  // NOTA: i rimborsi NON sono una categoria d'entrata. Un rimborso è
+  // un'uscita con il flag `isRefund` che sottrae dal totale della propria
+  // categoria di spesa (spesa netta), eventualmente collegata alla spesa
+  // originale (v. Transactions.refundOfId). Per questo qui non c'è più la
+  // vecchia categoria d'entrata "Rimborsi".
   final incomeCategories = <(String, String, int)>[
     ('Stipendio', '💳', 0xFF2E7D5B),
     ('Regalo', '🎁', 0xFF9BC1A8),
-    ('Rimborsi', '🔄', 0xFF6FA287),
   ];
 
   final expenseCategories = <(String, String, int)>[

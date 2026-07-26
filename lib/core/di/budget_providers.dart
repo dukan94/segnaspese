@@ -44,13 +44,13 @@ final budgetRepositoryProvider = Provider<BudgetRepository>((ref) {
 
 /// Tutti i budget di un anno (totali mensili + per categoria).
 final budgetsForYearProvider =
-    StreamProvider.family<List<BudgetEntity>, int>((ref, year) {
+    StreamProvider.autoDispose.family<List<BudgetEntity>, int>((ref, year) {
   return ref.watch(budgetRepositoryProvider).watchYear(year);
 });
 
 /// Tutti i budget di un singolo mese (totale + categorie).
 final budgetsForMonthProvider =
-    StreamProvider.family<List<BudgetEntity>, MonthKey>((ref, key) {
+    StreamProvider.autoDispose.family<List<BudgetEntity>, MonthKey>((ref, key) {
   return ref.watch(budgetRepositoryProvider).watchMonth(key.firstDay);
 });
 

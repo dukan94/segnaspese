@@ -8,6 +8,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
+import '../shared_widgets/linked_expense_sheet.dart';
 import '../transaction/add_transaction_page.dart';
 
 /// Storico: elenco completo delle operazioni con ricerca, modifica ed
@@ -66,6 +67,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             child: txAsync.when(
               data: (all) {
                 final filtered = _filter(all, catById);
+                // Lookup id → transazione, per risolvere la spesa collegata a
+                // un rimborso (refundOfId).
+                final byId = {
+                  for (final t in all)
+                    if (t.id != null) t.id!: t,
+                };
                 if (filtered.isEmpty) {
                   return Center(
                     child: Text(
@@ -79,12 +86,27 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                 return ListView.builder(
                   padding: const EdgeInsets.only(bottom: 16),
                   itemCount: filtered.length,
-                  itemBuilder: (context, i) => _HistoryTile(
-                    tx: filtered[i],
-                    category: catById[filtered[i].categoryId],
-                    onEdit: () => _edit(filtered[i]),
-                    onDelete: () => _confirmDelete(filtered[i]),
-                  ),
+                  itemBuilder: (context, i) {
+                    final tx = filtered[i];
+                    final linked = tx.refundOfId != null ? byId[tx.refundOfId] : null;
+                    final canRefund =
+                        tx.type == TransactionType.expense && !tx.isRefund;
+                    return _HistoryTile(
+                      tx: tx,
+                      category: catById[tx.categoryId],
+                      onEdit: () => _edit(tx),
+                      onDelete: () => _confirmDelete(tx),
+                      onRefund: canRefund ? () => _refund(tx) : null,
+                      linkedExpense: linked,
+                      onShowLinked: linked == null
+                          ? null
+                          : () => showLinkedExpenseSheet(
+                                context,
+                                linked,
+                                catById[linked.categoryId],
+                              ),
+                    );
+                  },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -118,6 +140,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     );
   }
 
+  /// Avvia un rimborso collegato a questa spesa: apre la schermata di
+  /// inserimento già impostata come rimborso, con categoria e data ereditate.
+  Future<void> _refund(TransactionEntity tx) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => AddTransactionPage(refundOf: tx)),
+    );
+  }
+
   Future<void> _confirmDelete(TransactionEntity tx) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -148,12 +178,24 @@ class _HistoryTile extends StatelessWidget {
     required this.category,
     required this.onEdit,
     required this.onDelete,
+    this.onRefund,
+    this.linkedExpense,
+    this.onShowLinked,
   });
 
   final TransactionEntity tx;
   final Category? category;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+
+  /// Avvia un rimborso collegato a questa spesa (solo per le uscite normali).
+  final VoidCallback? onRefund;
+
+  /// Spesa originale a cui questo rimborso è collegato (se presente).
+  final TransactionEntity? linkedExpense;
+
+  /// Mostra i dettagli della spesa collegata (icona 🔗).
+  final VoidCallback? onShowLinked;
 
   @override
   Widget build(BuildContext context) {
@@ -185,6 +227,14 @@ class _HistoryTile extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (onShowLinked != null)
+              IconButton(
+                icon: const Icon(Icons.link, size: 20),
+                tooltip: 'Spesa collegata',
+                color: theme.colorScheme.primary,
+                visualDensity: VisualDensity.compact,
+                onPressed: onShowLinked,
+              ),
             Text(
               AppFormatters.signedCurrency(tx.signedAmount),
               style: theme.textTheme.titleSmall?.copyWith(
@@ -194,10 +244,19 @@ class _HistoryTile extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
+            if (onRefund != null)
+              IconButton(
+                icon: const Icon(Icons.currency_exchange, size: 20),
+                tooltip: 'Rimborsa',
+                color: theme.colorScheme.outline,
+                visualDensity: VisualDensity.compact,
+                onPressed: onRefund,
+              ),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),
               tooltip: 'Elimina',
               color: theme.colorScheme.outline,
+              visualDensity: VisualDensity.compact,
               onPressed: onDelete,
             ),
           ],

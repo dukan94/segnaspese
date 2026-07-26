@@ -32,7 +32,11 @@ class HomePage extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+          IconButton(
+            onPressed: () => context.push('/history'),
+            icon: const Icon(Icons.search),
+            tooltip: 'Cerca nello storico',
+          ),
         ],
       ),
       body: RefreshIndicator(

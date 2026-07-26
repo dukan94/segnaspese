@@ -41,6 +41,13 @@ class Transactions extends Table {
   IntColumn get recurringId =>
       integer().nullable().references(RecurringTransactions, #id)();
 
+  /// Se questa transazione è un rimborso collegato a una spesa esistente,
+  /// contiene l'id di quella spesa (auto-riferimento alla stessa tabella).
+  /// Volutamente senza vincolo FK: le cancellazioni sono soft-delete e la
+  /// sync è last-write-wins, quindi un vincolo rigido creerebbe solo attriti
+  /// (es. impossibile eliminare una spesa che ha un rimborso collegato).
+  IntColumn get refundOfId => integer().nullable()();
+
   DateTimeColumn get createdAt =>
       dateTime().withDefault(currentDateAndTime)();
 

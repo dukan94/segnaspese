@@ -20,6 +20,7 @@ extension TransactionDataMapper on Transaction {
       note: note,
       receiptImagePath: receiptImagePath,
       recurringId: recurringId,
+      refundOfId: refundOfId,
       isExtraordinary: isExtraordinary,
       isRefund: isRefund,
     );
@@ -39,6 +40,7 @@ extension TransactionEntityMapper on TransactionEntity {
       note: Value(note),
       receiptImagePath: Value(receiptImagePath),
       recurringId: Value(recurringId),
+      refundOfId: Value(refundOfId),
       isExtraordinary: Value(isExtraordinary),
       isRefund: Value(isRefund),
       updatedAt: Value(DateTime.now()),
@@ -59,6 +61,7 @@ extension TransactionEntityMapper on TransactionEntity {
       note: Value(note),
       receiptImagePath: Value(receiptImagePath),
       recurringId: Value(recurringId),
+      refundOfId: Value(refundOfId),
       isExtraordinary: Value(isExtraordinary),
       isRefund: Value(isRefund),
       updatedAt: Value(DateTime.now()),

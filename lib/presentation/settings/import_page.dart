@@ -138,12 +138,11 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     if (toImport.isEmpty) return;
     setState(() => _busy = true);
     final repo = ref.read(transactionRepositoryProvider);
-    var count = 0;
+    final count = toImport.length;
     try {
-      for (final r in toImport) {
-        await repo.add(r.entity!);
-        count++;
-      }
+      // Import atomico: o vengono salvate tutte le operazioni, o nessuna
+      // (nessun import parziale in caso di errore a metà).
+      await repo.addAll(toImport.map((r) => r.entity!).toList());
       if (!mounted) return;
       setState(() {
         _busy = false;
@@ -154,7 +153,7 @@ class _ImportPageState extends ConsumerState<ImportPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _busy = false);
-      showErrorSnackBar(context, 'Errore durante l\'import (dopo $count): $e');
+      showErrorSnackBar(context, 'Errore durante l\'import: $e');
     }
   }
 
