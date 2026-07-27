@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.finance_app"
+    namespace = "com.dukan94.segnaspese"
     // Alcune dipendenze (flutter_plugin_android_lifecycle, tirato da
     // file_picker/camera) richiedono compileSdk >= 36. Lo fissiamo a 36 invece
     // di flutter.compileSdkVersion (che qui vale 34).
@@ -18,8 +18,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.finance_app"
+        applicationId = "com.dukan94.segnaspese"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

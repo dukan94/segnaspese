@@ -1,6 +1,11 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Richiesto in ogni build (non solo debug/profile, che la ottengono già
+         tramite i rispettivi overlay): la sync Turso (v. data/services/
+         turso_http_client.dart) fa chiamate HTTP reali anche in release. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
-        android:label="finance_app"
+        android:label="SegnaSpese"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -1,0 +1,40 @@
+name: Build Android APK
+
+# Compila un APK debug installabile su telefono, senza bisogno di Android
+# Studio/SDK in locale (v. sviluppo su dispositivo aziendale senza SDK
+# Android). Scaricabile dalla tab "Actions" della run, sezione "Artifacts".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Rigenera i file *.g.dart (Drift/Riverpod): se qualcuno dimentica di
+      # rilanciarlo dopo una modifica a schema/provider prima di committare,
+      # la build fallisce qui invece che silenziosamente con codice generato
+      # disallineato (v. nota "BUILD" in progettazione_finance_app.md).
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - run: flutter build apk --debug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: segnaspese-debug-apk
+          path: build/app/outputs/flutter-apk/app-debug.apk

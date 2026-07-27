@@ -1,4 +1,4 @@
-package com.example.finance_app
+package com.dukan94.segnaspese
 
 import io.flutter.embedding.android.FlutterActivity
 
