@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -84,14 +85,23 @@ class TursoHttpClient {
 
     final http.Response response;
     try {
-      response = await http.post(
-        Uri.parse('$_baseUrl/v2/pipeline'),
-        headers: {
-          'Authorization': 'Bearer $_authToken',
-          'Content-Type': 'application/json',
-        },
-        body: body,
-      );
+      response = await http
+          .post(
+            Uri.parse('$_baseUrl/v2/pipeline'),
+            headers: {
+              'Authorization': 'Bearer $_authToken',
+              'Content-Type': 'application/json',
+            },
+            body: body,
+          )
+          // Senza timeout, una connessione che resta aperta senza rispondere
+          // blocca syncNow() indefinitamente: dato che syncNow() si protegge
+          // da chiamate concorrenti con una guardia rilasciata solo a fine
+          // esecuzione, una singola richiesta bloccata impedirebbe ogni sync
+          // successiva (avvio, timer, lifecycle) fino al riavvio dell'app.
+          .timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw TursoApiException('Turso non ha risposto entro 30s.');
     } catch (e) {
       throw TursoApiException('Connessione a Turso fallita: $e');
     }

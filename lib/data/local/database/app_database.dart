@@ -164,8 +164,17 @@ class AppDatabase extends _$AppDatabase {
   /// un tipo di riga/Companion diverso in Drift, quindi si ripete lo stesso
   /// blocco per tabella invece di generalizzare con i generics (più semplice
   /// da verificare).
+  ///
+  /// Tocca anche `updatedAt`: il motore di sync (TursoSyncService) decide
+  /// cosa inviare filtrando su `updatedAt` rispetto all'ultima sync riuscita
+  /// (la "filigrana"). Se qui si toccasse solo `syncId`, una riga riparata
+  /// con un `updatedAt` più vecchio della filigrana corrente resterebbe
+  /// silenziosamente esclusa da ogni push futuro — bug già capitato in
+  /// pratica per budget e transazioni da ricorrenze create prima che i DAO
+  /// generassero il syncId al momento dell'insert.
   Future<void> _backfillSyncIds() async {
     const uuid = Uuid();
+    final now = DateTime.now();
 
     final categoryIds = await (selectOnly(categories)
           ..addColumns([categories.id])
@@ -174,7 +183,7 @@ class AppDatabase extends _$AppDatabase {
         .get();
     for (final id in categoryIds) {
       await (update(categories)..where((t) => t.id.equals(id)))
-          .write(CategoriesCompanion(syncId: Value(uuid.v4())));
+          .write(CategoriesCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
 
     final subCategoryIds = await (selectOnly(subCategories)
@@ -184,7 +193,7 @@ class AppDatabase extends _$AppDatabase {
         .get();
     for (final id in subCategoryIds) {
       await (update(subCategories)..where((t) => t.id.equals(id)))
-          .write(SubCategoriesCompanion(syncId: Value(uuid.v4())));
+          .write(SubCategoriesCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
 
     final merchantIds = await (selectOnly(merchants)
@@ -194,7 +203,7 @@ class AppDatabase extends _$AppDatabase {
         .get();
     for (final id in merchantIds) {
       await (update(merchants)..where((t) => t.id.equals(id)))
-          .write(MerchantsCompanion(syncId: Value(uuid.v4())));
+          .write(MerchantsCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
 
     final merchantRuleIds = await (selectOnly(merchantRules)
@@ -204,7 +213,7 @@ class AppDatabase extends _$AppDatabase {
         .get();
     for (final id in merchantRuleIds) {
       await (update(merchantRules)..where((t) => t.id.equals(id)))
-          .write(MerchantRulesCompanion(syncId: Value(uuid.v4())));
+          .write(MerchantRulesCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
 
     final budgetIds = await (selectOnly(budgets)
@@ -214,7 +223,7 @@ class AppDatabase extends _$AppDatabase {
         .get();
     for (final id in budgetIds) {
       await (update(budgets)..where((t) => t.id.equals(id)))
-          .write(BudgetsCompanion(syncId: Value(uuid.v4())));
+          .write(BudgetsCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
 
     final recurringIds = await (selectOnly(recurringTransactions)
@@ -224,7 +233,7 @@ class AppDatabase extends _$AppDatabase {
         .get();
     for (final id in recurringIds) {
       await (update(recurringTransactions)..where((t) => t.id.equals(id)))
-          .write(RecurringTransactionsCompanion(syncId: Value(uuid.v4())));
+          .write(RecurringTransactionsCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
 
     final transactionIds = await (selectOnly(transactions)
@@ -234,7 +243,7 @@ class AppDatabase extends _$AppDatabase {
         .get();
     for (final id in transactionIds) {
       await (update(transactions)..where((t) => t.id.equals(id)))
-          .write(TransactionsCompanion(syncId: Value(uuid.v4())));
+          .write(TransactionsCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
   }
 }

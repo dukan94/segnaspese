@@ -10,6 +10,21 @@ import '../local/database/tables/recurring_table.dart';
 import 'sync_service.dart';
 import 'turso_http_client.dart';
 
+/// Riassume gli errori di uno o più passi push/pull falliti durante un
+/// ciclo di [TursoSyncService.syncNow]. I passi andati a buon fine hanno
+/// comunque avanzato le rispettive filigrane; solo quelli qui elencati
+/// verranno ritentati al ciclo successivo (v. `_syncNowInner`).
+class TursoSyncPartialFailureException implements Exception {
+  TursoSyncPartialFailureException(this.stepErrors);
+
+  final Map<String, Object> stepErrors;
+
+  @override
+  String toString() =>
+      'TursoSyncPartialFailureException: ${stepErrors.length} passo/i falliti '
+      '(${stepErrors.keys.join(', ')})';
+}
+
 /// Implementazione di [SyncService] basata sull'API HTTP di Turso (v.
 /// turso_http_client.dart). Sincronizza 6 delle 7 tabelle sincronizzabili:
 /// Categories, SubCategories, MerchantRules, Budgets, RecurringTransactions,
@@ -29,6 +44,22 @@ import 'turso_http_client.dart';
 /// Risoluzione conflitti: last-write-wins basato su `updatedAt`, applicata
 /// sia lato server (upsert push con `WHERE excluded.updated_at > ...`) sia
 /// lato client al pull (si scrive solo se il remoto è più recente).
+/// Assunzione accettata: si fida dell'orologio locale di ogni dispositivo,
+/// senza protezione da clock skew (un dispositivo con l'ora indietro perde
+/// sistematicamente i conflitti) — ragionevole per uso personale su
+/// dispositivi con sync orario automatico (Android/Windows), non robusta in
+/// generale.
+///
+/// Atomicità: un batch di push (`TursoHttpClient.execute`) NON è avvolto in
+/// una transazione SQL lato server — se lo statement K fallisce dopo che
+/// 1..K-1 sono già stati applicati, l'eccezione risalendo impedisce la
+/// scrittura della filigrana per quella tabella (v. ogni `_pushX`/`_pullX`),
+/// quindi l'intero batch (incluse le righe 1..K-1 già applicate) verrà
+/// rimandato al ciclo successivo. Questo è corretto e sicuro solo perché
+/// ogni upsert è idempotente (`WHERE excluded.updated_at > ...`): riapplicare
+/// una riga già scritta con lo stesso `updated_at` non ha alcun effetto.
+/// Invariante da preservare in futuro: la filigrana di una tabella deve
+/// avanzare SOLO dopo che il relativo batch è stato inviato con successo.
 class TursoSyncService implements SyncService {
   TursoSyncService(this._db, {FlutterSecureStorage? secureStorage})
       : _secureStorage = secureStorage ?? const FlutterSecureStorage();
@@ -105,33 +136,60 @@ class TursoSyncService implements SyncService {
       return;
     }
     _setStatus(SyncStatus.syncing);
+
+    // Se la creazione delle tabelle remote fallisce, nessun passo successivo
+    // può funzionare comunque: qui un errore blocca subito l'intero ciclo.
     try {
       await _ensureRemoteSchema();
-
-      // Push: l'ordine non è rilevante, ogni riga traduce le proprie FK
-      // guardando i genitori in locale, che esistono sempre (vincoli FK locali).
-      await _pushCategories();
-      await _pushSubCategories();
-      await _pushMerchantRules();
-      await _pushBudgets();
-      await _pushRecurring();
-      await _pushTransactions();
-
-      // Pull: l'ordine conta, i genitori vanno applicati prima dei figli così
-      // le foreign key remote si traducono sempre in id locali già esistenti.
-      await _pullCategories();
-      await _pullSubCategories();
-      await _pullMerchantRules();
-      await _pullBudgets();
-      await _pullRecurring();
-      await _pullTransactions();
-      await _pushAppSettings();
-      await _pullAppSettings();
-
-      _setStatus(SyncStatus.synced);
     } catch (_) {
       _setStatus(SyncStatus.error);
       rethrow;
+    }
+
+    // Ogni passo push/pull è isolato nel proprio try/catch: un errore su una
+    // singola tabella (es. una riga che Turso rifiuta) non deve impedire agli
+    // altri passi di girare. Senza questo isolamento, un errore persistente
+    // su una tabella bloccherebbe per sempre anche tutte le altre — inclusi i
+    // pull che portano le modifiche fatte da altri dispositivi — perché la
+    // filigrana di quella tabella non avanza mai e lo stesso errore si
+    // ripeterebbe identico a ogni ciclo successivo.
+    final failedSteps = <String, Object>{};
+    Future<void> runStep(String name, Future<void> Function() step) async {
+      try {
+        await step();
+      } catch (e) {
+        failedSteps[name] = e;
+      }
+    }
+
+    // Push: l'ordine non è rilevante, ogni riga traduce le proprie FK
+    // guardando i genitori in locale, che esistono sempre (vincoli FK locali).
+    await runStep('push_categories', _pushCategories);
+    await runStep('push_subcategories', _pushSubCategories);
+    await runStep('push_merchant_rules', _pushMerchantRules);
+    await runStep('push_budgets', _pushBudgets);
+    await runStep('push_recurring', _pushRecurring);
+    await runStep('push_transactions', _pushTransactions);
+    await runStep('push_app_settings', _pushAppSettings);
+
+    // Pull: l'ordine conta, i genitori vanno applicati prima dei figli così
+    // le foreign key remote si traducono sempre in id locali già esistenti.
+    // Se il pull di un genitore fallisce, i pull dei figli comunque provano:
+    // le loro righe con FK non risolvibile vengono rimandate al giro
+    // successivo dalla logica già presente in ciascun _pullX (v. filigrana).
+    await runStep('pull_categories', _pullCategories);
+    await runStep('pull_subcategories', _pullSubCategories);
+    await runStep('pull_merchant_rules', _pullMerchantRules);
+    await runStep('pull_budgets', _pullBudgets);
+    await runStep('pull_recurring', _pullRecurring);
+    await runStep('pull_transactions', _pullTransactions);
+    await runStep('pull_app_settings', _pullAppSettings);
+
+    if (failedSteps.isEmpty) {
+      _setStatus(SyncStatus.synced);
+    } else {
+      _setStatus(SyncStatus.error);
+      throw TursoSyncPartialFailureException(failedSteps);
     }
   }
 
@@ -358,9 +416,15 @@ class TursoSyncService implements SyncService {
     if (dirty.isEmpty) return;
 
     final statements = <TursoStatement>[];
+    // Solo le righe effettivamente incluse in `statements` avanzano la
+    // filigrana (stesso pattern di _pushBudgets): una riga scartata perché il
+    // genitore non ha ancora un syncId non va considerata "già gestita",
+    // altrimenti non verrebbe più riproposta ai giri successivi.
+    final processed = <SubCategory>[];
     for (final r in dirty) {
       final categorySyncId = await _categorySyncId(r.categoryId);
       if (categorySyncId == null) continue; // genitore senza syncId: non dovrebbe succedere
+      processed.add(r);
       statements.add(TursoStatement(
         '''
         INSERT INTO sync_subcategories (sync_id, category_sync_id, name, icon, updated_at, is_deleted)
@@ -373,11 +437,11 @@ class TursoSyncService implements SyncService {
         [r.syncId, categorySyncId, r.name, r.icon, _epoch(r.updatedAt), _boolToInt(r.isDeleted)],
       ));
     }
-    if (statements.isEmpty) return;
+    if (processed.isEmpty) return;
     await _client!.execute(statements);
     await _writeWatermark(
       'push_subcategories',
-      dirty.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+      processed.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
     );
   }
 
@@ -394,10 +458,14 @@ class TursoSyncService implements SyncService {
     for (final row in result.first.asMaps()) {
       final syncId = row['sync_id'] as String;
       final updatedAt = _fromEpoch(row['updated_at']);
-      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
 
       final categoryId = await _categoryIdFor(row['category_sync_id'] as String?);
-      if (categoryId == null) continue; // genitore non ancora sincronizzato: si ritenta al prossimo giro
+      // Il genitore non è (ancora) risolvibile: la filigrana NON deve
+      // avanzare oltre questa riga, altrimenti la successiva SELECT
+      // "WHERE updated_at > filigrana" la escluderebbe per sempre — il
+      // "si ritenta al prossimo giro" sarebbe falso (bug corretto qui).
+      if (categoryId == null) continue;
+      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
 
       final existing = await (_db.select(_db.subCategories)..where((s) => s.syncId.equals(syncId)))
           .getSingleOrNull();
@@ -431,9 +499,13 @@ class TursoSyncService implements SyncService {
     if (dirty.isEmpty) return;
 
     final statements = <TursoStatement>[];
+    // V. commento in _pushSubCategories: la filigrana avanza solo sulle righe
+    // effettivamente processate, non su tutte le candidate.
+    final processed = <MerchantRule>[];
     for (final r in dirty) {
       final categorySyncId = await _categorySyncId(r.categoryId);
       if (categorySyncId == null) continue;
+      processed.add(r);
       final subCategorySyncId = await _subCategorySyncId(r.subCategoryId);
       statements.add(TursoStatement(
         '''
@@ -452,11 +524,11 @@ class TursoSyncService implements SyncService {
         ],
       ));
     }
-    if (statements.isEmpty) return;
+    if (processed.isEmpty) return;
     await _client!.execute(statements);
     await _writeWatermark(
       'push_merchant_rules',
-      dirty.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+      processed.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
     );
   }
 
@@ -473,10 +545,12 @@ class TursoSyncService implements SyncService {
     for (final row in result.first.asMaps()) {
       final syncId = row['sync_id'] as String;
       final updatedAt = _fromEpoch(row['updated_at']);
-      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
 
       final categoryId = await _categoryIdFor(row['category_sync_id'] as String?);
+      // V. commento in _pullSubCategories: non avanzare la filigrana oltre
+      // una riga il cui genitore non è ancora risolvibile.
       if (categoryId == null) continue;
+      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
       final subCategoryId = await _subCategoryIdFor(row['sub_category_sync_id'] as String?);
 
       final existing = await (_db.select(_db.merchantRules)..where((r) => r.syncId.equals(syncId)))
@@ -598,9 +672,13 @@ class TursoSyncService implements SyncService {
     if (dirty.isEmpty) return;
 
     final statements = <TursoStatement>[];
+    // V. commento in _pushSubCategories: la filigrana avanza solo sulle righe
+    // effettivamente processate, non su tutte le candidate.
+    final processed = <RecurringTransaction>[];
     for (final r in dirty) {
       final categorySyncId = await _categorySyncId(r.categoryId);
       if (categorySyncId == null) continue;
+      processed.add(r);
       final subCategorySyncId = await _subCategorySyncId(r.subCategoryId);
       statements.add(TursoStatement(
         '''
@@ -623,11 +701,11 @@ class TursoSyncService implements SyncService {
         ],
       ));
     }
-    if (statements.isEmpty) return;
+    if (processed.isEmpty) return;
     await _client!.execute(statements);
     await _writeWatermark(
       'push_recurring',
-      dirty.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+      processed.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
     );
   }
 
@@ -645,10 +723,12 @@ class TursoSyncService implements SyncService {
     for (final row in result.first.asMaps()) {
       final syncId = row['sync_id'] as String;
       final updatedAt = _fromEpoch(row['updated_at']);
-      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
 
       final categoryId = await _categoryIdFor(row['category_sync_id'] as String?);
+      // V. commento in _pullSubCategories: non avanzare la filigrana oltre
+      // una riga il cui genitore non è ancora risolvibile.
       if (categoryId == null) continue;
+      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
       final subCategoryId = await _subCategoryIdFor(row['sub_category_sync_id'] as String?);
 
       final existing = await (_db.select(_db.recurringTransactions)
@@ -691,9 +771,13 @@ class TursoSyncService implements SyncService {
     if (dirty.isEmpty) return;
 
     final statements = <TursoStatement>[];
+    // V. commento in _pushSubCategories: la filigrana avanza solo sulle righe
+    // effettivamente processate, non su tutte le candidate.
+    final processed = <Transaction>[];
     for (final r in dirty) {
       final categorySyncId = await _categorySyncId(r.categoryId);
       if (categorySyncId == null) continue;
+      processed.add(r);
       final subCategorySyncId = await _subCategorySyncId(r.subCategoryId);
       final recurringSyncId = await _recurringSyncId(r.recurringId);
       final refundOfSyncId = await _transactionSyncId(r.refundOfId);
@@ -718,11 +802,11 @@ class TursoSyncService implements SyncService {
         ],
       ));
     }
-    if (statements.isEmpty) return;
+    if (processed.isEmpty) return;
     await _client!.execute(statements);
     await _writeWatermark(
       'push_transactions',
-      dirty.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+      processed.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
     );
   }
 
@@ -740,10 +824,12 @@ class TursoSyncService implements SyncService {
     for (final row in result.first.asMaps()) {
       final syncId = row['sync_id'] as String;
       final updatedAt = _fromEpoch(row['updated_at']);
-      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
 
       final categoryId = await _categoryIdFor(row['category_sync_id'] as String?);
+      // V. commento in _pullSubCategories: non avanzare la filigrana oltre
+      // una riga il cui genitore non è ancora risolvibile.
       if (categoryId == null) continue;
+      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
       final subCategoryId = await _subCategoryIdFor(row['sub_category_sync_id'] as String?);
       final recurringId = await _recurringIdFor(row['recurring_sync_id'] as String?);
       // NOTA: se il rimborso e la spesa originale arrivano nello stesso pull

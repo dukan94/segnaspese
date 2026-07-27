@@ -27,6 +27,7 @@ class HomePage extends ConsumerWidget {
     final recent = ref.watch(recentTransactionsProvider);
     final budgetSummary = ref.watch(homeBudgetSummaryProvider);
     final syncStatus = ref.watch(syncStatusProvider);
+    final syncStatusValue = syncStatus.valueOrNull;
 
     return Scaffold(
       appBar: AppBar(
@@ -57,6 +58,10 @@ class HomePage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (syncStatusValue == SyncStatus.offline || syncStatusValue == SyncStatus.error) ...[
+              _SyncAlertBanner(status: syncStatusValue!),
+              const SizedBox(height: 12),
+            ],
             summary.when(
               data: (monthly) => yearlyBalance.when(
                 data: (yearly) => BalanceCard(
@@ -143,6 +148,43 @@ class HomePage extends ConsumerWidget {
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Alert ben visibile (non solo la piccola icona in AppBar) quando la sync
+/// multi-dispositivo non è attiva: non configurata, o configurata ma in
+/// errore persistente. Non compare per gli stati transitori (`syncing`,
+/// `synced`).
+class _SyncAlertBanner extends StatelessWidget {
+  const _SyncAlertBanner({required this.status});
+
+  final SyncStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final isError = status == SyncStatus.error;
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      color: isError ? colorScheme.errorContainer : colorScheme.surfaceContainerHigh,
+      child: ListTile(
+        leading: Icon(
+          isError ? Icons.error_outline : Icons.cloud_off_outlined,
+          color: isError ? colorScheme.onErrorContainer : null,
+        ),
+        title: Text(
+          isError ? 'Sincronizzazione non riuscita' : 'Sincronizzazione non configurata',
+          style: isError ? TextStyle(color: colorScheme.onErrorContainer) : null,
+        ),
+        subtitle: Text(
+          isError
+              ? 'Controlla la connessione o le credenziali Turso.'
+              : 'I tuoi dati restano solo su questo dispositivo.',
+          style: isError ? TextStyle(color: colorScheme.onErrorContainer) : null,
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push('/settings/sync'),
       ),
     );
   }
