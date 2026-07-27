@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../dashboard_providers.dart';
 
@@ -74,8 +75,8 @@ class CategoryDonut extends StatelessWidget {
                   Text('Uscite', style: theme.textTheme.labelSmall),
                   Text(
                     AppFormatters.currency(total),
-                    style: theme.textTheme.titleSmall
-                        ?.copyWith(fontWeight: FontWeight.w700),
+                    style: AppTheme.amountStyle(theme.textTheme.titleSmall
+                        ?.copyWith(fontWeight: FontWeight.w700)),
                   ),
                 ],
               ),
@@ -147,7 +148,7 @@ class _LegendRow extends StatelessWidget {
                     ?.copyWith(color: theme.colorScheme.outline)),
             const SizedBox(width: 10),
             Text(AppFormatters.currency(slice.amount),
-                style: theme.textTheme.bodyMedium),
+                style: AppTheme.amountStyle(theme.textTheme.bodyMedium)),
           ],
         ),
       ),

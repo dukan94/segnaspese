@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/settings_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/formatters.dart';
 import '../budget_providers.dart';
@@ -230,10 +231,10 @@ class _MiniTable extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: Text(
                 AppFormatters.currency(value),
-                style: theme.textTheme.bodyMedium?.copyWith(
+                style: AppTheme.amountStyle(theme.textTheme.bodyMedium?.copyWith(
                   color: color,
                   fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-                ),
+                )),
               ),
             ),
           ),
@@ -314,8 +315,8 @@ class _Advice extends StatelessWidget {
           children: [
             const Text('Puoi spendere al mese'),
             Text(AppFormatters.currency(allowedMonthlySpend),
-                style: theme.textTheme.bodyLarge
-                    ?.copyWith(fontWeight: FontWeight.w700)),
+                style: AppTheme.amountStyle(theme.textTheme.bodyLarge
+                    ?.copyWith(fontWeight: FontWeight.w700))),
           ],
         ),
         const SizedBox(height: 2),
@@ -326,7 +327,9 @@ class _Advice extends StatelessWidget {
                 style: theme.textTheme.bodySmall),
             Text(
               '${delta >= 0 ? '+' : ''}${AppFormatters.currency(delta)}',
-              style: TextStyle(color: deltaColor, fontWeight: FontWeight.w600),
+              style: AppTheme.amountStyle(
+                TextStyle(color: deltaColor, fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),

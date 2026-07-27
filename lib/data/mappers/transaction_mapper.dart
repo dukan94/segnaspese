@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/transaction_entity.dart';
 import '../local/database/app_database.dart';
@@ -44,6 +45,7 @@ extension TransactionEntityMapper on TransactionEntity {
       isExtraordinary: Value(isExtraordinary),
       isRefund: Value(isRefund),
       updatedAt: Value(DateTime.now()),
+      syncId: Value(const Uuid().v4()),
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 
 /// Riga in cima alla Dashboard con i tre totali: entrate (verde), uscite
@@ -105,8 +106,8 @@ class _StatCard extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: Text(
                 AppFormatters.currency(amount),
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(color: color, fontWeight: FontWeight.w700),
+                style: AppTheme.amountStyle(theme.textTheme.titleMedium
+                    ?.copyWith(color: color, fontWeight: FontWeight.w700)),
               ),
             ),
             if (subtitle != null) ...[

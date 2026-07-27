@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../budget/budget_providers.dart';
 
@@ -19,12 +20,16 @@ class BudgetSummaryCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     if (!summary.hasBudget) {
+      final warningFg = AppTheme.onWarningContainer(context);
       return Card(
+        color: AppTheme.warningContainer(context),
         child: ListTile(
-          leading: Icon(Icons.savings_outlined, color: colorScheme.primary),
-          title: const Text('Nessun budget per questo mese'),
-          subtitle: const Text('Imposta quanto vuoi spendere'),
-          trailing: const Icon(Icons.chevron_right),
+          leading: Icon(Icons.warning_amber_rounded, color: warningFg),
+          title: Text('Nessun budget per questo mese',
+              style: TextStyle(color: warningFg, fontWeight: FontWeight.w600)),
+          subtitle: Text('Imposta quanto vuoi spendere',
+              style: TextStyle(color: warningFg.withValues(alpha: 0.85))),
+          trailing: Icon(Icons.chevron_right, color: warningFg),
           onTap: () => context.go('/budget'),
         ),
       );
@@ -53,9 +58,9 @@ class BudgetSummaryCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               AppFormatters.signedCurrency(summary.remaining),
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              style: AppTheme.amountStyle(Theme.of(context).textTheme.headlineSmall?.copyWith(
                     color: over ? colorScheme.error : null,
-                  ),
+                  )),
             ),
             const SizedBox(height: 10),
             ClipRRect(

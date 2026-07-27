@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/di/category_providers.dart';
 import '../../core/di/transaction_providers.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
@@ -237,12 +238,12 @@ class _HistoryTile extends StatelessWidget {
               ),
             Text(
               AppFormatters.signedCurrency(tx.signedAmount),
-              style: theme.textTheme.titleSmall?.copyWith(
+              style: AppTheme.amountStyle(theme.textTheme.titleSmall?.copyWith(
                 color: positive
                     ? theme.colorScheme.primary
                     : theme.colorScheme.error,
                 fontWeight: FontWeight.w600,
-              ),
+              )),
             ),
             if (onRefund != null)
               IconButton(

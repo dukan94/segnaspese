@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/recurring_entity.dart';
 import '../local/database/app_database.dart';
@@ -41,6 +42,7 @@ extension RecurringEntityMapper on RecurringEntity {
       nextOccurrence: nextOccurrence,
       active: Value(active),
       updatedAt: Value(DateTime.now()),
+      syncId: Value(const Uuid().v4()),
     );
   }
 

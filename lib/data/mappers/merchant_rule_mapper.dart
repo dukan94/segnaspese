@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/merchant_rule_entity.dart';
 import '../local/database/app_database.dart';
@@ -27,6 +28,7 @@ extension MerchantRuleEntityMapper on MerchantRuleEntity {
       priority: Value(priority),
       isUserDefined: Value(isUserDefined),
       updatedAt: Value(DateTime.now()),
+      syncId: Value(const Uuid().v4()),
     );
   }
 

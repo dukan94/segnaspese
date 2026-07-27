@@ -16,6 +16,8 @@ import '../../presentation/settings/categories_manage_page.dart';
 import '../../presentation/settings/merchant_rules_page.dart';
 import '../../presentation/settings/import_page.dart';
 import '../../presentation/settings/export_page.dart';
+import '../../presentation/settings/sync_page.dart';
+import '../../presentation/settings/theme_page.dart';
 import '../../presentation/shared_widgets/root_scaffold.dart';
 
 /// Configurazione di navigazione dell'app.
@@ -129,6 +131,14 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'export',
           builder: (context, state) => const ExportPage(),
+        ),
+        GoRoute(
+          path: 'sync',
+          builder: (context, state) => const SyncPage(),
+        ),
+        GoRoute(
+          path: 'theme',
+          builder: (context, state) => const ThemePage(),
         ),
       ],
     ),

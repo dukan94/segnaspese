@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -5,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app.dart';
 import 'core/di/database_provider.dart';
 import 'core/di/recurring_providers.dart';
+import 'core/di/sync_providers.dart';
 import 'data/local/seed/seed_runner.dart';
 
 Future<void> main() async {
@@ -25,6 +28,15 @@ Future<void> main() async {
   // anche le occorrenze arretrate se l'app non veniva aperta da più periodi).
   // v. domain/usecases/recurring/generate_due_recurring.dart
   await container.read(generateDueRecurringProvider).call();
+
+  // Sync Turso (Milestone M7): non deve mai bloccare l'avvio né far
+  // crashare l'app se non configurata o offline, quindi fire-and-forget con
+  // try/catch. Si ripete ogni 5 minuti mentre l'app resta aperta.
+  final syncService = container.read(syncServiceProvider);
+  unawaited(syncService.syncNow().catchError((_) {}));
+  Timer.periodic(const Duration(minutes: 5), (_) {
+    unawaited(syncService.syncNow().catchError((_) {}));
+  });
 
   runApp(
     UncontrolledProviderScope(

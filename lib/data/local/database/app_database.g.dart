@@ -69,9 +69,14 @@ class $CategoriesTable extends Categories
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+      'sync_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, name, icon, type, color, isDefault, updatedAt, isDeleted];
+      [id, name, icon, type, color, isDefault, updatedAt, isDeleted, syncId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -115,6 +120,10 @@ class $CategoriesTable extends Categories
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(_syncIdMeta,
+          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
+    }
     return context;
   }
 
@@ -140,6 +149,8 @@ class $CategoriesTable extends Categories
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      syncId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
     );
   }
 
@@ -167,6 +178,11 @@ class Category extends DataClass implements Insertable<Category> {
   final bool isDefault;
   final DateTime updatedAt;
   final bool isDeleted;
+
+  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  final String? syncId;
   const Category(
       {required this.id,
       required this.name,
@@ -175,7 +191,8 @@ class Category extends DataClass implements Insertable<Category> {
       required this.color,
       required this.isDefault,
       required this.updatedAt,
-      required this.isDeleted});
+      required this.isDeleted,
+      this.syncId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -189,6 +206,9 @@ class Category extends DataClass implements Insertable<Category> {
     map['is_default'] = Variable<bool>(isDefault);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -202,6 +222,8 @@ class Category extends DataClass implements Insertable<Category> {
       isDefault: Value(isDefault),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      syncId:
+          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
     );
   }
 
@@ -218,6 +240,7 @@ class Category extends DataClass implements Insertable<Category> {
       isDefault: serializer.fromJson<bool>(json['isDefault']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -233,6 +256,7 @@ class Category extends DataClass implements Insertable<Category> {
       'isDefault': serializer.toJson<bool>(isDefault),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -244,7 +268,8 @@ class Category extends DataClass implements Insertable<Category> {
           int? color,
           bool? isDefault,
           DateTime? updatedAt,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          Value<String?> syncId = const Value.absent()}) =>
       Category(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -254,6 +279,7 @@ class Category extends DataClass implements Insertable<Category> {
         isDefault: isDefault ?? this.isDefault,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
+        syncId: syncId.present ? syncId.value : this.syncId,
       );
   Category copyWithCompanion(CategoriesCompanion data) {
     return Category(
@@ -265,6 +291,7 @@ class Category extends DataClass implements Insertable<Category> {
       isDefault: data.isDefault.present ? data.isDefault.value : this.isDefault,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -278,14 +305,15 @@ class Category extends DataClass implements Insertable<Category> {
           ..write('color: $color, ')
           ..write('isDefault: $isDefault, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, icon, type, color, isDefault, updatedAt, isDeleted);
+  int get hashCode => Object.hash(
+      id, name, icon, type, color, isDefault, updatedAt, isDeleted, syncId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -297,7 +325,8 @@ class Category extends DataClass implements Insertable<Category> {
           other.color == this.color &&
           other.isDefault == this.isDefault &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.syncId == this.syncId);
 }
 
 class CategoriesCompanion extends UpdateCompanion<Category> {
@@ -309,6 +338,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
   final Value<bool> isDefault;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> syncId;
   const CategoriesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -318,6 +348,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.isDefault = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   CategoriesCompanion.insert({
     this.id = const Value.absent(),
@@ -328,6 +359,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     this.isDefault = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   })  : name = Value(name),
         icon = Value(icon),
         type = Value(type),
@@ -341,6 +373,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     Expression<bool>? isDefault,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -351,6 +384,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       if (isDefault != null) 'is_default': isDefault,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -362,7 +396,8 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       Value<int>? color,
       Value<bool>? isDefault,
       Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted}) {
+      Value<bool>? isDeleted,
+      Value<String?>? syncId}) {
     return CategoriesCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -372,6 +407,7 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
       isDefault: isDefault ?? this.isDefault,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -403,6 +439,9 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -416,7 +455,8 @@ class CategoriesCompanion extends UpdateCompanion<Category> {
           ..write('color: $color, ')
           ..write('isDefault: $isDefault, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -479,9 +519,14 @@ class $SubCategoriesTable extends SubCategories
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+      'sync_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, categoryId, name, icon, updatedAt, isDeleted];
+      [id, categoryId, name, icon, updatedAt, isDeleted, syncId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -521,6 +566,10 @@ class $SubCategoriesTable extends SubCategories
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(_syncIdMeta,
+          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
+    }
     return context;
   }
 
@@ -542,6 +591,8 @@ class $SubCategoriesTable extends SubCategories
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      syncId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
     );
   }
 
@@ -558,13 +609,19 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
   final String icon;
   final DateTime updatedAt;
   final bool isDeleted;
+
+  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  final String? syncId;
   const SubCategory(
       {required this.id,
       required this.categoryId,
       required this.name,
       required this.icon,
       required this.updatedAt,
-      required this.isDeleted});
+      required this.isDeleted,
+      this.syncId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -574,6 +631,9 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
     map['icon'] = Variable<String>(icon);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -585,6 +645,8 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
       icon: Value(icon),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      syncId:
+          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
     );
   }
 
@@ -598,6 +660,7 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
       icon: serializer.fromJson<String>(json['icon']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -610,6 +673,7 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
       'icon': serializer.toJson<String>(icon),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -619,7 +683,8 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
           String? name,
           String? icon,
           DateTime? updatedAt,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          Value<String?> syncId = const Value.absent()}) =>
       SubCategory(
         id: id ?? this.id,
         categoryId: categoryId ?? this.categoryId,
@@ -627,6 +692,7 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
         icon: icon ?? this.icon,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
+        syncId: syncId.present ? syncId.value : this.syncId,
       );
   SubCategory copyWithCompanion(SubCategoriesCompanion data) {
     return SubCategory(
@@ -637,6 +703,7 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
       icon: data.icon.present ? data.icon.value : this.icon,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -648,14 +715,15 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
           ..write('name: $name, ')
           ..write('icon: $icon, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, categoryId, name, icon, updatedAt, isDeleted);
+      Object.hash(id, categoryId, name, icon, updatedAt, isDeleted, syncId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -665,7 +733,8 @@ class SubCategory extends DataClass implements Insertable<SubCategory> {
           other.name == this.name &&
           other.icon == this.icon &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.syncId == this.syncId);
 }
 
 class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
@@ -675,6 +744,7 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
   final Value<String> icon;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> syncId;
   const SubCategoriesCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
@@ -682,6 +752,7 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
     this.icon = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   SubCategoriesCompanion.insert({
     this.id = const Value.absent(),
@@ -690,6 +761,7 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
     this.icon = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   })  : categoryId = Value(categoryId),
         name = Value(name);
   static Insertable<SubCategory> custom({
@@ -699,6 +771,7 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
     Expression<String>? icon,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -707,6 +780,7 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
       if (icon != null) 'icon': icon,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -716,7 +790,8 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
       Value<String>? name,
       Value<String>? icon,
       Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted}) {
+      Value<bool>? isDeleted,
+      Value<String?>? syncId}) {
     return SubCategoriesCompanion(
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
@@ -724,6 +799,7 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
       icon: icon ?? this.icon,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -748,6 +824,9 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -759,7 +838,8 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
           ..write('name: $name, ')
           ..write('icon: $icon, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -824,9 +904,21 @@ class $MerchantsTable extends Merchants
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, name, defaultCategoryId, defaultSubCategoryId, updatedAt, isDeleted];
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+      'sync_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        name,
+        defaultCategoryId,
+        defaultSubCategoryId,
+        updatedAt,
+        isDeleted,
+        syncId
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -866,6 +958,10 @@ class $MerchantsTable extends Merchants
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(_syncIdMeta,
+          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
+    }
     return context;
   }
 
@@ -891,6 +987,8 @@ class $MerchantsTable extends Merchants
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      syncId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
     );
   }
 
@@ -907,13 +1005,22 @@ class Merchant extends DataClass implements Insertable<Merchant> {
   final int? defaultSubCategoryId;
   final DateTime updatedAt;
   final bool isDeleted;
+
+  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
+  /// NOTA: tabella non ancora collegata a un DAO/repository (in attesa del
+  /// flusso OCR/merchant di M3-M6): colonna presente per coerenza di schema,
+  /// ma non ancora inclusa nel motore di sync.
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  final String? syncId;
   const Merchant(
       {required this.id,
       required this.name,
       this.defaultCategoryId,
       this.defaultSubCategoryId,
       required this.updatedAt,
-      required this.isDeleted});
+      required this.isDeleted,
+      this.syncId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -927,6 +1034,9 @@ class Merchant extends DataClass implements Insertable<Merchant> {
     }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -942,6 +1052,8 @@ class Merchant extends DataClass implements Insertable<Merchant> {
           : Value(defaultSubCategoryId),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      syncId:
+          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
     );
   }
 
@@ -956,6 +1068,7 @@ class Merchant extends DataClass implements Insertable<Merchant> {
           serializer.fromJson<int?>(json['defaultSubCategoryId']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -968,6 +1081,7 @@ class Merchant extends DataClass implements Insertable<Merchant> {
       'defaultSubCategoryId': serializer.toJson<int?>(defaultSubCategoryId),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -977,7 +1091,8 @@ class Merchant extends DataClass implements Insertable<Merchant> {
           Value<int?> defaultCategoryId = const Value.absent(),
           Value<int?> defaultSubCategoryId = const Value.absent(),
           DateTime? updatedAt,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          Value<String?> syncId = const Value.absent()}) =>
       Merchant(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -989,6 +1104,7 @@ class Merchant extends DataClass implements Insertable<Merchant> {
             : this.defaultSubCategoryId,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
+        syncId: syncId.present ? syncId.value : this.syncId,
       );
   Merchant copyWithCompanion(MerchantsCompanion data) {
     return Merchant(
@@ -1002,6 +1118,7 @@ class Merchant extends DataClass implements Insertable<Merchant> {
           : this.defaultSubCategoryId,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -1013,14 +1130,15 @@ class Merchant extends DataClass implements Insertable<Merchant> {
           ..write('defaultCategoryId: $defaultCategoryId, ')
           ..write('defaultSubCategoryId: $defaultSubCategoryId, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
-      id, name, defaultCategoryId, defaultSubCategoryId, updatedAt, isDeleted);
+  int get hashCode => Object.hash(id, name, defaultCategoryId,
+      defaultSubCategoryId, updatedAt, isDeleted, syncId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1030,7 +1148,8 @@ class Merchant extends DataClass implements Insertable<Merchant> {
           other.defaultCategoryId == this.defaultCategoryId &&
           other.defaultSubCategoryId == this.defaultSubCategoryId &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.syncId == this.syncId);
 }
 
 class MerchantsCompanion extends UpdateCompanion<Merchant> {
@@ -1040,6 +1159,7 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
   final Value<int?> defaultSubCategoryId;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> syncId;
   const MerchantsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
@@ -1047,6 +1167,7 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
     this.defaultSubCategoryId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   MerchantsCompanion.insert({
     this.id = const Value.absent(),
@@ -1055,6 +1176,7 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
     this.defaultSubCategoryId = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   }) : name = Value(name);
   static Insertable<Merchant> custom({
     Expression<int>? id,
@@ -1063,6 +1185,7 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
     Expression<int>? defaultSubCategoryId,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1072,6 +1195,7 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
         'default_sub_category_id': defaultSubCategoryId,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -1081,7 +1205,8 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
       Value<int?>? defaultCategoryId,
       Value<int?>? defaultSubCategoryId,
       Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted}) {
+      Value<bool>? isDeleted,
+      Value<String?>? syncId}) {
     return MerchantsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -1089,6 +1214,7 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
       defaultSubCategoryId: defaultSubCategoryId ?? this.defaultSubCategoryId,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -1114,6 +1240,9 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -1125,7 +1254,8 @@ class MerchantsCompanion extends UpdateCompanion<Merchant> {
           ..write('defaultCategoryId: $defaultCategoryId, ')
           ..write('defaultSubCategoryId: $defaultSubCategoryId, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -1206,6 +1336,11 @@ class $MerchantRulesTable extends MerchantRules
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+      'sync_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -1215,7 +1350,8 @@ class $MerchantRulesTable extends MerchantRules
         priority,
         isUserDefined,
         updatedAt,
-        isDeleted
+        isDeleted,
+        syncId
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1268,6 +1404,10 @@ class $MerchantRulesTable extends MerchantRules
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(_syncIdMeta,
+          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
+    }
     return context;
   }
 
@@ -1293,6 +1433,8 @@ class $MerchantRulesTable extends MerchantRules
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      syncId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
     );
   }
 
@@ -1319,6 +1461,11 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
   final bool isUserDefined;
   final DateTime updatedAt;
   final bool isDeleted;
+
+  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  final String? syncId;
   const MerchantRule(
       {required this.id,
       required this.pattern,
@@ -1327,7 +1474,8 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
       required this.priority,
       required this.isUserDefined,
       required this.updatedAt,
-      required this.isDeleted});
+      required this.isDeleted,
+      this.syncId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1341,6 +1489,9 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
     map['is_user_defined'] = Variable<bool>(isUserDefined);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -1356,6 +1507,8 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
       isUserDefined: Value(isUserDefined),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      syncId:
+          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
     );
   }
 
@@ -1371,6 +1524,7 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
       isUserDefined: serializer.fromJson<bool>(json['isUserDefined']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -1385,6 +1539,7 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
       'isUserDefined': serializer.toJson<bool>(isUserDefined),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -1396,7 +1551,8 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
           int? priority,
           bool? isUserDefined,
           DateTime? updatedAt,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          Value<String?> syncId = const Value.absent()}) =>
       MerchantRule(
         id: id ?? this.id,
         pattern: pattern ?? this.pattern,
@@ -1407,6 +1563,7 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
         isUserDefined: isUserDefined ?? this.isUserDefined,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
+        syncId: syncId.present ? syncId.value : this.syncId,
       );
   MerchantRule copyWithCompanion(MerchantRulesCompanion data) {
     return MerchantRule(
@@ -1423,6 +1580,7 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
           : this.isUserDefined,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -1436,14 +1594,15 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
           ..write('priority: $priority, ')
           ..write('isUserDefined: $isUserDefined, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, pattern, categoryId, subCategoryId,
-      priority, isUserDefined, updatedAt, isDeleted);
+      priority, isUserDefined, updatedAt, isDeleted, syncId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1455,7 +1614,8 @@ class MerchantRule extends DataClass implements Insertable<MerchantRule> {
           other.priority == this.priority &&
           other.isUserDefined == this.isUserDefined &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.syncId == this.syncId);
 }
 
 class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
@@ -1467,6 +1627,7 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
   final Value<bool> isUserDefined;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> syncId;
   const MerchantRulesCompanion({
     this.id = const Value.absent(),
     this.pattern = const Value.absent(),
@@ -1476,6 +1637,7 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
     this.isUserDefined = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   MerchantRulesCompanion.insert({
     this.id = const Value.absent(),
@@ -1486,6 +1648,7 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
     this.isUserDefined = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   })  : pattern = Value(pattern),
         categoryId = Value(categoryId);
   static Insertable<MerchantRule> custom({
@@ -1497,6 +1660,7 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
     Expression<bool>? isUserDefined,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -1507,6 +1671,7 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
       if (isUserDefined != null) 'is_user_defined': isUserDefined,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -1518,7 +1683,8 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
       Value<int>? priority,
       Value<bool>? isUserDefined,
       Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted}) {
+      Value<bool>? isDeleted,
+      Value<String?>? syncId}) {
     return MerchantRulesCompanion(
       id: id ?? this.id,
       pattern: pattern ?? this.pattern,
@@ -1528,6 +1694,7 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
       isUserDefined: isUserDefined ?? this.isUserDefined,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -1558,6 +1725,9 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -1571,7 +1741,8 @@ class MerchantRulesCompanion extends UpdateCompanion<MerchantRule> {
           ..write('priority: $priority, ')
           ..write('isUserDefined: $isUserDefined, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -1672,6 +1843,11 @@ class $RecurringTransactionsTable extends RecurringTransactions
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+      'sync_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -1685,7 +1861,8 @@ class $RecurringTransactionsTable extends RecurringTransactions
         nextOccurrence,
         active,
         updatedAt,
-        isDeleted
+        isDeleted,
+        syncId
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1755,6 +1932,10 @@ class $RecurringTransactionsTable extends RecurringTransactions
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(_syncIdMeta,
+          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
+    }
     return context;
   }
 
@@ -1790,6 +1971,8 @@ class $RecurringTransactionsTable extends RecurringTransactions
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      syncId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
     );
   }
 
@@ -1820,6 +2003,11 @@ class RecurringTransaction extends DataClass
   final bool active;
   final DateTime updatedAt;
   final bool isDeleted;
+
+  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  final String? syncId;
   const RecurringTransaction(
       {required this.id,
       required this.description,
@@ -1832,7 +2020,8 @@ class RecurringTransaction extends DataClass
       required this.nextOccurrence,
       required this.active,
       required this.updatedAt,
-      required this.isDeleted});
+      required this.isDeleted,
+      this.syncId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1858,6 +2047,9 @@ class RecurringTransaction extends DataClass
     map['active'] = Variable<bool>(active);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -1879,6 +2071,8 @@ class RecurringTransaction extends DataClass
       active: Value(active),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      syncId:
+          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
     );
   }
 
@@ -1900,6 +2094,7 @@ class RecurringTransaction extends DataClass
       active: serializer.fromJson<bool>(json['active']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -1920,6 +2115,7 @@ class RecurringTransaction extends DataClass
       'active': serializer.toJson<bool>(active),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -1935,7 +2131,8 @@ class RecurringTransaction extends DataClass
           DateTime? nextOccurrence,
           bool? active,
           DateTime? updatedAt,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          Value<String?> syncId = const Value.absent()}) =>
       RecurringTransaction(
         id: id ?? this.id,
         description: description ?? this.description,
@@ -1950,6 +2147,7 @@ class RecurringTransaction extends DataClass
         active: active ?? this.active,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
+        syncId: syncId.present ? syncId.value : this.syncId,
       );
   RecurringTransaction copyWithCompanion(RecurringTransactionsCompanion data) {
     return RecurringTransaction(
@@ -1972,6 +2170,7 @@ class RecurringTransaction extends DataClass
       active: data.active.present ? data.active.value : this.active,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -1989,7 +2188,8 @@ class RecurringTransaction extends DataClass
           ..write('nextOccurrence: $nextOccurrence, ')
           ..write('active: $active, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -2007,7 +2207,8 @@ class RecurringTransaction extends DataClass
       nextOccurrence,
       active,
       updatedAt,
-      isDeleted);
+      isDeleted,
+      syncId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2023,7 +2224,8 @@ class RecurringTransaction extends DataClass
           other.nextOccurrence == this.nextOccurrence &&
           other.active == this.active &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.syncId == this.syncId);
 }
 
 class RecurringTransactionsCompanion
@@ -2040,6 +2242,7 @@ class RecurringTransactionsCompanion
   final Value<bool> active;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> syncId;
   const RecurringTransactionsCompanion({
     this.id = const Value.absent(),
     this.description = const Value.absent(),
@@ -2053,6 +2256,7 @@ class RecurringTransactionsCompanion
     this.active = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   RecurringTransactionsCompanion.insert({
     this.id = const Value.absent(),
@@ -2067,6 +2271,7 @@ class RecurringTransactionsCompanion
     this.active = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   })  : description = Value(description),
         amount = Value(amount),
         type = Value(type),
@@ -2086,6 +2291,7 @@ class RecurringTransactionsCompanion
     Expression<bool>? active,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2100,6 +2306,7 @@ class RecurringTransactionsCompanion
       if (active != null) 'active': active,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -2115,7 +2322,8 @@ class RecurringTransactionsCompanion
       Value<DateTime>? nextOccurrence,
       Value<bool>? active,
       Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted}) {
+      Value<bool>? isDeleted,
+      Value<String?>? syncId}) {
     return RecurringTransactionsCompanion(
       id: id ?? this.id,
       description: description ?? this.description,
@@ -2129,6 +2337,7 @@ class RecurringTransactionsCompanion
       active: active ?? this.active,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -2174,6 +2383,9 @@ class RecurringTransactionsCompanion
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -2191,7 +2403,8 @@ class RecurringTransactionsCompanion
           ..write('nextOccurrence: $nextOccurrence, ')
           ..write('active: $active, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -2326,6 +2539,11 @@ class $TransactionsTable extends Transactions
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+      'sync_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -2343,7 +2561,8 @@ class $TransactionsTable extends Transactions
         refundOfId,
         createdAt,
         updatedAt,
-        isDeleted
+        isDeleted,
+        syncId
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -2434,6 +2653,10 @@ class $TransactionsTable extends Transactions
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(_syncIdMeta,
+          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
+    }
     return context;
   }
 
@@ -2476,6 +2699,8 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      syncId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
     );
   }
 
@@ -2525,6 +2750,15 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool isDeleted;
+
+  /// Identificatore stabile tra dispositivi diversi, usato solo dal
+  /// SyncService (Turso, M7) per abbinare le righe e tradurre le foreign key
+  /// nei payload remoti. L'id locale autoincrementale resta invariato per FK
+  /// e UI: due dispositivi possono generare lo stesso id intero, non lo
+  /// stesso syncId (UUID v4, generato una sola volta alla creazione).
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  final String? syncId;
   const Transaction(
       {required this.id,
       required this.date,
@@ -2541,7 +2775,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       this.refundOfId,
       required this.createdAt,
       required this.updatedAt,
-      required this.isDeleted});
+      required this.isDeleted,
+      this.syncId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -2576,6 +2811,9 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -2607,6 +2845,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      syncId:
+          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
     );
   }
 
@@ -2631,6 +2871,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -2654,6 +2895,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -2673,7 +2915,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           Value<int?> refundOfId = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          Value<String?> syncId = const Value.absent()}) =>
       Transaction(
         id: id ?? this.id,
         date: date ?? this.date,
@@ -2694,6 +2937,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         createdAt: createdAt ?? this.createdAt,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
+        syncId: syncId.present ? syncId.value : this.syncId,
       );
   Transaction copyWithCompanion(TransactionsCompanion data) {
     return Transaction(
@@ -2723,6 +2967,7 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -2744,7 +2989,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('refundOfId: $refundOfId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -2766,7 +3012,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       refundOfId,
       createdAt,
       updatedAt,
-      isDeleted);
+      isDeleted,
+      syncId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2786,7 +3033,8 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.refundOfId == this.refundOfId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.syncId == this.syncId);
 }
 
 class TransactionsCompanion extends UpdateCompanion<Transaction> {
@@ -2806,6 +3054,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> syncId;
   const TransactionsCompanion({
     this.id = const Value.absent(),
     this.date = const Value.absent(),
@@ -2823,6 +3072,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   TransactionsCompanion.insert({
     this.id = const Value.absent(),
@@ -2841,6 +3091,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   })  : date = Value(date),
         amount = Value(amount),
         type = Value(type),
@@ -2862,6 +3113,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -2880,6 +3132,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -2899,7 +3152,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<int?>? refundOfId,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted}) {
+      Value<bool>? isDeleted,
+      Value<String?>? syncId}) {
     return TransactionsCompanion(
       id: id ?? this.id,
       date: date ?? this.date,
@@ -2917,6 +3171,7 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -2972,6 +3227,9 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -2993,7 +3251,8 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('refundOfId: $refundOfId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -3056,9 +3315,14 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
       defaultValue: const Constant(false));
+  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
+  @override
+  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
+      'sync_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, categoryId, period, amount, startDate, updatedAt, isDeleted];
+      [id, categoryId, period, amount, startDate, updatedAt, isDeleted, syncId];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -3098,6 +3362,10 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
       context.handle(_isDeletedMeta,
           isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
     }
+    if (data.containsKey('sync_id')) {
+      context.handle(_syncIdMeta,
+          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
+    }
     return context;
   }
 
@@ -3122,6 +3390,8 @@ class $BudgetsTable extends Budgets with TableInfo<$BudgetsTable, Budget> {
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      syncId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
     );
   }
 
@@ -3146,6 +3416,11 @@ class Budget extends DataClass implements Insertable<Budget> {
   final DateTime startDate;
   final DateTime updatedAt;
   final bool isDeleted;
+
+  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  final String? syncId;
   const Budget(
       {required this.id,
       this.categoryId,
@@ -3153,7 +3428,8 @@ class Budget extends DataClass implements Insertable<Budget> {
       required this.amount,
       required this.startDate,
       required this.updatedAt,
-      required this.isDeleted});
+      required this.isDeleted,
+      this.syncId});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3169,6 +3445,9 @@ class Budget extends DataClass implements Insertable<Budget> {
     map['start_date'] = Variable<DateTime>(startDate);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
+    if (!nullToAbsent || syncId != null) {
+      map['sync_id'] = Variable<String>(syncId);
+    }
     return map;
   }
 
@@ -3183,6 +3462,8 @@ class Budget extends DataClass implements Insertable<Budget> {
       startDate: Value(startDate),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
+      syncId:
+          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
     );
   }
 
@@ -3198,6 +3479,7 @@ class Budget extends DataClass implements Insertable<Budget> {
       startDate: serializer.fromJson<DateTime>(json['startDate']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      syncId: serializer.fromJson<String?>(json['syncId']),
     );
   }
   @override
@@ -3212,6 +3494,7 @@ class Budget extends DataClass implements Insertable<Budget> {
       'startDate': serializer.toJson<DateTime>(startDate),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
+      'syncId': serializer.toJson<String?>(syncId),
     };
   }
 
@@ -3222,7 +3505,8 @@ class Budget extends DataClass implements Insertable<Budget> {
           double? amount,
           DateTime? startDate,
           DateTime? updatedAt,
-          bool? isDeleted}) =>
+          bool? isDeleted,
+          Value<String?> syncId = const Value.absent()}) =>
       Budget(
         id: id ?? this.id,
         categoryId: categoryId.present ? categoryId.value : this.categoryId,
@@ -3231,6 +3515,7 @@ class Budget extends DataClass implements Insertable<Budget> {
         startDate: startDate ?? this.startDate,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
+        syncId: syncId.present ? syncId.value : this.syncId,
       );
   Budget copyWithCompanion(BudgetsCompanion data) {
     return Budget(
@@ -3242,6 +3527,7 @@ class Budget extends DataClass implements Insertable<Budget> {
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      syncId: data.syncId.present ? data.syncId.value : this.syncId,
     );
   }
 
@@ -3254,14 +3540,15 @@ class Budget extends DataClass implements Insertable<Budget> {
           ..write('amount: $amount, ')
           ..write('startDate: $startDate, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(
-      id, categoryId, period, amount, startDate, updatedAt, isDeleted);
+      id, categoryId, period, amount, startDate, updatedAt, isDeleted, syncId);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3272,7 +3559,8 @@ class Budget extends DataClass implements Insertable<Budget> {
           other.amount == this.amount &&
           other.startDate == this.startDate &&
           other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted);
+          other.isDeleted == this.isDeleted &&
+          other.syncId == this.syncId);
 }
 
 class BudgetsCompanion extends UpdateCompanion<Budget> {
@@ -3283,6 +3571,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
   final Value<DateTime> startDate;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
+  final Value<String?> syncId;
   const BudgetsCompanion({
     this.id = const Value.absent(),
     this.categoryId = const Value.absent(),
@@ -3291,6 +3580,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     this.startDate = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   });
   BudgetsCompanion.insert({
     this.id = const Value.absent(),
@@ -3300,6 +3590,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     required DateTime startDate,
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
+    this.syncId = const Value.absent(),
   })  : period = Value(period),
         amount = Value(amount),
         startDate = Value(startDate);
@@ -3311,6 +3602,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     Expression<DateTime>? startDate,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
+    Expression<String>? syncId,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -3320,6 +3612,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
       if (startDate != null) 'start_date': startDate,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
+      if (syncId != null) 'sync_id': syncId,
     });
   }
 
@@ -3330,7 +3623,8 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
       Value<double>? amount,
       Value<DateTime>? startDate,
       Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted}) {
+      Value<bool>? isDeleted,
+      Value<String?>? syncId}) {
     return BudgetsCompanion(
       id: id ?? this.id,
       categoryId: categoryId ?? this.categoryId,
@@ -3339,6 +3633,7 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
       startDate: startDate ?? this.startDate,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
+      syncId: syncId ?? this.syncId,
     );
   }
 
@@ -3367,6 +3662,9 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
     if (isDeleted.present) {
       map['is_deleted'] = Variable<bool>(isDeleted.value);
     }
+    if (syncId.present) {
+      map['sync_id'] = Variable<String>(syncId.value);
+    }
     return map;
   }
 
@@ -3379,7 +3677,8 @@ class BudgetsCompanion extends UpdateCompanion<Budget> {
           ..write('amount: $amount, ')
           ..write('startDate: $startDate, ')
           ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('syncId: $syncId')
           ..write(')'))
         .toString();
   }
@@ -3616,6 +3915,7 @@ typedef $$CategoriesTableCreateCompanionBuilder = CategoriesCompanion Function({
   Value<bool> isDefault,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<int> id,
@@ -3626,6 +3926,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder = CategoriesCompanion Function({
   Value<bool> isDefault,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 
 final class $$CategoriesTableReferences
@@ -3761,6 +4062,9 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnFilters(column));
 
   Expression<bool> subCategoriesRefs(
       Expression<bool> Function($$SubCategoriesTableFilterComposer f) f) {
@@ -3923,6 +4227,9 @@ class $$CategoriesTableOrderingComposer
 
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnOrderings(column));
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -3957,6 +4264,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   Expression<T> subCategoriesRefs<T extends Object>(
       Expression<T> Function($$SubCategoriesTableAnnotationComposer a) f) {
@@ -4124,6 +4434,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             Value<bool> isDefault = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               CategoriesCompanion(
             id: id,
@@ -4134,6 +4445,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             isDefault: isDefault,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -4144,6 +4456,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             Value<bool> isDefault = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               CategoriesCompanion.insert(
             id: id,
@@ -4154,6 +4467,7 @@ class $$CategoriesTableTableManager extends RootTableManager<
             isDefault: isDefault,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -4292,6 +4606,7 @@ typedef $$SubCategoriesTableCreateCompanionBuilder = SubCategoriesCompanion
   Value<String> icon,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 typedef $$SubCategoriesTableUpdateCompanionBuilder = SubCategoriesCompanion
     Function({
@@ -4301,6 +4616,7 @@ typedef $$SubCategoriesTableUpdateCompanionBuilder = SubCategoriesCompanion
   Value<String> icon,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 
 final class $$SubCategoriesTableReferences
@@ -4411,6 +4727,9 @@ class $$SubCategoriesTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnFilters(column));
 
   $$CategoriesTableFilterComposer get categoryId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
@@ -4543,6 +4862,9 @@ class $$SubCategoriesTableOrderingComposer
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnOrderings(column));
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -4587,6 +4909,9 @@ class $$SubCategoriesTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -4729,6 +5054,7 @@ class $$SubCategoriesTableTableManager extends RootTableManager<
             Value<String> icon = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               SubCategoriesCompanion(
             id: id,
@@ -4737,6 +5063,7 @@ class $$SubCategoriesTableTableManager extends RootTableManager<
             icon: icon,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -4745,6 +5072,7 @@ class $$SubCategoriesTableTableManager extends RootTableManager<
             Value<String> icon = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               SubCategoriesCompanion.insert(
             id: id,
@@ -4753,6 +5081,7 @@ class $$SubCategoriesTableTableManager extends RootTableManager<
             icon: icon,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -4885,6 +5214,7 @@ typedef $$MerchantsTableCreateCompanionBuilder = MerchantsCompanion Function({
   Value<int?> defaultSubCategoryId,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 typedef $$MerchantsTableUpdateCompanionBuilder = MerchantsCompanion Function({
   Value<int> id,
@@ -4893,6 +5223,7 @@ typedef $$MerchantsTableUpdateCompanionBuilder = MerchantsCompanion Function({
   Value<int?> defaultSubCategoryId,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 
 final class $$MerchantsTableReferences
@@ -4966,6 +5297,9 @@ class $$MerchantsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnFilters(column));
 
   $$CategoriesTableFilterComposer get defaultCategoryId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
@@ -5050,6 +5384,9 @@ class $$MerchantsTableOrderingComposer
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnOrderings(column));
+
   $$CategoriesTableOrderingComposer get defaultCategoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -5111,6 +5448,9 @@ class $$MerchantsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   $$CategoriesTableAnnotationComposer get defaultCategoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -5206,6 +5546,7 @@ class $$MerchantsTableTableManager extends RootTableManager<
             Value<int?> defaultSubCategoryId = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               MerchantsCompanion(
             id: id,
@@ -5214,6 +5555,7 @@ class $$MerchantsTableTableManager extends RootTableManager<
             defaultSubCategoryId: defaultSubCategoryId,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -5222,6 +5564,7 @@ class $$MerchantsTableTableManager extends RootTableManager<
             Value<int?> defaultSubCategoryId = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               MerchantsCompanion.insert(
             id: id,
@@ -5230,6 +5573,7 @@ class $$MerchantsTableTableManager extends RootTableManager<
             defaultSubCategoryId: defaultSubCategoryId,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -5329,6 +5673,7 @@ typedef $$MerchantRulesTableCreateCompanionBuilder = MerchantRulesCompanion
   Value<bool> isUserDefined,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 typedef $$MerchantRulesTableUpdateCompanionBuilder = MerchantRulesCompanion
     Function({
@@ -5340,6 +5685,7 @@ typedef $$MerchantRulesTableUpdateCompanionBuilder = MerchantRulesCompanion
   Value<bool> isUserDefined,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 
 final class $$MerchantRulesTableReferences
@@ -5404,6 +5750,9 @@ class $$MerchantRulesTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnFilters(column));
 
   $$CategoriesTableFilterComposer get categoryId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
@@ -5474,6 +5823,9 @@ class $$MerchantRulesTableOrderingComposer
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnOrderings(column));
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -5541,6 +5893,9 @@ class $$MerchantRulesTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -5614,6 +5969,7 @@ class $$MerchantRulesTableTableManager extends RootTableManager<
             Value<bool> isUserDefined = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               MerchantRulesCompanion(
             id: id,
@@ -5624,6 +5980,7 @@ class $$MerchantRulesTableTableManager extends RootTableManager<
             isUserDefined: isUserDefined,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -5634,6 +5991,7 @@ class $$MerchantRulesTableTableManager extends RootTableManager<
             Value<bool> isUserDefined = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               MerchantRulesCompanion.insert(
             id: id,
@@ -5644,6 +6002,7 @@ class $$MerchantRulesTableTableManager extends RootTableManager<
             isUserDefined: isUserDefined,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -5726,6 +6085,7 @@ typedef $$RecurringTransactionsTableCreateCompanionBuilder
   Value<bool> active,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 typedef $$RecurringTransactionsTableUpdateCompanionBuilder
     = RecurringTransactionsCompanion Function({
@@ -5741,6 +6101,7 @@ typedef $$RecurringTransactionsTableUpdateCompanionBuilder
   Value<bool> active,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 
 final class $$RecurringTransactionsTableReferences extends BaseReferences<
@@ -5837,6 +6198,9 @@ class $$RecurringTransactionsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnFilters(column));
 
   $$CategoriesTableFilterComposer get categoryId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
@@ -5940,6 +6304,9 @@ class $$RecurringTransactionsTableOrderingComposer
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnOrderings(column));
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -6019,6 +6386,9 @@ class $$RecurringTransactionsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -6122,6 +6492,7 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             Value<bool> active = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               RecurringTransactionsCompanion(
             id: id,
@@ -6136,6 +6507,7 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             active: active,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -6150,6 +6522,7 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             Value<bool> active = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               RecurringTransactionsCompanion.insert(
             id: id,
@@ -6164,6 +6537,7 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             active: active,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -6271,6 +6645,7 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
     Function({
@@ -6290,6 +6665,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 
 final class $$TransactionsTableReferences
@@ -6406,6 +6782,9 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnFilters(column));
 
   $$CategoriesTableFilterComposer get categoryId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
@@ -6536,6 +6915,9 @@ class $$TransactionsTableOrderingComposer
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnOrderings(column));
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -6663,6 +7045,9 @@ class $$TransactionsTableAnnotationComposer
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
 
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
+
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
         composer: this,
@@ -6788,6 +7173,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               TransactionsCompanion(
             id: id,
@@ -6806,6 +7192,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -6824,6 +7211,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               TransactionsCompanion.insert(
             id: id,
@@ -6842,6 +7230,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
             createdAt: createdAt,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (
@@ -6946,6 +7335,7 @@ typedef $$BudgetsTableCreateCompanionBuilder = BudgetsCompanion Function({
   required DateTime startDate,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 typedef $$BudgetsTableUpdateCompanionBuilder = BudgetsCompanion Function({
   Value<int> id,
@@ -6955,6 +7345,7 @@ typedef $$BudgetsTableUpdateCompanionBuilder = BudgetsCompanion Function({
   Value<DateTime> startDate,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
+  Value<String?> syncId,
 });
 
 final class $$BudgetsTableReferences
@@ -7006,6 +7397,9 @@ class $$BudgetsTableFilterComposer
   ColumnFilters<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnFilters(column));
+
   $$CategoriesTableFilterComposer get categoryId {
     final $$CategoriesTableFilterComposer composer = $composerBuilder(
         composer: this,
@@ -7054,6 +7448,9 @@ class $$BudgetsTableOrderingComposer
   ColumnOrderings<bool> get isDeleted => $composableBuilder(
       column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get syncId => $composableBuilder(
+      column: $table.syncId, builder: (column) => ColumnOrderings(column));
+
   $$CategoriesTableOrderingComposer get categoryId {
     final $$CategoriesTableOrderingComposer composer = $composerBuilder(
         composer: this,
@@ -7101,6 +7498,9 @@ class $$BudgetsTableAnnotationComposer
 
   GeneratedColumn<bool> get isDeleted =>
       $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<String> get syncId =>
+      $composableBuilder(column: $table.syncId, builder: (column) => column);
 
   $$CategoriesTableAnnotationComposer get categoryId {
     final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
@@ -7153,6 +7553,7 @@ class $$BudgetsTableTableManager extends RootTableManager<
             Value<DateTime> startDate = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               BudgetsCompanion(
             id: id,
@@ -7162,6 +7563,7 @@ class $$BudgetsTableTableManager extends RootTableManager<
             startDate: startDate,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -7171,6 +7573,7 @@ class $$BudgetsTableTableManager extends RootTableManager<
             required DateTime startDate,
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
+            Value<String?> syncId = const Value.absent(),
           }) =>
               BudgetsCompanion.insert(
             id: id,
@@ -7180,6 +7583,7 @@ class $$BudgetsTableTableManager extends RootTableManager<
             startDate: startDate,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
+            syncId: syncId,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) =>

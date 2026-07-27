@@ -36,10 +36,17 @@ class SettingsPage extends StatelessWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/export'),
           ),
-          const ListTile(
-            leading: Icon(Icons.sync_outlined),
-            title: Text('Sync multi-dispositivo (Turso)'),
-            subtitle: Text('Milestone M7'),
+          ListTile(
+            leading: const Icon(Icons.sync_outlined),
+            title: const Text('Sync multi-dispositivo (Turso)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/sync'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('Tema'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/theme'),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../home_providers.dart';
 
@@ -58,10 +59,10 @@ class _StatTile extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               value,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: AppTheme.amountStyle(theme.textTheme.titleMedium?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w600,
-              ),
+              )),
             ),
           ],
         ),

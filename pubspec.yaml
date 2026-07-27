@@ -27,15 +27,14 @@ dependencies:
   path_provider: ^2.1.3
   path: ^1.9.0
 
-  # Sync multi-dispositivo (Turso / libSQL) - piano Free
-  # NOTA: rimosso temporaneamente. libsql_dart si appoggia a
-  # flutter_rust_bridge/native_toolchain_rust, che richiede un toolchain Rust
-  # (cargo) installato per compilare codice nativo ad ogni build, su
-  # qualunque piattaforma target — anche se il pacchetto non viene ancora
-  # usato da nessun file (v. data/services/sync_service.dart, solo
-  # interfaccia astratta). Va reintrodotto all'inizio della Milestone M7,
-  # quando implementeremo la sync vera e installeremo Rust apposta.
-  # libsql_dart: ^0.9.0+0.9.30
+  # Sync multi-dispositivo (Turso) - piano Free
+  # NOTA: si usa l'API HTTP di Turso (Hrana-over-HTTP, endpoint /v2/pipeline)
+  # tramite il pacchetto `http` puro Dart, invece del client nativo
+  # `libsql_dart` (richiederebbe un toolchain Rust/cargo non installato su
+  # questa macchina per compilare codice nativo a ogni build). Vedi
+  # data/services/turso_http_client.dart e turso_sync_service.dart.
+  http: ^1.2.0
+  flutter_secure_storage: ^9.2.2
 
   # OCR offline scontrini
   google_mlkit_text_recognition: ^0.13.0
@@ -70,3 +69,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Font per gli importi in denaro (v. core/theme/app_theme.dart,
+  # amountTextStyle). Aptos Display richiesto dall'utente non è liberamente
+  # ridistribuibile (font proprietario Microsoft, non concesso in licenza per
+  # l'embedding in app di terze parti): Public Sans è l'alternativa scelta,
+  # stile analogo (grottesco umanista pulito) e licenza libera (OFL, v.
+  # assets/fonts/PublicSans-LICENSE.md). Font variabile: un solo file copre
+  # tutti i pesi.
+  fonts:
+    - family: PublicSans
+      fonts:
+        - asset: assets/fonts/PublicSans-Variable.ttf

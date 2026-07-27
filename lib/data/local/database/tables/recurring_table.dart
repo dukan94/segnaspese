@@ -30,4 +30,9 @@ class RecurringTransactions extends Table {
   DateTimeColumn get updatedAt =>
       dateTime().withDefault(currentDateAndTime)();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
+  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
+  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
+  TextColumn get syncId => text().nullable()();
 }

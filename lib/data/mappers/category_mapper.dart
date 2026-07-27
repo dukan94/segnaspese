@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/category_entity.dart';
 import '../local/database/app_database.dart';
@@ -29,6 +30,7 @@ extension CategoryEntityMapper on CategoryEntity {
       color: color,
       isDefault: Value(isDefault),
       updatedAt: Value(DateTime.now()),
+      syncId: Value(const Uuid().v4()),
     );
   }
 
@@ -64,6 +66,7 @@ extension SubCategoryEntityMapper on SubCategoryEntity {
       name: name,
       icon: Value(icon),
       updatedAt: Value(DateTime.now()),
+      syncId: Value(const Uuid().v4()),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/budget_entity.dart';
 import '../local/database/app_database.dart';
@@ -27,6 +28,7 @@ extension BudgetEntityMapper on BudgetEntity {
       amount: amount,
       startDate: startDate,
       updatedAt: Value(DateTime.now()),
+      syncId: Value(const Uuid().v4()),
     );
   }
 

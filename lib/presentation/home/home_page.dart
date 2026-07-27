@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/di/sync_providers.dart';
+import '../../data/services/sync_service.dart';
 import '../budget/budget_providers.dart';
 import 'home_providers.dart';
 import 'widgets/balance_card.dart';
@@ -9,7 +11,8 @@ import 'widgets/budget_summary_card.dart';
 import 'widgets/monthly_stats_row.dart';
 import 'widgets/recent_transactions_list.dart';
 
-/// Home dell'app: saldo reale, entrate/uscite del mese, ultime operazioni e
+/// Home dell'app: saldo del mese in evidenza (con il saldo dell'anno corrente
+/// meno enfatizzato accanto), entrate/uscite del mese, ultime operazioni e
 /// FAB "Nuova Operazione" (v. wireframe progettazione, Milestone M1).
 ///
 /// Il "Saldo Budget" e la % di budget utilizzato del wireframe originale
@@ -19,10 +22,11 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final balance = ref.watch(realBalanceProvider);
     final summary = ref.watch(monthlySummaryProvider);
+    final yearlyBalance = ref.watch(yearlyBalanceProvider);
     final recent = ref.watch(recentTransactionsProvider);
     final budgetSummary = ref.watch(homeBudgetSummaryProvider);
+    final syncStatus = ref.watch(syncStatusProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -32,6 +36,11 @@ class HomePage extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          IconButton(
+            onPressed: () => context.push('/settings/sync'),
+            icon: Icon(_syncIcon(syncStatus)),
+            tooltip: 'Sync multi-dispositivo',
+          ),
           IconButton(
             onPressed: () => context.push('/history'),
             icon: const Icon(Icons.search),
@@ -43,12 +52,20 @@ class HomePage extends ConsumerWidget {
         onRefresh: () async {
           ref.invalidate(allTransactionsProvider);
           ref.invalidate(currentMonthTransactionsProvider);
+          ref.invalidate(currentYearTransactionsProvider);
         },
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            balance.when(
-              data: (value) => BalanceCard(balance: value),
+            summary.when(
+              data: (monthly) => yearlyBalance.when(
+                data: (yearly) => BalanceCard(
+                  monthlyBalance: monthly.balance,
+                  yearlyBalance: yearly,
+                ),
+                loading: () => const _CardSkeleton(),
+                error: (e, _) => _ErrorTile(message: 'Errore saldo: $e'),
+              ),
               loading: () => const _CardSkeleton(),
               error: (e, _) => _ErrorTile(message: 'Errore saldo: $e'),
             ),
@@ -83,6 +100,19 @@ class HomePage extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('Nuova'),
       ),
+    );
+  }
+
+  IconData _syncIcon(AsyncValue<SyncStatus> status) {
+    return status.when(
+      data: (s) => switch (s) {
+        SyncStatus.offline => Icons.cloud_off_outlined,
+        SyncStatus.syncing => Icons.sync,
+        SyncStatus.synced => Icons.cloud_done_outlined,
+        SyncStatus.error => Icons.error_outline,
+      },
+      loading: () => Icons.cloud_outlined,
+      error: (_, __) => Icons.error_outline,
     );
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 
 /// Tastierino numerico stile "calcolatrice": ogni cifra digitata entra da
@@ -118,9 +119,9 @@ class _AmountKeypadState extends State<AmountKeypad> {
         children: [
           Text(
             AppFormatters.currency(_amount),
-            style: theme.textTheme.displaySmall?.copyWith(
+            style: AppTheme.amountStyle(theme.textTheme.displaySmall?.copyWith(
               fontWeight: FontWeight.bold,
-            ),
+            )),
           ),
           const SizedBox(height: 16),
           _buildRow(['1', '2', '3']),

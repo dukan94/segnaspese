@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../dashboard_providers.dart';
 
@@ -58,8 +59,8 @@ class SubcategoryBars extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(AppFormatters.currency(slice.amount),
-                        style: theme.textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                        style: AppTheme.amountStyle(theme.textTheme.bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.w600))),
                   ],
                 ),
                 const SizedBox(height: 4),
