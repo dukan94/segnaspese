@@ -145,14 +145,25 @@ class AppDatabase extends _$AppDatabase {
             'UPDATE settings SET updated_at = ? WHERE updated_at IS NULL',
             [DateTime.now().millisecondsSinceEpoch],
           );
+
+          // Ripara anche righe con syncId NULL create DOPO la migrazione v5:
+          // alcuni DAO (budget_dao.dart, recurring_dao.dart) costruiscono la
+          // Companion a mano invece di passare dal mapper che lo genera —
+          // bug corretto lì, ma le righe già create (budget impostati da UI,
+          // transazioni generate da ricorrenze) restavano con syncId nullo e
+          // non venivano mai sincronizzate. Idempotente, tocca solo le righe
+          // ancora prive di syncId.
+          await _backfillSyncIds();
         },
       );
 
-  /// Assegna un UUID v4 a ogni riga esistente senza `syncId` (migrazione a
-  /// v5): una query + un update per riga, volumi bassi (uso personale),
-  /// nessun problema di performance. Ogni tabella ha un tipo di riga/Companion
-  /// diverso in Drift, quindi si ripete lo stesso blocco per tabella invece
-  /// di generalizzare con i generics (più semplice da verificare).
+  /// Assegna un UUID v4 a ogni riga senza `syncId`: sia in migrazione (v5)
+  /// sia a ogni avvio (v. beforeOpen, per riparare righe create in seguito da
+  /// codice che bypassa il mapper). Una query + un update per riga, volumi
+  /// bassi (uso personale), nessun problema di performance. Ogni tabella ha
+  /// un tipo di riga/Companion diverso in Drift, quindi si ripete lo stesso
+  /// blocco per tabella invece di generalizzare con i generics (più semplice
+  /// da verificare).
   Future<void> _backfillSyncIds() async {
     const uuid = Uuid();
 

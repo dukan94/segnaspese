@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../app_database.dart';
 import '../tables/recurring_table.dart';
@@ -101,6 +102,10 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
               note: Value(r.description),
               recurringId: Value(r.id),
               updatedAt: Value(DateTime.now()),
+              // Companion costruita a mano (non passa dal mapper, che di
+              // norma genera il syncId): senza questo, le transazioni
+              // generate dalle ricorrenze non venivano mai sincronizzate.
+              syncId: Value(const Uuid().v4()),
             ),
           );
           generated++;

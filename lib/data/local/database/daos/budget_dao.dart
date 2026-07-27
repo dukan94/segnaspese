@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../app_database.dart';
 import '../tables/budgets_table.dart';
@@ -86,6 +87,10 @@ class BudgetDao extends DatabaseAccessor<AppDatabase> with _$BudgetDaoMixin {
             amount: amount,
             startDate: from,
             updatedAt: Value(DateTime.now()),
+            // Companion costruita a mano (non passa dal mapper, che di norma
+            // genera il syncId): senza questo, i budget impostati da UI non
+            // venivano mai sincronizzati.
+            syncId: Value(const Uuid().v4()),
           ),
         );
       } else {
