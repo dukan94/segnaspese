@@ -80,8 +80,26 @@ class TursoSyncService implements SyncService {
     return true;
   }
 
+  bool _syncing = false;
+
   @override
   Future<void> syncNow() async {
+    // Senza questa guardia, un pausa/ripresa ravvicinati (v. app.dart) o il
+    // timer periodico che scatta mentre una sync precedente è ancora in
+    // corso potevano avviare due syncNow() in parallelo: non corrompono i
+    // dati (upsert idempotenti, i pull scartano righe non più recenti), ma
+    // sprecano chiamate HTTP verso Turso e possono far "sfarfallare" lo
+    // stato mostrato in UI.
+    if (_syncing) return;
+    _syncing = true;
+    try {
+      await _syncNowInner();
+    } finally {
+      _syncing = false;
+    }
+  }
+
+  Future<void> _syncNowInner() async {
     if (!await _ensureClient()) {
       _setStatus(SyncStatus.offline);
       return;
@@ -494,8 +512,19 @@ class TursoSyncService implements SyncService {
     if (dirty.isEmpty) return;
 
     final statements = <TursoStatement>[];
+    // Solo le righe effettivamente incluse in `statements` avanzano la
+    // filigrana: se la si calcolasse su `dirty` (tutte le candidate), una
+    // riga scartata perché non ancora risolvibile verrebbe considerata
+    // "già gestita" e non più riproposta ai giri successivi.
+    final processed = <Budget>[];
     for (final r in dirty) {
       final categorySyncId = await _categorySyncId(r.categoryId);
+      // categoryId nullo è legittimo (budget totale del mese, non per
+      // categoria): va distinto dal caso "categoria reale ma non ancora
+      // risolvibile", altrimenti quest'ultimo verrebbe inviato come budget
+      // globale invece di essere rimandato al prossimo giro.
+      if (r.categoryId != null && categorySyncId == null) continue;
+      processed.add(r);
       statements.add(TursoStatement(
         '''
         INSERT INTO sync_budgets (sync_id, category_sync_id, period, amount, start_date, updated_at, is_deleted)
@@ -511,10 +540,11 @@ class TursoSyncService implements SyncService {
         ],
       ));
     }
+    if (processed.isEmpty) return;
     await _client!.execute(statements);
     await _writeWatermark(
       'push_budgets',
-      dirty.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+      processed.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
     );
   }
 

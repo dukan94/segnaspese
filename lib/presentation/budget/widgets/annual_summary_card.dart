@@ -126,39 +126,45 @@ class AnnualSummaryCard extends ConsumerWidget {
           ? ''
           : current.toStringAsFixed(2).replaceAll('.', ','),
     );
-    final value = await showDialog<double>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Obiettivo di risparmio annuo'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-          decoration: const InputDecoration(
-            labelText: 'Importo',
-            suffixText: '€',
-            hintText: 'Es. 2.700,00',
+    try {
+      final value = await showDialog<double>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Obiettivo di risparmio annuo'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+            decoration: const InputDecoration(
+              labelText: 'Importo',
+              suffixText: '€',
+              hintText: 'Es. 2.700,00',
+            ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annulla'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final parsed = parseItalianAmount(controller.text);
+                Navigator.of(context).pop(parsed);
+              },
+              child: const Text('Salva'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Annulla'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final parsed = parseItalianAmount(controller.text);
-              Navigator.of(context).pop(parsed);
-            },
-            child: const Text('Salva'),
-          ),
-        ],
-      ),
-    );
-    if (value == null) return;
-    await ref.read(setAnnualSavingsGoalProvider)(value);
-    if (context.mounted) showSuccessSnackBar(context, 'Obiettivo aggiornato');
+      );
+      if (value == null) return;
+      await ref.read(setAnnualSavingsGoalProvider)(value);
+      if (context.mounted) showSuccessSnackBar(context, 'Obiettivo aggiornato');
+    } finally {
+      // Creato al di fuori di un widget State (metodo su ConsumerWidget):
+      // senza smaltirlo qui, ogni apertura del dialog perdeva un controller.
+      controller.dispose();
+    }
   }
 }
 

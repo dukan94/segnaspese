@@ -52,8 +52,22 @@ class _FinanceAppState extends ConsumerState<FinanceApp> with WidgetsBindingObse
 
   @override
   Widget build(BuildContext context) {
-    final themeMode = ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system;
-    final darkVariant = ref.watch(darkVariantProvider).valueOrNull ?? DarkThemeVariant.boscoNotturno;
+    // .valueOrNull come fallback di rendering è corretto qui (l'app deve
+    // comunque mostrare un tema anche se la lettura fallisce), ma va
+    // loggato: altrimenti un errore reale si confonde silenziosamente con
+    // "nessuna preferenza salvata" (lo stesso difetto del bug tema già
+    // risolto, qui per qualunque altra causa d'errore dello stream).
+    final themeModeAsync = ref.watch(themeModeProvider);
+    if (themeModeAsync.hasError) {
+      debugPrint('Errore lettura tema: ${themeModeAsync.error}');
+    }
+    final themeMode = themeModeAsync.valueOrNull ?? ThemeMode.system;
+
+    final darkVariantAsync = ref.watch(darkVariantProvider);
+    if (darkVariantAsync.hasError) {
+      debugPrint('Errore lettura variante scura: ${darkVariantAsync.error}');
+    }
+    final darkVariant = darkVariantAsync.valueOrNull ?? DarkThemeVariant.boscoNotturno;
 
     return MaterialApp.router(
       title: 'Finanze',

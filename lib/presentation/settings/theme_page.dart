@@ -11,8 +11,15 @@ class ThemePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider).valueOrNull ?? ThemeMode.system;
-    final variant = ref.watch(darkVariantProvider).valueOrNull ?? DarkThemeVariant.boscoNotturno;
+    final modeAsync = ref.watch(themeModeProvider);
+    if (modeAsync.hasError) debugPrint('Errore lettura tema: ${modeAsync.error}');
+    final mode = modeAsync.valueOrNull ?? ThemeMode.system;
+
+    final variantAsync = ref.watch(darkVariantProvider);
+    if (variantAsync.hasError) {
+      debugPrint('Errore lettura variante scura: ${variantAsync.error}');
+    }
+    final variant = variantAsync.valueOrNull ?? DarkThemeVariant.boscoNotturno;
     final setMode = ref.read(setThemeModeProvider);
     final setVariant = ref.read(setDarkVariantProvider);
     final theme = Theme.of(context);

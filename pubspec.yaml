@@ -16,7 +16,6 @@ dependencies:
 
   # State management / DI
   flutter_riverpod: ^2.5.1
-  riverpod_annotation: ^2.3.5
 
   # Routing
   go_router: ^14.2.0
@@ -44,18 +43,14 @@ dependencies:
   # Grafici dashboard
   fl_chart: ^0.68.0
 
-  # Import/Export Excel/CSV
-  excel: ^4.0.6
+  # Import/Export CSV
   csv: ^6.0.0
   file_picker: ^8.0.0
-  share_plus: ^11.0.0
 
   # Utility
   intl: ^0.20.2
   uuid: ^4.4.0
   collection: ^1.18.0
-
-  cupertino_icons: ^1.0.8
 
 dev_dependencies:
   flutter_test:
@@ -65,7 +60,6 @@ dev_dependencies:
   # Code generation
   build_runner: ^2.4.11
   drift_dev: ^2.20.0
-  riverpod_generator: ^2.4.0
 
 flutter:
   uses-material-design: true

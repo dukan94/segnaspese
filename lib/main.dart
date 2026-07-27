@@ -10,6 +10,7 @@ import 'core/di/recurring_providers.dart';
 import 'core/di/sync_providers.dart';
 import 'data/local/seed/dedupe_default_taxonomy.dart';
 import 'data/local/seed/seed_runner.dart';
+import 'presentation/home/home_providers.dart';
 
 void _logSyncError(Object error, StackTrace stackTrace) {
   debugPrint('Sync Turso fallita (background): $error\n$stackTrace');
@@ -49,6 +50,13 @@ Future<void> main() async {
   unawaited(syncService.syncNow().catchError(_logSyncError));
   Timer.periodic(const Duration(minutes: 5), (_) {
     unawaited(syncService.syncNow().catchError(_logSyncError));
+    // currentMonthTransactionsProvider/currentYearTransactionsProvider
+    // calcolano l'intervallo di date una sola volta, alla creazione: senza
+    // invalidarli periodicamente, una sessione desktop lasciata aperta a
+    // cavallo di un cambio mese/anno continuerebbe a mostrare il riepilogo
+    // Home del periodo vecchio.
+    container.invalidate(currentMonthTransactionsProvider);
+    container.invalidate(currentYearTransactionsProvider);
   });
 
   runApp(

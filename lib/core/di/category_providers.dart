@@ -35,7 +35,7 @@ final categoriesByTypeProvider =
 
 /// Sottocategorie di una categoria specifica.
 final subCategoriesProvider =
-    StreamProvider.family<List<SubCategory>, int>((ref, categoryId) {
+    StreamProvider.autoDispose.family<List<SubCategory>, int>((ref, categoryId) {
   return ref.watch(categoryDaoProvider).watchSubCategories(categoryId);
 });
 
