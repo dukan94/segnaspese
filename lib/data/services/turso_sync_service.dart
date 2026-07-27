@@ -107,6 +107,8 @@ class TursoSyncService implements SyncService {
       await _pullBudgets();
       await _pullRecurring();
       await _pullTransactions();
+      await _pushAppSettings();
+      await _pullAppSettings();
 
       _setStatus(SyncStatus.synced);
     } catch (_) {
@@ -163,6 +165,11 @@ class TursoSyncService implements SyncService {
           note TEXT, is_extraordinary INTEGER NOT NULL, is_refund INTEGER NOT NULL,
           recurring_sync_id TEXT, refund_of_sync_id TEXT,
           updated_at INTEGER NOT NULL, is_deleted INTEGER NOT NULL
+        )
+      '''),
+      TursoStatement('''
+        CREATE TABLE IF NOT EXISTS sync_app_settings (
+          key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
         )
       '''),
     ]);
@@ -738,5 +745,75 @@ class TursoSyncService implements SyncService {
       }
     }
     if (maxUpdatedAt != null) await _writeWatermark('pull_transactions', maxUpdatedAt);
+  }
+
+  // --- Impostazioni sincronizzate (whitelist esplicita) ---
+
+  /// Solo queste chiavi della tabella Settings viaggiano su Turso: l'ordine
+  /// drag&drop di categorie/sottocategorie resta volutamente locale (è una
+  /// preferenza di UI, non un dato), le chiavi `sync_*` sono filigrane interne
+  /// di questo stesso motore di sync e non vanno mai toccate da qui.
+  static const _syncedSettingsKeys = [savingsGoalSettingsKey];
+
+  Future<void> _pushAppSettings() async {
+    final since = await _readWatermark('push_app_settings');
+    final dirty = <Setting>[];
+    for (final key in _syncedSettingsKeys) {
+      final row = await (_db.select(_db.settings)
+            ..where((s) =>
+                s.key.equals(key) &
+                s.updatedAt.isBiggerOrEqualValue(since.add(const Duration(milliseconds: 1)))))
+          .getSingleOrNull();
+      if (row != null) dirty.add(row);
+    }
+    if (dirty.isEmpty) return;
+
+    await _client!.execute([
+      for (final r in dirty)
+        TursoStatement(
+          '''
+          INSERT INTO sync_app_settings (key, value, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET
+            value=excluded.value, updated_at=excluded.updated_at
+          WHERE excluded.updated_at > sync_app_settings.updated_at
+          ''',
+          [r.key, r.value, _epoch(r.updatedAt)],
+        ),
+    ]);
+    await _writeWatermark(
+      'push_app_settings',
+      dirty.map((r) => r.updatedAt).reduce((a, b) => a.isAfter(b) ? a : b),
+    );
+  }
+
+  Future<void> _pullAppSettings() async {
+    final since = await _readWatermark('pull_app_settings');
+    final result = await _client!.execute([
+      TursoStatement(
+        'SELECT key, value, updated_at FROM sync_app_settings WHERE updated_at > ?',
+        [_epoch(since)],
+      ),
+    ]);
+    DateTime? maxUpdatedAt;
+    for (final row in result.first.asMaps()) {
+      final key = row['key'] as String;
+      if (!_syncedSettingsKeys.contains(key)) continue; // difesa extra oltre al push
+      final updatedAt = _fromEpoch(row['updated_at']);
+      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
+
+      final existing =
+          await (_db.select(_db.settings)..where((s) => s.key.equals(key))).getSingleOrNull();
+      if (existing != null && !updatedAt.isAfter(existing.updatedAt)) continue;
+
+      await _db.into(_db.settings).insertOnConflictUpdate(
+            SettingsCompanion.insert(
+              key: key,
+              value: row['value'] as String,
+              updatedAt: Value(updatedAt),
+            ),
+          );
+    }
+    if (maxUpdatedAt != null) await _writeWatermark('pull_app_settings', maxUpdatedAt);
   }
 }

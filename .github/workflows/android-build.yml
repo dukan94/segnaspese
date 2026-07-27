@@ -24,6 +24,28 @@ jobs:
           channel: stable
           cache: true
 
+      # Ogni runner di GitHub Actions parte "pulito": senza questo, il plugin
+      # Android genera un keystore di debug NUOVO (casuale) a ogni run, quindi
+      # ogni APK ha una firma diversa e Android rifiuta l'aggiornamento in-place
+      # sul telefono ("pacchetto in conflitto", va disinstallata la versione
+      # precedente). La cache mantiene lo stesso keystore tra una run e
+      # l'altra: generato una sola volta, poi sempre riusato.
+      - name: Cache keystore di debug
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore-v1
+
+      - name: Genera il keystore di debug se non esiste ancora
+        run: |
+          mkdir -p ~/.android
+          if [ ! -f ~/.android/debug.keystore ]; then
+            keytool -genkeypair -v -keystore ~/.android/debug.keystore \
+              -storepass android -keypass android -alias androiddebugkey \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=SegnaSpese Debug,O=Personal,C=IT"
+          fi
+
       - run: flutter pub get
 
       # Rigenera i file *.g.dart (Drift/Riverpod): se qualcuno dimentica di

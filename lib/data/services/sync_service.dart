@@ -1,6 +1,13 @@
 /// Stato di sincronizzazione mostrato in UI (v. wireframe: icona in Home).
 enum SyncStatus { offline, syncing, synced, error }
 
+/// Chiave dell'obiettivo di risparmio annuo nella tabella Settings: unica
+/// chiave "impostazione" sincronizzata via Turso per ora (v.
+/// TursoSyncService._pushAppSettings/_pullAppSettings). Vive qui, non in
+/// core/di/settings_providers.dart, perché il layer dati non deve dipendere
+/// dal layer DI/presentazione.
+const String savingsGoalSettingsKey = 'annual_savings_goal';
+
 /// Servizio responsabile della sincronizzazione multi-dispositivo tramite
 /// Turso (libSQL), in modalità "embedded replica": l'app legge/scrive
 /// sempre sul database SQLite locale (drift/AppDatabase), questo servizio

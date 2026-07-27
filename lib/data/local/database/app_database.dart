@@ -54,7 +54,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -90,6 +90,21 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(recurringTransactions, recurringTransactions.syncId);
             await m.addColumn(transactions, transactions.syncId);
             await _backfillSyncIds();
+          }
+          // v6: colonna "updatedAt" sulla tabella Settings, necessaria per
+          // sincronizzare via Turso l'obiettivo di risparmio annuo (le altre
+          // chiavi, es. ordine categorie, restano locali e non la usano).
+          // SQLite non permette ALTER TABLE ADD COLUMN con un DEFAULT non
+          // costante (currentDateAndTime è una funzione, non un literal):
+          // stesso tipo di limite già incontrato con UNIQUE per syncId in v5.
+          // Aggiungiamo la colonna nuda via SQL grezzo e valorizziamo le righe
+          // esistenti con un update esplicito.
+          if (from < 6) {
+            await customStatement('ALTER TABLE settings ADD COLUMN updated_at INTEGER');
+            await customStatement(
+              'UPDATE settings SET updated_at = ? WHERE updated_at IS NULL',
+              [DateTime.now().millisecondsSinceEpoch],
+            );
           }
         },
         // NOTA: l'ordine manuale (drag & drop) di categorie/sottocategorie
