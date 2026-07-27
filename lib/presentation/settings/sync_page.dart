@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInput;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/di/sync_providers.dart';
@@ -57,6 +58,10 @@ class _SyncPageState extends ConsumerState<SyncPage> {
             authToken: _tokenController.text.trim(),
           );
       await ref.read(syncServiceProvider).syncNow();
+      // Chiude il contesto di autofill: su Android è il segnale che fa
+      // comparire il prompt "Salva in Proton Pass" (o altro password manager)
+      // per queste credenziali, se non erano già salvate.
+      TextInput.finishAutofillContext();
       if (!mounted) return;
       showSuccessSnackBar(context, 'Configurazione salvata, sync avviata');
     } catch (e) {
@@ -99,25 +104,40 @@ class _SyncPageState extends ConsumerState<SyncPage> {
           const SizedBox(height: 16),
           _StatusBanner(status: status),
           const SizedBox(height: 24),
-          TextField(
-            controller: _urlController,
-            decoration: const InputDecoration(
-              labelText: 'URL database Turso',
-              hintText: 'libsql://nome-db-org.turso.io',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _tokenController,
-            obscureText: _obscureToken,
-            decoration: InputDecoration(
-              labelText: 'Auth token',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureToken ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                onPressed: () => setState(() => _obscureToken = !_obscureToken),
-              ),
+          // AutofillGroup + autofillHints: permette a un password manager
+          // (es. Proton Pass) installato come servizio di autofill Android di
+          // proporre di compilare questi campi da una voce salvata, invece di
+          // dover copiare/incollare a mano URL e token ogni volta.
+          AutofillGroup(
+            child: Column(
+              children: [
+                TextField(
+                  controller: _urlController,
+                  keyboardType: TextInputType.url,
+                  autofillHints: const [AutofillHints.url],
+                  decoration: const InputDecoration(
+                    labelText: 'URL database Turso',
+                    hintText: 'libsql://nome-db-org.turso.io',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _tokenController,
+                  obscureText: _obscureToken,
+                  autofillHints: const [AutofillHints.password],
+                  decoration: InputDecoration(
+                    labelText: 'Auth token',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscureToken
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined),
+                      onPressed: () => setState(() => _obscureToken = !_obscureToken),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 24),
