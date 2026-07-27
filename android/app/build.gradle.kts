@@ -27,10 +27,23 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        getByName("debug") {
+            // Keystore fisso e committato (v. .github/workflows/android-build.yml),
+            // non quello generato di default in ~/.android — così ogni build CI
+            // firma allo stesso modo e gli aggiornamenti sul telefono si
+            // installano sopra quello esistente invece di andare in conflitto.
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            // Firmato con le stesse chiavi di debug per ora (nessuna
+            // distribuzione su store): vedi signingConfigs sopra.
             signingConfig = signingConfigs.getByName("debug")
         }
     }

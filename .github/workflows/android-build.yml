@@ -8,6 +8,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Necessario per poter ricommittare il keystore generato la prima volta
+# (v. step "Genera e salva" sotto).
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,26 +29,29 @@ jobs:
           channel: stable
           cache: true
 
-      # Ogni runner di GitHub Actions parte "pulito": senza questo, il plugin
-      # Android genera un keystore di debug NUOVO (casuale) a ogni run, quindi
-      # ogni APK ha una firma diversa e Android rifiuta l'aggiornamento in-place
-      # sul telefono ("pacchetto in conflitto", va disinstallata la versione
-      # precedente). La cache mantiene lo stesso keystore tra una run e
-      # l'altra: generato una sola volta, poi sempre riusato.
-      - name: Cache keystore di debug
-        uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: android-debug-keystore-v1
-
-      - name: Genera il keystore di debug se non esiste ancora
+      # Ogni runner di GitHub Actions parte "pulito": senza un keystore di
+      # debug stabile, il plugin Android ne genera uno NUOVO (casuale) a ogni
+      # run, quindi ogni APK ha una firma diversa e Android rifiuta
+      # l'aggiornamento in-place sul telefono ("pacchetto in conflitto", va
+      # disinstallata la versione precedente). actions/cache si è rivelata
+      # inaffidabile per questo (non sempre ripristinata prima della build):
+      # il keystore è quindi un file vero, committato nel repo la prima volta
+      # che questo workflow gira, poi sempre riusato invariato. android/app/
+      # build.gradle.kts punta esplicitamente a questo file (v. signingConfigs).
+      - name: Genera e salva il keystore di debug (una tantum)
         run: |
-          mkdir -p ~/.android
-          if [ ! -f ~/.android/debug.keystore ]; then
-            keytool -genkeypair -v -keystore ~/.android/debug.keystore \
+          if [ ! -f android/app/debug.keystore ]; then
+            keytool -genkeypair -v -keystore android/app/debug.keystore \
               -storepass android -keypass android -alias androiddebugkey \
               -keyalg RSA -keysize 2048 -validity 10000 \
               -dname "CN=SegnaSpese Debug,O=Personal,C=IT"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add android/app/debug.keystore
+            git commit -m "Aggiungi keystore di debug persistente per CI [skip ci]"
+            # checkout lascia HEAD "distaccato" sugli eventi push: bisogna
+            # specificare il branch di destinazione esplicitamente.
+            git push origin HEAD:main
           fi
 
       - run: flutter pub get

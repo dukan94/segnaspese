@@ -95,10 +95,10 @@ class HomePage extends ConsumerWidget {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => _openNewTransactionSheet(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Nuova'),
+        tooltip: 'Nuova operazione',
+        child: const Icon(Icons.add),
       ),
     );
   }

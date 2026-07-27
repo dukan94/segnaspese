@@ -214,7 +214,7 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(_isEditing ? 'Modifica operazione' : 'Nuova operazione'),
+        title: Text(_isEditing ? 'Modifica operazione' : 'Aggiungi Transazione'),
         actions: [
           IconButton(
             icon: _saving

@@ -12,3 +12,11 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Eccezione deliberata: app/debug.keystore è un keystore di SOLO debug (alias
+# e password standard, pubblici, nessun valore di sicurezza reale) committato
+# di proposito per firmare le build CI sempre allo stesso modo — altrimenti
+# ogni run genera una firma diversa e l'aggiornamento sul telefono va in
+# conflitto (v. .github/workflows/android-build.yml). Non è mai una chiave di
+# release: quella andrebbe sempre tenuta fuori dal repo.
+!app/debug.keystore

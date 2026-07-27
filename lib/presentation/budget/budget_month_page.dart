@@ -134,18 +134,34 @@ class _TotalCard extends StatelessWidget {
                   ),
                 ),
                 if (!readOnly)
-                  FilledButton.tonalIcon(
-                    onPressed: () => showBudgetAmountDialog(
-                      context,
-                      month: monthKey,
-                      title: 'Budget totale — $monthLabel',
-                      subtitle: 'Importo complessivo che vuoi spendere nel mese.',
-                      initialAmount: detail.total,
-                      existingId: detail.totalBudgetId,
+                  if (detail.hasTotal)
+                    // Budget già impostato: la modifica è un'azione ormai
+                    // familiare in questo contesto, basta l'icona.
+                    IconButton(
+                      onPressed: () => showBudgetAmountDialog(
+                        context,
+                        month: monthKey,
+                        title: 'Budget totale — $monthLabel',
+                        subtitle: 'Importo complessivo che vuoi spendere nel mese.',
+                        initialAmount: detail.total,
+                        existingId: detail.totalBudgetId,
+                      ),
+                      icon: const Icon(Icons.edit_outlined),
+                      tooltip: 'Modifica',
+                    )
+                  else
+                    FilledButton.tonalIcon(
+                      onPressed: () => showBudgetAmountDialog(
+                        context,
+                        month: monthKey,
+                        title: 'Budget totale — $monthLabel',
+                        subtitle: 'Importo complessivo che vuoi spendere nel mese.',
+                        initialAmount: detail.total,
+                        existingId: detail.totalBudgetId,
+                      ),
+                      icon: const Icon(Icons.add),
+                      label: const Text('Imposta'),
                     ),
-                    icon: Icon(detail.hasTotal ? Icons.edit_outlined : Icons.add),
-                    label: Text(detail.hasTotal ? 'Modifica' : 'Imposta'),
-                  ),
               ],
             ),
             if (detail.hasTotal) ...[
