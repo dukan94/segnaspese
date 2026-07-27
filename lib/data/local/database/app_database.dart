@@ -132,6 +132,19 @@ class AppDatabase extends _$AppDatabase {
               'ON $table(sync_id) WHERE sync_id IS NOT NULL',
             );
           }
+
+          // Ripara righe di Settings con updated_at NULL: la colonna aggiunta
+          // in v6 non ha un DEFAULT a livello di schema (stesso motivo di
+          // sopra), quindi qualunque riga scritta senza specificarlo
+          // esplicitamente diventava NULL — e il mapper di Drift (non
+          // nullable per questa colonna) va in crash leggendola indietro. I
+          // punti di scrittura sono stati sistemati, ma questo ripara anche
+          // le righe già corrotte da prima del fix. SQL grezzo apposta: una
+          // SELECT tipizzata su una riga NULL fallirebbe allo stesso modo.
+          await customStatement(
+            'UPDATE settings SET updated_at = ? WHERE updated_at IS NULL',
+            [DateTime.now().millisecondsSinceEpoch],
+          );
         },
       );
 

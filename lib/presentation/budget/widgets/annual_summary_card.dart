@@ -222,9 +222,14 @@ class _MiniTable extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 3),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: theme.textTheme.bodySmall),
+          Expanded(
+            child: Text(label, style: theme.textTheme.bodySmall),
+          ),
+          // Spazio minimo garantito: con "spaceBetween" e poco margine (due
+          // colonne affiancate su schermo stretto) etichetta e importo
+          // potevano finire quasi a contatto.
+          const SizedBox(width: 8),
           Flexible(
             child: FittedBox(
               fit: BoxFit.scaleDown,

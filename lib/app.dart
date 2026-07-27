@@ -44,7 +44,9 @@ class _FinanceAppState extends ConsumerState<FinanceApp> with WidgetsBindingObse
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.detached ||
         state == AppLifecycleState.resumed) {
-      ref.read(syncServiceProvider).syncNow().catchError((_) {});
+      ref.read(syncServiceProvider).syncNow().catchError((Object e, StackTrace st) {
+        debugPrint('Sync Turso fallita (lifecycle $state): $e\n$st');
+      });
     }
   }
 

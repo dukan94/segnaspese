@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,7 +44,11 @@ final themeModeProvider = StreamProvider<ThemeMode>((ref) {
 final setThemeModeProvider = Provider<Future<void> Function(ThemeMode)>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return (mode) => db.into(db.settings).insertOnConflictUpdate(
-        SettingsCompanion.insert(key: _themeModeKey, value: _themeModeToValue(mode)),
+        SettingsCompanion.insert(
+          key: _themeModeKey,
+          value: _themeModeToValue(mode),
+          updatedAt: Value(DateTime.now()),
+        ),
       );
 });
 
@@ -62,6 +67,10 @@ final darkVariantProvider = StreamProvider<DarkThemeVariant>((ref) {
 final setDarkVariantProvider = Provider<Future<void> Function(DarkThemeVariant)>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return (variant) => db.into(db.settings).insertOnConflictUpdate(
-        SettingsCompanion.insert(key: _darkVariantKey, value: variant.name),
+        SettingsCompanion.insert(
+          key: _darkVariantKey,
+          value: variant.name,
+          updatedAt: Value(DateTime.now()),
+        ),
       );
 });

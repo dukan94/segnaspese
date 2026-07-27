@@ -63,6 +63,7 @@ Future<void> runSeed(AppDatabase db) async {
         SettingsCompanion.insert(
           key: _seedVersionKey,
           value: '$kSeedVersion',
+          updatedAt: Value(DateTime.now()),
         ),
       );
 }

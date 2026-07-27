@@ -11,6 +11,10 @@ import 'core/di/sync_providers.dart';
 import 'data/local/seed/dedupe_default_taxonomy.dart';
 import 'data/local/seed/seed_runner.dart';
 
+void _logSyncError(Object error, StackTrace stackTrace) {
+  debugPrint('Sync Turso fallita (background): $error\n$stackTrace');
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -38,11 +42,13 @@ Future<void> main() async {
 
   // Sync Turso (Milestone M7): non deve mai bloccare l'avvio né far
   // crashare l'app se non configurata o offline, quindi fire-and-forget con
-  // try/catch. Si ripete ogni 5 minuti mentre l'app resta aperta.
+  // try/catch (ma loggato, non silenzioso: altrimenti un errore di sync in
+  // background non sarebbe mai diagnosticabile). Si ripete ogni 5 minuti
+  // mentre l'app resta aperta.
   final syncService = container.read(syncServiceProvider);
-  unawaited(syncService.syncNow().catchError((_) {}));
+  unawaited(syncService.syncNow().catchError(_logSyncError));
   Timer.periodic(const Duration(minutes: 5), (_) {
-    unawaited(syncService.syncNow().catchError((_) {}));
+    unawaited(syncService.syncNow().catchError(_logSyncError));
   });
 
   runApp(

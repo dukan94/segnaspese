@@ -195,7 +195,11 @@ class TursoSyncService implements SyncService {
 
   Future<void> _writeWatermark(String key, DateTime value) {
     return _db.into(_db.settings).insertOnConflictUpdate(
-          SettingsCompanion.insert(key: 'sync_$key', value: value.millisecondsSinceEpoch.toString()),
+          SettingsCompanion.insert(
+            key: 'sync_$key',
+            value: value.millisecondsSinceEpoch.toString(),
+            updatedAt: Value(DateTime.now()),
+          ),
         );
   }
 

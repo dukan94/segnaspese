@@ -44,7 +44,11 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
 
   Future<void> _writeOrderedIds(String key, List<int> ids) {
     return into(settings).insertOnConflictUpdate(
-      SettingsCompanion.insert(key: key, value: ids.join(',')),
+      SettingsCompanion.insert(
+        key: key,
+        value: ids.join(','),
+        updatedAt: Value(DateTime.now()),
+      ),
     );
   }
 
