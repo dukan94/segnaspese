@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 
 /// Sottocategorie di default, seedate al primo avvio subito dopo le
@@ -73,8 +74,15 @@ Future<void> seedDefaultSubCategories(AppDatabase db) async {
               categoryId: categoryIdByName(categoryName),
               name: name,
               icon: Value(icon),
+              syncId: Value(_defaultSubCategorySyncId(categoryName, name)),
             ),
           );
     }
   });
+}
+
+/// syncId deterministico, stesso motivo di _defaultCategorySyncId in
+/// default_categories_seed.dart.
+String _defaultSubCategorySyncId(String categoryName, String name) {
+  return const Uuid().v5(Namespace.url.value, 'segnaspese:subcategory:$categoryName:$name');
 }

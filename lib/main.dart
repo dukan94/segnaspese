@@ -8,6 +8,7 @@ import 'app.dart';
 import 'core/di/database_provider.dart';
 import 'core/di/recurring_providers.dart';
 import 'core/di/sync_providers.dart';
+import 'data/local/seed/dedupe_default_taxonomy.dart';
 import 'data/local/seed/seed_runner.dart';
 
 Future<void> main() async {
@@ -23,6 +24,12 @@ Future<void> main() async {
   // sottocategorie e regole; se la tassonomia di default è cambiata
   // (kSeedVersion) esegue un reset pulito e ripopola (v. seed_runner.dart).
   await runSeed(db);
+
+  // Ripara eventuali doppioni di categorie/sottocategorie/regole di default
+  // creati da dispositivi che hanno seedato la tassonomia indipendentemente
+  // prima di sincronizzare (v. dedupe_default_taxonomy.dart). Innocuo e
+  // veloce quando non ce ne sono.
+  await dedupeDefaultTaxonomy(db);
 
   // Genera le transazioni dovute dai movimenti ricorrenti attivi (recupera
   // anche le occorrenze arretrate se l'app non veniva aperta da più periodi).

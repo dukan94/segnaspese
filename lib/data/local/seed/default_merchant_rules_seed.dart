@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 
 /// Regole di classificazione di default (v. progettazione, sezione
@@ -57,8 +58,15 @@ Future<void> seedDefaultMerchantRules(AppDatabase db) async {
               categoryId: categoryId,
               subCategoryId: Value(subCategoryId),
               isUserDefined: const Value(false),
+              syncId: Value(_defaultRuleSyncId(pattern)),
             ),
           );
     }
   });
+}
+
+/// syncId deterministico, stesso motivo di _defaultCategorySyncId in
+/// default_categories_seed.dart.
+String _defaultRuleSyncId(String pattern) {
+  return const Uuid().v5(Namespace.url.value, 'segnaspese:merchant_rule:$pattern');
 }

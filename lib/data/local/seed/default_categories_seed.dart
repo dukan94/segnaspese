@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
 import '../database/tables/categories_table.dart';
 
@@ -44,6 +45,7 @@ Future<void> seedDefaultCategories(AppDatabase db) async {
               type: TransactionKind.income,
               color: color,
               isDefault: const Value(true),
+              syncId: Value(_defaultCategorySyncId(name, TransactionKind.income)),
             ),
           );
     }
@@ -55,8 +57,18 @@ Future<void> seedDefaultCategories(AppDatabase db) async {
               type: TransactionKind.expense,
               color: color,
               isDefault: const Value(true),
+              syncId: Value(_defaultCategorySyncId(name, TransactionKind.expense)),
             ),
           );
     }
   });
+}
+
+/// syncId deterministico (UUID v5: stesso input → stesso UUID ovunque),
+/// invece di uno casuale: senza questo, due dispositivi che seedano la
+/// stessa categoria di default indipendentemente (prima ancora di
+/// sincronizzare) finiscono con `syncId` diversi e la sync li duplica
+/// (v. dedupe_default_taxonomy.dart per la pulizia dei doppioni già creati).
+String _defaultCategorySyncId(String name, TransactionKind type) {
+  return const Uuid().v5(Namespace.url.value, 'segnaspese:category:$name:${type.name}');
 }
