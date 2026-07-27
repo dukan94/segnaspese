@@ -9,20 +9,24 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../core/di/gemini_providers.dart';
 import '../../core/di/merchant_rule_providers.dart';
 import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
+import '../../data/services/gemini_vision_service.dart';
 import '../../domain/entities/merchant_rule_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../transaction/widgets/category_picker.dart';
 
 /// Schermata "Scansiona scontrino" (M3).
 ///
-/// Su mobile si scatta una foto (o se ne sceglie una dalla galleria) e il
-/// testo viene estratto con ML Kit OCR; su desktop (e per i test) si incolla
-/// il testo a mano. In entrambi i casi il testo finisce nello stesso
-/// `_analyze()`. Dopo l'analisi si conferma negozio/importo/categoria: se
+/// Su mobile si scatta una foto (o se ne sceglie una dalla galleria): se una
+/// API key Gemini è configurata (v. `gemini_vision_service.dart`), la foto
+/// viene analizzata dall'AI cloud; altrimenti (o se la chiamata fallisce) si
+/// ripiega sul testo estratto con ML Kit OCR + regex. Su desktop si incolla
+/// il testo a mano. In tutti i casi i dati riconosciuti finiscono in
+/// `_finishAnalysis()`. Dopo l'analisi si conferma negozio/importo/categoria: se
 /// nessuna regola riconosce il negozio, un interruttore "Ricorda" crea una
 /// regola automatica per le prossime volte.
 class ReceiptScanPage extends ConsumerStatefulWidget {
@@ -75,18 +79,34 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
     }
     final parser = ref.read(receiptParserServiceProvider);
     final parsed = parser.parse(raw);
+    await _finishAnalysis(
+      merchant: parsed.merchantName,
+      total: parsed.total,
+      textForRuleMatching: raw,
+    );
+  }
 
-    // Prova a classificare con le regole esistenti.
+  /// Applica i dati riconosciuti (da OCR+regex o da vision-LLM) ai campi del
+  /// form e prova a classificare il negozio con le regole esistenti. Comune
+  /// a entrambi i percorsi (mobile e desktop) per non duplicare la logica di
+  /// classificazione/apprendimento.
+  Future<void> _finishAnalysis({
+    required String? merchant,
+    required double? total,
+    DateTime? date,
+    required String textForRuleMatching,
+  }) async {
     final rules = await ref.read(merchantRuleRepositoryProvider).getAll();
-    final match = ref.read(ruleMatcherServiceProvider).match(raw, rules);
+    final match =
+        ref.read(ruleMatcherServiceProvider).match(textForRuleMatching, rules);
 
     if (!mounted) return;
     setState(() {
       _analyzed = true;
-      _merchantController.text = parsed.merchantName ?? '';
-      _amountController.text = parsed.total == null
-          ? ''
-          : parsed.total!.toStringAsFixed(2).replaceAll('.', ',');
+      _merchantController.text = merchant ?? '';
+      _amountController.text =
+          total == null ? '' : total.toStringAsFixed(2).replaceAll('.', ',');
+      if (date != null) _date = date;
       if (match != null && match.subCategoryId != null) {
         _selection = SubCategorySelection(
           categoryId: match.categoryId,
@@ -102,10 +122,10 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
     });
   }
 
-  /// Scatta/seleziona una foto dello scontrino, la persiste, esegue l'OCR
-  /// (ML Kit) sul testo riconosciuto e richiama [_analyze] — la stessa
-  /// pipeline di parsing/classificazione già usata per il testo incollato,
-  /// senza duplicarla.
+  /// Scatta/seleziona una foto dello scontrino, la persiste e la analizza:
+  /// prova prima Gemini (se una API key è configurata), altrimenti — o se la
+  /// chiamata cloud fallisce — ripiega sull'OCR ML Kit + regex, così l'app
+  /// resta utilizzabile anche offline o senza key configurata.
   Future<void> _captureAndScan(ImageSource source) async {
     final XFile? photo;
     try {
@@ -119,16 +139,41 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
 
     setState(() => _scanning = true);
     try {
-      // L'XFile di image_picker vive spesso in una cache temporanea: lo
-      // copiamo nella cartella "application support" (stessa scelta di
-      // app_database.dart, non soggetta a redirect OneDrive) così sopravvive
-      // oltre la sessione, per poterlo riaprire dallo storico in futuro.
-      final supportDir = await getApplicationSupportDirectory();
-      final receiptsDir = Directory(p.join(supportDir.path, 'receipts'));
-      await receiptsDir.create(recursive: true);
-      final savedPath = p.join(receiptsDir.path, '${const Uuid().v4()}.jpg');
-      await File(photo.path).copy(savedPath);
+      final savedPath = await _persistImage(File(photo.path));
+      if (!mounted) return;
+      setState(() => _imagePath = savedPath);
 
+      final apiKey = await ref.read(geminiApiKeyStoreProvider).read();
+      if (apiKey != null && apiKey.isNotEmpty) {
+        try {
+          final model =
+              ref.read(geminiModelProvider).valueOrNull ?? geminiModelDefault;
+          final aiResult =
+              await ref.read(geminiVisionServiceProvider).analyzeReceipt(
+                    File(savedPath),
+                    apiKey: apiKey,
+                    model: model,
+                  );
+          if (!mounted) return;
+          setState(() => _scanning = false);
+          await _finishAnalysis(
+            merchant: aiResult.merchantName,
+            total: aiResult.total,
+            date: aiResult.date,
+            textForRuleMatching: aiResult.merchantName ?? '',
+          );
+          return;
+        } on GeminiApiException catch (e) {
+          if (!mounted) return;
+          showErrorSnackBar(
+            context,
+            'AI cloud non disponibile (${e.message}), uso il riconoscimento offline.',
+          );
+        }
+      }
+
+      // Fallback: OCR ML Kit + regex (nessuna key configurata, o Gemini non
+      // ha risposto correttamente).
       final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
       final RecognizedText result;
       try {
@@ -138,7 +183,6 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
       }
 
       if (!mounted) return;
-      _imagePath = savedPath;
       _rawController.text = result.text;
       setState(() => _scanning = false);
       await _analyze();
@@ -147,6 +191,19 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
       setState(() => _scanning = false);
       showErrorSnackBar(context, 'Errore durante la scansione: $e');
     }
+  }
+
+  /// Copia [source] nella cartella "application support" (stessa scelta di
+  /// app_database.dart, non soggetta a redirect OneDrive) così l'immagine
+  /// sopravvive oltre la sessione corrente (image_picker e file_picker
+  /// restituiscono spesso un path in una cache temporanea).
+  Future<String> _persistImage(File source) async {
+    final supportDir = await getApplicationSupportDirectory();
+    final receiptsDir = Directory(p.join(supportDir.path, 'receipts'));
+    await receiptsDir.create(recursive: true);
+    final savedPath = p.join(receiptsDir.path, '${const Uuid().v4()}.jpg');
+    await source.copy(savedPath);
+    return savedPath;
   }
 
   Future<void> _pickDate() async {
@@ -260,7 +317,7 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   SizedBox(width: 10),
-                  Text('Riconoscimento testo in corso...'),
+                  Text('Analisi in corso...'),
                 ],
               ),
             ],

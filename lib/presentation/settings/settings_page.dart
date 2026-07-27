@@ -43,6 +43,12 @@ class SettingsPage extends StatelessWidget {
             onTap: () => context.push('/settings/sync'),
           ),
           ListTile(
+            leading: const Icon(Icons.smart_toy_outlined),
+            title: const Text('AI per scontrini (Gemini)'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/gemini'),
+          ),
+          ListTile(
             leading: const Icon(Icons.palette_outlined),
             title: const Text('Tema'),
             trailing: const Icon(Icons.chevron_right),
