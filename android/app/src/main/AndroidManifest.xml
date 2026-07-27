@@ -3,6 +3,8 @@
          tramite i rispettivi overlay): la sync Turso (v. data/services/
          turso_http_client.dart) fa chiamate HTTP reali anche in release. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Scansione scontrini (M3): image_picker con ImageSource.camera. -->
+    <uses-permission android:name="android.permission.CAMERA"/>
 
     <application
         android:label="SegnaSpese"

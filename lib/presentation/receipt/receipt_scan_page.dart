@@ -1,6 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/di/merchant_rule_providers.dart';
 import '../../core/di/transaction_providers.dart';
@@ -12,9 +19,10 @@ import '../transaction/widgets/category_picker.dart';
 
 /// Schermata "Scansiona scontrino" (M3).
 ///
-/// Su desktop (e per i test) si incolla il testo dello scontrino; su mobile
-/// arriverà la fotocamera + OCR (ML Kit), che produrrà lo stesso testo dato in
-/// pasto al parser. Dopo l'analisi si conferma negozio/importo/categoria: se
+/// Su mobile si scatta una foto (o se ne sceglie una dalla galleria) e il
+/// testo viene estratto con ML Kit OCR; su desktop (e per i test) si incolla
+/// il testo a mano. In entrambi i casi il testo finisce nello stesso
+/// `_analyze()`. Dopo l'analisi si conferma negozio/importo/categoria: se
 /// nessuna regola riconosce il negozio, un interruttore "Ricorda" crea una
 /// regola automatica per le prossime volte.
 class ReceiptScanPage extends ConsumerStatefulWidget {
@@ -35,6 +43,14 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
   bool _matchedByRule = false;
   bool _remember = true;
   bool _saving = false;
+
+  /// true durante lo scatto/selezione foto e l'OCR (v. [_captureAndScan]).
+  bool _scanning = false;
+
+  /// Path persistito della foto scattata (cartella "application support",
+  /// non la cache temporanea di image_picker), salvato su
+  /// `TransactionEntity.receiptImagePath` al momento del salvataggio.
+  String? _imagePath;
 
   @override
   void dispose() {
@@ -86,6 +102,53 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
     });
   }
 
+  /// Scatta/seleziona una foto dello scontrino, la persiste, esegue l'OCR
+  /// (ML Kit) sul testo riconosciuto e richiama [_analyze] — la stessa
+  /// pipeline di parsing/classificazione già usata per il testo incollato,
+  /// senza duplicarla.
+  Future<void> _captureAndScan(ImageSource source) async {
+    final XFile? photo;
+    try {
+      photo = await ImagePicker().pickImage(source: source, imageQuality: 85);
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Fotocamera non disponibile: $e');
+      return;
+    }
+    if (photo == null) return; // annullato dall'utente
+
+    setState(() => _scanning = true);
+    try {
+      // L'XFile di image_picker vive spesso in una cache temporanea: lo
+      // copiamo nella cartella "application support" (stessa scelta di
+      // app_database.dart, non soggetta a redirect OneDrive) così sopravvive
+      // oltre la sessione, per poterlo riaprire dallo storico in futuro.
+      final supportDir = await getApplicationSupportDirectory();
+      final receiptsDir = Directory(p.join(supportDir.path, 'receipts'));
+      await receiptsDir.create(recursive: true);
+      final savedPath = p.join(receiptsDir.path, '${const Uuid().v4()}.jpg');
+      await File(photo.path).copy(savedPath);
+
+      final recognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      final RecognizedText result;
+      try {
+        result = await recognizer.processImage(InputImage.fromFilePath(savedPath));
+      } finally {
+        await recognizer.close();
+      }
+
+      if (!mounted) return;
+      _imagePath = savedPath;
+      _rawController.text = result.text;
+      setState(() => _scanning = false);
+      await _analyze();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _scanning = false);
+      showErrorSnackBar(context, 'Errore durante la scansione: $e');
+    }
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -109,6 +172,7 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
       categoryId: _selection!.categoryId,
       subCategoryId: _selection!.subCategoryId,
       note: merchant.isEmpty ? null : merchant,
+      receiptImagePath: _imagePath,
     );
 
     try {
@@ -162,7 +226,58 @@ class _ReceiptScanPageState extends ConsumerState<ReceiptScanPage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const _CameraHint(),
+          if (Platform.isAndroid || Platform.isIOS) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _scanning || _saving
+                        ? null
+                        : () => _captureAndScan(ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Scatta foto'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _scanning || _saving
+                        ? null
+                        : () => _captureAndScan(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Galleria'),
+                  ),
+                ),
+              ],
+            ),
+            if (_scanning) ...[
+              const SizedBox(height: 12),
+              const Row(
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 10),
+                  Text('Riconoscimento testo in corso...'),
+                ],
+              ),
+            ],
+            if (_imagePath != null) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(File(_imagePath!), height: 140, fit: BoxFit.cover),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Text(
+              'Puoi anche correggere il testo riconosciuto qui sotto prima di analizzare:',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ] else
+            const _DesktopHint(),
           const SizedBox(height: 12),
           TextField(
             controller: _rawController,
@@ -285,8 +400,10 @@ double? _parseAmount(String raw) {
   return value;
 }
 
-class _CameraHint extends StatelessWidget {
-  const _CameraHint();
+/// Fotocamera/galleria non disponibili su desktop (`image_picker` non le
+/// supporta lì): unico modo per provare il flusso è incollare il testo.
+class _DesktopHint extends StatelessWidget {
+  const _DesktopHint();
 
   @override
   Widget build(BuildContext context) {
@@ -301,9 +418,8 @@ class _CameraHint extends StatelessWidget {
             SizedBox(width: 12),
             Expanded(
               child: Text(
-                'Su telefono qui ci sarà la fotocamera con riconoscimento '
-                'automatico del testo. Su desktop incolla il testo per provare '
-                'il flusso.',
+                'Fotocamera disponibile solo su telefono. Su desktop incolla '
+                'qui sotto il testo dello scontrino per provare il flusso.',
               ),
             ),
           ],
