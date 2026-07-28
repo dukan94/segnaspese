@@ -13,7 +13,20 @@ class MonthlyTrendChart extends StatelessWidget {
   final List<double> monthlyExpense; // 12 valori (gen..dic)
   final List<double> monthlyBudget; // 12 valori
 
-  static const _labels = ['G', 'F', 'M', 'A', 'M', 'G', 'L', 'A', 'S', 'O', 'N', 'D'];
+  static const _labels = [
+    'G',
+    'F',
+    'M',
+    'A',
+    'M',
+    'G',
+    'L',
+    'A',
+    'S',
+    'O',
+    'N',
+    'D'
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +38,17 @@ class MonthlyTrendChart extends StatelessWidget {
     for (final v in [...monthlyExpense, ...monthlyBudget]) {
       if (v > maxValue) maxValue = v;
     }
-    final maxY = maxValue <= 0 ? 10.0 : maxValue * 1.15;
+    if (maxValue <= 0) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text('Nessun dato per gli ultimi 12 mesi',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.outline)),
+        ),
+      );
+    }
+    final maxY = maxValue * 1.15;
     final leftInterval = maxY / 4;
 
     return Column(
@@ -83,8 +106,8 @@ class MonthlyTrendChart extends StatelessWidget {
                       if (i < 0 || i > 11) return const SizedBox.shrink();
                       return Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Text(_labels[i],
-                            style: theme.textTheme.bodySmall),
+                        child:
+                            Text(_labels[i], style: theme.textTheme.bodySmall),
                       );
                     },
                   ),

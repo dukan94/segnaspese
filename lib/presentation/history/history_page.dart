@@ -9,6 +9,8 @@ import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
+import '../shared_widgets/empty_state.dart';
+import '../shared_widgets/fade_in_item.dart';
 import '../shared_widgets/linked_expense_sheet.dart';
 import '../transaction/add_transaction_page.dart';
 
@@ -75,13 +77,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     if (t.id != null) t.id!: t,
                 };
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Text(
-                      all.isEmpty
-                          ? 'Nessuna operazione'
-                          : 'Nessun risultato per "${_searchController.text}"',
-                      style: TextStyle(color: Theme.of(context).colorScheme.outline),
-                    ),
+                  return EmptyState(
+                    icon: all.isEmpty
+                        ? Icons.receipt_long_outlined
+                        : Icons.search_off_outlined,
+                    message: all.isEmpty
+                        ? 'Nessuna operazione'
+                        : 'Nessun risultato per "${_searchController.text}"',
                   );
                 }
                 return ListView.builder(
@@ -89,23 +91,27 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final tx = filtered[i];
-                    final linked = tx.refundOfId != null ? byId[tx.refundOfId] : null;
+                    final linked =
+                        tx.refundOfId != null ? byId[tx.refundOfId] : null;
                     final canRefund =
                         tx.type == TransactionType.expense && !tx.isRefund;
-                    return _HistoryTile(
-                      tx: tx,
-                      category: catById[tx.categoryId],
-                      onEdit: () => _edit(tx),
-                      onDelete: () => _confirmDelete(tx),
-                      onRefund: canRefund ? () => _refund(tx) : null,
-                      linkedExpense: linked,
-                      onShowLinked: linked == null
-                          ? null
-                          : () => showLinkedExpenseSheet(
-                                context,
-                                linked,
-                                catById[linked.categoryId],
-                              ),
+                    return FadeInItem(
+                      key: ValueKey(tx.id),
+                      child: _HistoryTile(
+                        tx: tx,
+                        category: catById[tx.categoryId],
+                        onEdit: () => _edit(tx),
+                        onDelete: () => _confirmDelete(tx),
+                        onRefund: canRefund ? () => _refund(tx) : null,
+                        linkedExpense: linked,
+                        onShowLinked: linked == null
+                            ? null
+                            : () => showLinkedExpenseSheet(
+                                  context,
+                                  linked,
+                                  catById[linked.categoryId],
+                                ),
+                      ),
                     );
                   },
                 );
@@ -220,7 +226,8 @@ class _HistoryTile extends StatelessWidget {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.surfaceContainerHighest,
-          child: Text(category?.icon ?? '💶', style: const TextStyle(fontSize: 18)),
+          child: Text(category?.icon ?? '💶',
+              style: const TextStyle(fontSize: 18)),
         ),
         title: Text(hasNote ? tx.note! : catName),
         subtitle: Text(subtitle),

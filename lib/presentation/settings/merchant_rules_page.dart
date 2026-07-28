@@ -10,6 +10,7 @@ import '../../data/local/database/daos/category_dao.dart';
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/merchant_rule_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../shared_widgets/fade_in_item.dart';
 import '../transaction/widgets/category_picker.dart';
 
 /// Schermata "Regole di classificazione scontrini" (Impostazioni, M3).
@@ -38,8 +39,10 @@ class MerchantRulesPage extends ConsumerWidget {
           return ListView.builder(
             padding: const EdgeInsets.only(bottom: 88),
             itemCount: rules.length,
-            itemBuilder: (context, index) =>
-                _RuleTile(rule: rules[index], lookup: lookup),
+            itemBuilder: (context, index) => FadeInItem(
+              key: ValueKey(rules[index].id),
+              child: _RuleTile(rule: rules[index], lookup: lookup),
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -68,9 +71,12 @@ class _RuleTile extends ConsumerWidget {
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
         leading: Tooltip(
-          message: rule.isUserDefined ? 'Regola manuale' : 'Creata automaticamente',
+          message:
+              rule.isUserDefined ? 'Regola manuale' : 'Creata automaticamente',
           child: Icon(
-            rule.isUserDefined ? Icons.person_outline : Icons.auto_awesome_outlined,
+            rule.isUserDefined
+                ? Icons.person_outline
+                : Icons.auto_awesome_outlined,
           ),
         ),
         title: Text(
@@ -245,10 +251,9 @@ class _RuleEditorDialogState extends ConsumerState<_RuleEditorDialog> {
             const SizedBox(height: 16),
             SubCategoryPicker(
               type: TransactionType.expense,
-              selection:
-                  (_selection != null && _selection!.subCategoryId >= 0)
-                      ? _selection
-                      : null,
+              selection: (_selection != null && _selection!.subCategoryId >= 0)
+                  ? _selection
+                  : null,
               onChanged: (value) => setState(() => _selection = value),
             ),
             const SizedBox(height: 12),

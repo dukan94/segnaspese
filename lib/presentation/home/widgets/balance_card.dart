@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../shared_widgets/animated_amount_text.dart';
 
 /// Card che mostra il saldo del mese corrente (in evidenza) e, con meno
 /// enfasi, il saldo dell'anno corrente da inizio anno a oggi.
@@ -34,9 +35,11 @@ class BalanceCard extends StatelessWidget {
           children: [
             Text('Saldo mese', style: theme.textTheme.labelLarge),
             const SizedBox(height: 8),
-            Text(
-              AppFormatters.signedCurrency(monthlyBalance),
-              style: AppTheme.amountStyle(theme.textTheme.headlineMedium?.copyWith(
+            AnimatedAmountText(
+              value: monthlyBalance,
+              formatter: AppFormatters.signedCurrency,
+              style:
+                  AppTheme.amountStyle(theme.textTheme.headlineMedium?.copyWith(
                 color: monthColor,
                 fontWeight: FontWeight.bold,
               )),
@@ -49,9 +52,11 @@ class BalanceCard extends StatelessWidget {
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                 ),
-                Text(
-                  AppFormatters.signedCurrency(yearlyBalance),
-                  style: AppTheme.amountStyle(theme.textTheme.bodySmall?.copyWith(
+                AnimatedAmountText(
+                  value: yearlyBalance,
+                  formatter: AppFormatters.signedCurrency,
+                  style:
+                      AppTheme.amountStyle(theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
                   )),

@@ -7,6 +7,7 @@ import '../../data/local/database/app_database.dart';
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../shared_widgets/empty_state.dart';
 
 /// Palette di colori proposta per le categorie (usata nei grafici futuri
 /// della Dashboard, M4). Solo un punto di partenza: l'utente sceglie tra
@@ -111,14 +112,26 @@ class _CategoryTypeListState extends ConsumerState<_CategoryTypeList> {
 
   @override
   Widget build(BuildContext context) {
-    final categoriesAsync = ref.watch(categoriesByTypeProvider(widget.type.toDrift()));
+    final categoriesAsync =
+        ref.watch(categoriesByTypeProvider(widget.type.toDrift()));
 
     return Scaffold(
       body: categoriesAsync.when(
         data: (categories) {
           _syncItems(categories);
           if (_items.isEmpty) {
-            return const Center(child: Text('Nessuna categoria. Aggiungine una.'));
+            return EmptyState(
+              icon: Icons.category_outlined,
+              title: 'Nessuna categoria',
+              message:
+                  'Aggiungine una per iniziare a classificare le operazioni.',
+              action: FilledButton.icon(
+                onPressed: () =>
+                    showCategoryEditor(context, ref, type: widget.type),
+                icon: const Icon(Icons.add),
+                label: const Text('Aggiungi categoria'),
+              ),
+            );
           }
           return ReorderableListView.builder(
             buildDefaultDragHandles: false,
@@ -174,7 +187,8 @@ class _CategoryTile extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               tooltip: 'Modifica categoria',
-              onPressed: () => showCategoryEditor(context, ref, existing: category),
+              onPressed: () =>
+                  showCategoryEditor(context, ref, existing: category),
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),
@@ -231,7 +245,8 @@ class _SubCategoryListState extends ConsumerState<_SubCategoryList> {
 
   @override
   Widget build(BuildContext context) {
-    final subCategoriesAsync = ref.watch(subCategoriesProvider(widget.categoryId));
+    final subCategoriesAsync =
+        ref.watch(subCategoriesProvider(widget.categoryId));
 
     return subCategoriesAsync.when(
       data: (subCategories) {
@@ -279,7 +294,8 @@ class _SubCategoryListState extends ConsumerState<_SubCategoryList> {
                         IconButton(
                           icon: const Icon(Icons.delete_outline, size: 18),
                           tooltip: 'Elimina sottocategoria',
-                          onPressed: () => _confirmDeleteSubCategory(context, ref, sub),
+                          onPressed: () =>
+                              _confirmDeleteSubCategory(context, ref, sub),
                         ),
                       ],
                     ),
@@ -291,8 +307,8 @@ class _SubCategoryListState extends ConsumerState<_SubCategoryList> {
               child: Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
-                  onPressed: () =>
-                      showSubCategoryEditor(context, ref, categoryId: widget.categoryId),
+                  onPressed: () => showSubCategoryEditor(context, ref,
+                      categoryId: widget.categoryId),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Aggiungi sottocategoria'),
                 ),
@@ -318,7 +334,8 @@ Future<void> _confirmDeleteCategory(
   WidgetRef ref,
   Category category,
 ) async {
-  final subCategories = await ref.read(subCategoriesProvider(category.id).future);
+  final subCategories =
+      await ref.read(subCategoriesProvider(category.id).future);
   if (!context.mounted) return;
 
   final confirmed = await _confirmDialog(
@@ -345,7 +362,8 @@ Future<void> _confirmDeleteSubCategory(
   final confirmed = await _confirmDialog(
     context,
     title: 'Eliminare "${subCategory.name}"?',
-    message: 'Le operazioni già registrate con questa sottocategoria non verranno modificate.',
+    message:
+        'Le operazioni già registrate con questa sottocategoria non verranno modificate.',
   );
   if (confirmed != true || !context.mounted) return;
 
@@ -401,7 +419,8 @@ class _CategoryEditorDialog extends ConsumerStatefulWidget {
   final Category? existing;
 
   @override
-  ConsumerState<_CategoryEditorDialog> createState() => _CategoryEditorDialogState();
+  ConsumerState<_CategoryEditorDialog> createState() =>
+      _CategoryEditorDialogState();
 }
 
 class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
@@ -489,7 +508,8 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
                       radius: 16,
                       backgroundColor: Color(color),
                       child: _color == color
-                          ? const Icon(Icons.check, color: Colors.white, size: 16)
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 16)
                           : null,
                     ),
                   ),
@@ -527,7 +547,8 @@ Future<void> showSubCategoryEditor(
 }) {
   return showDialog<void>(
     context: context,
-    builder: (_) => _SubCategoryEditorDialog(categoryId: categoryId, existing: existing),
+    builder: (_) =>
+        _SubCategoryEditorDialog(categoryId: categoryId, existing: existing),
   );
 }
 
@@ -542,7 +563,8 @@ class _SubCategoryEditorDialog extends ConsumerStatefulWidget {
       _SubCategoryEditorDialogState();
 }
 
-class _SubCategoryEditorDialogState extends ConsumerState<_SubCategoryEditorDialog> {
+class _SubCategoryEditorDialogState
+    extends ConsumerState<_SubCategoryEditorDialog> {
   late final _nameController =
       TextEditingController(text: widget.existing?.name ?? '');
   late final _iconController =
@@ -588,7 +610,8 @@ class _SubCategoryEditorDialogState extends ConsumerState<_SubCategoryEditorDial
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_isEditing ? 'Modifica sottocategoria' : 'Nuova sottocategoria'),
+      title:
+          Text(_isEditing ? 'Modifica sottocategoria' : 'Nuova sottocategoria'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

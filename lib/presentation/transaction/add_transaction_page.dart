@@ -8,6 +8,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
+import '../shared_widgets/empty_state.dart';
 import 'widgets/amount_keypad.dart';
 import 'widgets/category_picker.dart';
 
@@ -155,8 +156,9 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     if (!_canSave) return;
     setState(() => _saving = true);
 
-    final note =
-        _noteController.text.trim().isEmpty ? null : _noteController.text.trim();
+    final note = _noteController.text.trim().isEmpty
+        ? null
+        : _noteController.text.trim();
     final entity = TransactionEntity(
       id: widget.existing?.id,
       date: _date,
@@ -214,7 +216,8 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(_isEditing ? 'Modifica operazione' : 'Aggiungi Transazione'),
+        title:
+            Text(_isEditing ? 'Modifica operazione' : 'Aggiungi Transazione'),
         actions: [
           IconButton(
             icon: _saving
@@ -454,9 +457,10 @@ class _ExpensePickerSheetState extends State<_ExpensePickerSheet> {
             const SizedBox(height: 8),
             Flexible(
               child: filtered.isEmpty
-                  ? const Padding(
+                  ? const EmptyState(
+                      icon: Icons.search_off_outlined,
+                      message: 'Nessun risultato',
                       padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Text('Nessun risultato'),
                     )
                   : ListView.builder(
                       shrinkWrap: true,

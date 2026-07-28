@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../budget/budget_providers.dart';
+import '../../shared_widgets/animated_amount_text.dart';
 
 /// Card "Saldo Budget" + "% budget utilizzato" della Home (Milestone M2).
 ///
@@ -47,7 +48,8 @@ class BudgetSummaryCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Saldo Budget', style: Theme.of(context).textTheme.titleSmall),
+                Text('Saldo Budget',
+                    style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 Text(
                   'Budget utilizzato: $pctLabel',
@@ -56,27 +58,37 @@ class BudgetSummaryCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 6),
-            Text(
-              AppFormatters.signedCurrency(summary.remaining),
-              style: AppTheme.amountStyle(Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: over ? colorScheme.error : null,
-                  )),
+            AnimatedAmountText(
+              value: summary.remaining,
+              formatter: AppFormatters.signedCurrency,
+              style: AppTheme.amountStyle(
+                  Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        color: over ? colorScheme.error : null,
+                      )),
             ),
             const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(6),
-              child: LinearProgressIndicator(
-                value: summary.usedPct.clamp(0, 1).toDouble(),
-                minHeight: 8,
-                backgroundColor: colorScheme.surfaceContainerHighest,
-                color: barColor,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween<double>(
+                    begin: 0, end: summary.usedPct.clamp(0, 1).toDouble()),
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeOutCubic,
+                builder: (context, animatedPct, child) =>
+                    LinearProgressIndicator(
+                  value: animatedPct,
+                  minHeight: 8,
+                  backgroundColor: colorScheme.surfaceContainerHighest,
+                  color: barColor,
+                ),
               ),
             ),
             const SizedBox(height: 8),
             Row(
               children: [
                 if (over) ...[
-                  Icon(Icons.warning_amber_rounded, size: 16, color: colorScheme.error),
+                  Icon(Icons.warning_amber_rounded,
+                      size: 16, color: colorScheme.error),
                   const SizedBox(width: 4),
                   Text(
                     'Budget superato di ${AppFormatters.currency(-summary.remaining)}',
