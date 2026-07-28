@@ -9,6 +9,7 @@ import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../domain/entities/recurring_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../shared_widgets/fade_in_item.dart';
 
 /// Lista dei movimenti ricorrenti (Milestone M5).
 ///
@@ -102,63 +103,67 @@ class _RecurringTile extends ConsumerWidget {
       'prossima: ${AppFormatters.shortDate(item.nextOccurrence)}',
     ].join(' · ');
 
-    return Dismissible(
+    return FadeInItem(
       key: ValueKey(item.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        color: theme.colorScheme.errorContainer,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-      ),
-      confirmDismiss: (_) => _confirmDelete(context),
-      onDismissed: (_) async {
-        await ref.read(deleteRecurringProvider).call(item.id!);
-        if (context.mounted) {
-          showSuccessSnackBar(context, 'Ricorrenza eliminata');
-        }
-      },
-      child: Opacity(
-        opacity: item.active ? 1 : 0.5,
-        child: ListTile(
-          onTap: () => context.push('/recurring/edit', extra: item),
-          title: Text(
-            item.description,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppFormatters.signedCurrency(signedAmount),
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(color: amountColor, fontWeight: FontWeight.w600),
-              ),
-              // Interruttore: mette in pausa/riattiva (non elimina).
-              Switch.adaptive(
-                value: item.active,
-                onChanged: (v) =>
-                    ref.read(setRecurringActiveProvider).call(item.id!, v),
-              ),
-              // Cestino: elimina completamente la ricorrenza (come le spese).
-              // Lo switch la disattiva soltanto; per rimuoverla serve questo.
-              IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20),
-                tooltip: 'Elimina',
-                color: theme.colorScheme.outline,
-                visualDensity: VisualDensity.compact,
-                onPressed: () async {
-                  final ok = await _confirmDelete(context);
-                  if (!ok || item.id == null) return;
-                  await ref.read(deleteRecurringProvider).call(item.id!);
-                  if (context.mounted) {
-                    showSuccessSnackBar(context, 'Ricorrenza eliminata');
-                  }
-                },
-              ),
-            ],
+      child: Dismissible(
+        key: ValueKey(item.id),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerRight,
+          color: theme.colorScheme.errorContainer,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+        ),
+        confirmDismiss: (_) => _confirmDelete(context),
+        onDismissed: (_) async {
+          await ref.read(deleteRecurringProvider).call(item.id!);
+          if (context.mounted) {
+            showSuccessSnackBar(context, 'Ricorrenza eliminata');
+          }
+        },
+        child: Opacity(
+          opacity: item.active ? 1 : 0.5,
+          child: ListTile(
+            onTap: () => context.push('/recurring/edit', extra: item),
+            title: Text(
+              item.description,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle:
+                Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  AppFormatters.signedCurrency(signedAmount),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                      color: amountColor, fontWeight: FontWeight.w600),
+                ),
+                // Interruttore: mette in pausa/riattiva (non elimina).
+                Switch.adaptive(
+                  value: item.active,
+                  onChanged: (v) =>
+                      ref.read(setRecurringActiveProvider).call(item.id!, v),
+                ),
+                // Cestino: elimina completamente la ricorrenza (come le spese).
+                // Lo switch la disattiva soltanto; per rimuoverla serve questo.
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  tooltip: 'Elimina',
+                  color: theme.colorScheme.outline,
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () async {
+                    final ok = await _confirmDelete(context);
+                    if (!ok || item.id == null) return;
+                    await ref.read(deleteRecurringProvider).call(item.id!);
+                    if (context.mounted) {
+                      showSuccessSnackBar(context, 'Ricorrenza eliminata');
+                    }
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -214,8 +219,8 @@ class _EmptyState extends StatelessWidget {
               'stipendio, affitto): verranno registrate automaticamente alla '
               'scadenza.',
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: theme.hintColor),
+              style:
+                  theme.textTheme.bodyMedium?.copyWith(color: theme.hintColor),
             ),
             const SizedBox(height: 24),
             FilledButton.icon(

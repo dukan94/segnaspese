@@ -6,6 +6,7 @@ import '../../../core/di/category_providers.dart';
 import '../../../data/local/database/daos/category_dao.dart';
 import '../../../data/mappers/transaction_mapper.dart';
 import '../../../domain/entities/transaction_entity.dart';
+import '../../shared_widgets/empty_state.dart';
 
 /// Sottocategoria scelta + categoria derivata automaticamente da essa.
 class SubCategorySelection {
@@ -157,14 +158,16 @@ class _SubCategorySheetState extends State<_SubCategorySheet> {
                 hintText: 'Cerca sottocategoria...',
                 prefixIcon: Icon(Icons.search),
               ),
-              onChanged: (value) => setState(() => _query = value.toLowerCase()),
+              onChanged: (value) =>
+                  setState(() => _query = value.toLowerCase()),
             ),
             const SizedBox(height: 8),
             Flexible(
               child: filtered.isEmpty
-                  ? const Padding(
+                  ? const EmptyState(
+                      icon: Icons.search_off_outlined,
+                      message: 'Nessun risultato',
                       padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Text('Nessun risultato'),
                     )
                   : ListView(
                       shrinkWrap: true,

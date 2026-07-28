@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../shared_widgets/animated_amount_text.dart';
 import '../home_providers.dart';
 
 /// Riga "Entrate mese / Uscite mese" del wireframe Home.
@@ -18,7 +19,7 @@ class MonthlyStatsRow extends StatelessWidget {
         Expanded(
           child: _StatTile(
             label: 'Entrate mese',
-            value: AppFormatters.currency(summary.income),
+            amount: summary.income,
             color: theme.colorScheme.primary,
           ),
         ),
@@ -26,7 +27,7 @@ class MonthlyStatsRow extends StatelessWidget {
         Expanded(
           child: _StatTile(
             label: 'Uscite mese',
-            value: AppFormatters.currency(summary.expense),
+            amount: summary.expense,
             color: theme.colorScheme.error,
           ),
         ),
@@ -38,12 +39,12 @@ class MonthlyStatsRow extends StatelessWidget {
 class _StatTile extends StatelessWidget {
   const _StatTile({
     required this.label,
-    required this.value,
+    required this.amount,
     required this.color,
   });
 
   final String label;
-  final String value;
+  final double amount;
   final Color color;
 
   @override
@@ -57,8 +58,9 @@ class _StatTile extends StatelessWidget {
           children: [
             Text(label, style: theme.textTheme.labelMedium),
             const SizedBox(height: 4),
-            Text(
-              value,
+            AnimatedAmountText(
+              value: amount,
+              formatter: AppFormatters.currency,
               style: AppTheme.amountStyle(theme.textTheme.titleMedium?.copyWith(
                 color: color,
                 fontWeight: FontWeight.w600,

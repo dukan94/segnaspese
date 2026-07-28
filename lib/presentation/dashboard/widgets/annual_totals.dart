@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../shared_widgets/animated_amount_text.dart';
 
 /// Riga in cima alla Dashboard con i tre totali: entrate (verde), uscite
 /// (rosso) e budget (colorato in base allo sforamento). Ogni card ha una riga
@@ -53,8 +54,9 @@ class AnnualTotals extends StatelessWidget {
             label: 'Uscite',
             amount: expense,
             color: colorScheme.error,
-            subtitle:
-                expensePct != null ? '$expensePct% delle entrate' : 'nessuna entrata',
+            subtitle: expensePct != null
+                ? '$expensePct% delle entrate'
+                : 'nessuna entrata',
           ),
         ),
         const SizedBox(width: 8),
@@ -104,8 +106,9 @@ class _StatCard extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Text(
-                AppFormatters.currency(amount),
+              child: AnimatedAmountText(
+                value: amount,
+                formatter: AppFormatters.currency,
                 style: AppTheme.amountStyle(theme.textTheme.titleMedium
                     ?.copyWith(color: color, fontWeight: FontWeight.w700)),
               ),
