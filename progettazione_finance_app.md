@@ -487,7 +487,9 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 - Audit best-practice: bug silenziosi, memory leak, dipendenze inutilizzate
 - Riparazione doppioni categorie/sottocategorie/regole dopo sync multi-dispositivo
   (`dedupe_default_taxonomy`, eseguita a ogni avvio)
-- Ancora da fare: animazioni, test automatici (unitari + widget)
+- Presenti 23 test unitari (parser CSV, receipt parser, rule matcher) + 1
+  smoke widget test, non lanciati in CI
+- Ancora da fare: animazioni, test su repository/usecase/sync, test in CI
 
 ---
 
@@ -504,8 +506,12 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 (rifinitura) in corso: fix critici al motore di sync Turso (isolamento errori
 per tabella, backfill syncId, timeout HTTP, alert su Home), sostituzione della
 scansione scontrini con Google Gemini (fallback su OCR ML Kit), audit
-best-practice del codice. Ancora da fare per M8: animazioni/empty states e
-test automatici (nessun test unitario/widget presente).
+best-practice del codice. Test: 23 unitari su `csv_transaction_parser`,
+`receipt_parser_service`, `rule_matcher_service` + 1 smoke widget test
+(`test/`) — non ancora eseguiti in CI (`android-build.yml` compila l'APK ma
+non lancia `flutter test`), e senza copertura su repository/usecase/DAO o
+sul motore di sync. Ancora da fare per M8: animazioni/empty states e ampliare
+i test automatici.
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per
