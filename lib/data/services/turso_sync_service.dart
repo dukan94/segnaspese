@@ -72,8 +72,15 @@ class TursoSyncPartialFailureException implements Exception {
 /// Invariante da preservare in futuro: la filigrana di una tabella deve
 /// avanzare SOLO dopo che il relativo batch è stato inviato con successo.
 class TursoSyncService implements SyncService {
-  TursoSyncService(this._db, {FlutterSecureStorage? secureStorage})
-      : _secureStorage = secureStorage ?? const FlutterSecureStorage();
+  /// [client] è un punto di iniezione solo per i test: bypassa
+  /// `_ensureClient()` (che altrimenti leggerebbe URL/token da
+  /// `flutter_secure_storage`, non disponibile/mockabile facilmente nei test
+  /// unitari) fornendo direttamente un [TursoHttpClient] — nei test un
+  /// finto/in-memory (v. test/turso_sync_service_test.dart), in produzione
+  /// sempre null (si passa da [configure]).
+  TursoSyncService(this._db, {FlutterSecureStorage? secureStorage, TursoHttpClient? client})
+      : _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+        _client = client;
 
   final AppDatabase _db;
   final FlutterSecureStorage _secureStorage;
