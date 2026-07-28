@@ -1,0 +1,29 @@
+name: Analyze & Test
+
+# A differenza di android-build.yml (che compila l'APK solo su push a main),
+# questo workflow gira su ogni push e ogni PR, su qualunque branch: deve
+# far emergere errori di analisi/test prima del merge, non dopo.
+on:
+  push:
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # Rigenera i file *.g.dart (Drift/Riverpod): analyze/test altrimenti
+      # falliscono su codice generato assente o disallineato.
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - run: flutter analyze
+
+      - run: flutter test
