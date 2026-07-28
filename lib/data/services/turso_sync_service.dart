@@ -8,6 +8,7 @@ import '../local/database/tables/budgets_table.dart';
 import '../local/database/tables/categories_table.dart';
 import '../local/database/tables/recurring_table.dart';
 import 'sync_service.dart';
+import 'transaction_duplicate_finder.dart';
 import 'turso_http_client.dart';
 
 /// Riassume gli errori di uno o più passi push/pull falliti durante un
@@ -49,6 +50,16 @@ class TursoSyncPartialFailureException implements Exception {
 /// sistematicamente i conflitti) — ragionevole per uso personale su
 /// dispositivi con sync orario automatico (Android/Windows), non robusta in
 /// generale.
+///
+/// Deduplica transazioni: al pull, un `syncId` mai visto prima viene
+/// scartato (e segnalato come cancellato anche su Turso) se coincide per
+/// contenuto con una transazione locale già attiva sotto un `syncId`
+/// diverso — v. `transaction_duplicate_finder.dart`. Serve a non duplicare
+/// un movimento inserito indipendentemente su due dispositivi prima che la
+/// sync funzionasse. A differenza dei doppioni di tassonomia di default
+/// (v. dedupe_default_taxonomy.dart), qui non c'è un dedupe periodico che
+/// riscansiona tutta la tabella: il controllo avviene solo nel momento in
+/// cui il pull scopre il conflitto, mai su dati già esistenti.
 ///
 /// Atomicità: un batch di push (`TursoHttpClient.execute`) NON è avvolto in
 /// una transazione SQL lato server — se lo statement K fallisce dopo che
@@ -821,9 +832,15 @@ class TursoSyncService implements SyncService {
       ),
     ]);
     DateTime? maxUpdatedAt;
+    // (syncId, updatedAt remoto letto ora) delle righe scartate perché
+    // doppioni di contenuto di una transazione locale già esistente — v.
+    // sotto. Segnalate come cancellate su Turso dopo il loop, in un unico
+    // batch, così la cancellazione converge anche sugli altri dispositivi.
+    final duplicateRemoteRows = <(String syncId, int updatedAtEpoch)>[];
     for (final row in result.first.asMaps()) {
       final syncId = row['sync_id'] as String;
       final updatedAt = _fromEpoch(row['updated_at']);
+      final isDeletedRemote = _intToBool(row['is_deleted']);
 
       final categoryId = await _categoryIdFor(row['category_sync_id'] as String?);
       // V. commento in _pullSubCategories: non avanzare la filigrana oltre
@@ -841,7 +858,31 @@ class TursoSyncService implements SyncService {
 
       final existing =
           await (_db.select(_db.transactions)..where((t) => t.syncId.equals(syncId))).getSingleOrNull();
-      if (existing != null && !updatedAt.isAfter(existing.updatedAt)) continue;
+      if (existing != null) {
+        if (!updatedAt.isAfter(existing.updatedAt)) continue;
+      } else if (!isDeletedRemote) {
+        // syncId mai visto su questo dispositivo: prima di inserirlo come
+        // riga nuova, verifica che non sia lo stesso movimento reale di una
+        // transazione locale già attiva (syncId diverso) — capita quando due
+        // dispositivi hanno inserito/importato indipendentemente lo stesso
+        // movimento prima che la sync funzionasse (v.
+        // transaction_duplicate_finder.dart per i dettagli e i limiti).
+        final duplicate = await findContentDuplicateTransaction(
+          _db,
+          date: _fromEpoch(row['date']),
+          amount: (row['amount'] as num).toDouble(),
+          type: TransactionKind.values[row['type'] as int],
+          categoryId: categoryId,
+          subCategoryId: subCategoryId,
+          isRefund: _intToBool(row['is_refund']),
+          note: row['note'] as String?,
+          excludeSyncId: syncId,
+        );
+        if (duplicate != null) {
+          duplicateRemoteRows.add((syncId, row['updated_at'] as int));
+          continue;
+        }
+      }
 
       final companion = TransactionsCompanion(
         date: Value(_fromEpoch(row['date'])),
@@ -855,7 +896,7 @@ class TursoSyncService implements SyncService {
         recurringId: Value(recurringId),
         refundOfId: Value(refundOfId),
         updatedAt: Value(updatedAt),
-        isDeleted: Value(_intToBool(row['is_deleted'])),
+        isDeleted: Value(isDeletedRemote),
         syncId: Value(syncId),
       );
       if (existing == null) {
@@ -865,6 +906,18 @@ class TursoSyncService implements SyncService {
       }
     }
     if (maxUpdatedAt != null) await _writeWatermark('pull_transactions', maxUpdatedAt);
+
+    if (duplicateRemoteRows.isNotEmpty) {
+      final now = _epoch(DateTime.now());
+      await _client!.execute([
+        for (final (syncId, seenUpdatedAt) in duplicateRemoteRows)
+          TursoStatement(
+            'UPDATE sync_transactions SET is_deleted = 1, updated_at = ? '
+            'WHERE sync_id = ? AND updated_at = ?',
+            [now, syncId, seenUpdatedAt],
+          ),
+      ]);
+    }
   }
 
   // --- Impostazioni sincronizzate (whitelist esplicita) ---
