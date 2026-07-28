@@ -46,3 +46,6 @@ app.*.map.json
 
 # Artefatti di build del modulo Android
 /android/build/
+
+# Dati personali (export spese, mai da versionare)
+/spese*.csv

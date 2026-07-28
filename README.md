@@ -8,19 +8,29 @@ desktop Windows** grazie a Flutter.
 
 ## Funzionalità principali
 
-- **Scansione scontrini con OCR** — riconoscimento delle spese dallo scontrino
-  (Google ML Kit) e regole di classificazione automatica per assegnare la
-  categoria giusta.
-- **Categorizzazione** — categorie e sottocategorie personalizzabili, con
-  regole per merchant.
+- **Scansione scontrini con AI** — su mobile la foto viene letta da Google
+  Gemini (API cloud gratuita, API key personale) per estrarre negozio/
+  importo/data; se la key non è configurata o la chiamata cloud fallisce, si
+  ricade sull'OCR offline (Google ML Kit) + regole regex. Regole di
+  classificazione automatica (con apprendimento) per assegnare la categoria
+  giusta al negozio.
+- **Categorizzazione** — categorie e sottocategorie personalizzabili (con
+  riordino drag & drop), regole per merchant.
 - **Inserimento manuale** — schermata "Nuova Operazione" con tastierino rapido
   per aggiungere spese a mano.
-- **Dashboard** — grafici e riepiloghi per monitorare l'andamento delle spese.
-- **Budget** — definizione e controllo dei budget per categoria.
-- **Movimenti ricorrenti** — gestione di spese/entrate che si ripetono.
-- **Ricerca e import/export** — ricerca movimenti ed esportazione Excel/CSV.
-- **Sync multi-dispositivo** — sincronizzazione tra dispositivi (Turso), con
-  build desktop dedicata.
+- **Dashboard** — grafici e riepiloghi (andamento mensile, per categoria/
+  sottocategoria, totali annuali) per monitorare l'andamento delle spese.
+- **Budget** — piano annuale con budget totale mese per mese, suddiviso tra
+  categorie.
+- **Movimenti ricorrenti** — gestione di spese/entrate che si ripetono, con
+  generazione automatica delle occorrenze dovute all'avvio dell'app.
+- **Rimborsi collegati** — un rimborso può essere agganciato alla spesa
+  originale (dallo Storico o dal form di modifica).
+- **Ricerca e import/export CSV** — ricerca full-text sui movimenti,
+  import/export CSV round-trip (compatibile con Excel).
+- **Sync multi-dispositivo** — sincronizzazione offline-first tra dispositivi
+  via Turso (HTTP), con alert visibile in Home se non configurata o in
+  errore, oltre alla build desktop dedicata.
 
 ## Stack tecnologico
 
@@ -28,10 +38,13 @@ desktop Windows** grazie a Flutter.
 - **Clean Architecture** — separazione in `core` / `domain` / `data` / `presentation`
 - **Drift** — database locale relazionale con codice generato
 - **Riverpod** — state management e dependency injection
-- **Material 3** — tema chiaro/scuro
-- **Google ML Kit** — OCR degli scontrini
+- **go_router** — navigazione dichiarativa
+- **Material 3** — tema chiaro/scuro personalizzabile
+- **Google Gemini** — lettura AI degli scontrini (cloud, gratuita); **Google
+  ML Kit** — OCR offline di fallback
 - **fl_chart** — grafici della dashboard
-- **Turso** — sincronizzazione cloud multi-dispositivo
+- **Turso** — sincronizzazione cloud multi-dispositivo via API HTTP (Hrana),
+  non tramite client nativo libSQL (evita la toolchain Rust in build)
 
 ## Requisiti
 
@@ -66,26 +79,30 @@ flutter doctor
 
 ## Stato del progetto
 
-Sviluppo per milestone incrementali.
+Sviluppo per milestone incrementali. Tutte le milestone pianificate sono
+completate; il progetto è ora in fase di hardening post-M7 (fix bug di sync,
+audit, miglioramenti scansione scontrini).
 
 | Milestone | Contenuto | Stato |
 |-----------|-----------|-------|
 | **M0** | Setup: Clean Architecture, tema Material 3, bottom navigation, schema DB Drift completo, seed dati di default | ✅ Completata |
-| **M1** | `TransactionRepositoryImpl`, schermata "Nuova Operazione" con tastierino, Home reale | 🔜 In corso |
-| **M2** | Categorie personalizzabili, modulo Budget | ⏳ |
-| **M3** | OCR scontrini (Google ML Kit) + regole di classificazione | ⏳ |
-| **M4** | Grafici dashboard (fl_chart) | ⏳ |
-| **M5** | Movimenti ricorrenti | ⏳ |
-| **M6** | Ricerca, import/export Excel/CSV | ⏳ |
-| **M7** | Sync multi-dispositivo su Turso + build desktop | ⏳ |
-| **M8** | Rifinitura, test, animazioni | ⏳ |
+| **M1** | `TransactionRepositoryImpl`, schermata "Nuova Operazione" con tastierino, Home reale | ✅ Completata |
+| **M2** | Categorie personalizzabili, modulo Budget | ✅ Completata |
+| **M3** | Scansione scontrini: fotocamera + OCR ML Kit, poi sostituito da Google Gemini (AI cloud) con fallback OCR, + regole di classificazione | ✅ Completata |
+| **M4** | Grafici dashboard (fl_chart) | ✅ Completata |
+| **M5** | Movimenti ricorrenti | ✅ Completata |
+| **M6** | Ricerca, import/export CSV | ✅ Completata |
+| **M7** | Sync multi-dispositivo su Turso + build desktop/Android | ✅ Completata |
+| **M8** | Rifinitura, fix bug di sync, audit best-practice | 🔧 In corso |
 
-## Struttura del database (M0)
+## Struttura del database
 
 Schema Drift con le tabelle: `Categories`, `SubCategories`, `Merchants`,
 `MerchantRules`, `Transactions`, `Budgets`, `RecurringTransactions`,
-`Settings`. Ogni tabella include i campi `updatedAt` e `isDeleted` per
-supportare la futura sincronizzazione su Turso (M7).
+`Settings`. Ogni tabella include i campi `updatedAt`, `isDeleted` e `syncId`
+per la sincronizzazione su Turso (M7). `Transactions` include inoltre
+`refundOfId` (collegamento rimborso→spesa) e `receiptImagePath` (foto dello
+scontrino scansionato).
 
 ## Note di sviluppo
 

@@ -1,6 +1,9 @@
 # Progettazione Completa — App Finanze Personali (Flutter)
 
-> Documento di design da approvare prima di procedere con l'implementazione del codice.
+> Documento di design originale, mantenuto aggiornato allo stato reale
+> dell'implementazione (v. sezione 6 per lo stato milestone e le note a fondo
+> pagina). Le nuove milestone/estensioni continuano a seguire il metodo di
+> lavoro concordato: design approvato prima di scrivere il codice.
 
 ---
 
@@ -29,16 +32,21 @@ Clean Architecture a 3 livelli, con dependency injection e repository pattern pe
 └─────────────────────────────────────────────────┘
 ```
 
-### Sync multi-dispositivo (Turso)
+### Sync multi-dispositivo (Turso) — **implementata (M7), v. `turso_sync_service.dart`**
 
-Pattern **offline-first con embedded replica**:
+Pattern **offline-first**, realizzato così com'è stato effettivamente costruito
+(diverso dalla proposta iniziale con embedded replica, v. nota sotto):
 
 - Ogni dispositivo (telefono/PC) mantiene un file **SQLite locale** (letto/scritto da Drift come sempre, nessuna latenza percepita dall'utente).
-- In background, un `SyncService` sincronizza in modo bidirezionale il file locale con il database remoto su **Turso** (libSQL), usando la modalità *embedded replica* del client libSQL.
-- L'app resta **pienamente funzionante offline**: scrivi in locale, la sync avviene appena c'è connessione.
-- **Risoluzione conflitti**: last-write-wins basato su un campo `updatedAt` presente su ogni riga (vedi schema aggiornato sotto). Sufficiente per un uso personale mono-utente su più dispositivi (raramente scrivi sullo stesso record da due device nello stesso istante).
-- Il layer `domain/` non cambia: i repository restano le stesse interfacce astratte già progettate. Solo `data/services/sync_service.dart` è nuovo.
-- **Costo:** piano Free di Turso, ampiamente sufficiente per i volumi di un'app di finanza personale (v. discussione precedente).
+- `TursoSyncService` sincronizza in modo bidirezionale il file locale con il database remoto su **Turso**, chiamando l'**API HTTP di Turso (Hrana-over-HTTP, endpoint `/v2/pipeline`)** tramite il pacchetto puro Dart `http` (`turso_http_client.dart`) — **non** tramite il client nativo `libsql_dart`/embedded replica ipotizzato in fase di design: avrebbe richiesto una toolchain Rust/cargo per compilare codice nativo a ogni build, non disponibile su questa macchina.
+- Ogni tabella locale sincronizzata ha una controparte remota `sync_<tabella>` con schema "sync-friendly": le foreign key intere locali diventano colonne testuali (`*_sync_id`) valorizzate con lo `syncId` (UUID) della riga referenziata.
+- L'app resta **pienamente funzionante offline**: scrivi in locale, la sync avviene in background/alla chiusura/al ritorno in primo piano, e su richiesta manuale.
+- **Risoluzione conflitti**: last-write-wins basato su `updatedAt`, applicata sia lato server (upsert con `WHERE excluded.updated_at > ...`) sia lato client al pull. Nessuna protezione da clock skew tra dispositivi (accettato per uso personale).
+- Ogni passo di push/pull (una tabella) è isolato: un errore su una tabella non blocca le altre né i cicli successivi.
+- Un banner in Home avvisa se la sync non è configurata o è in errore persistente (oltre alla sola icona in AppBar).
+- Il layer `domain/` non cambia: i repository restano le stesse interfacce astratte già progettate.
+- **Costo:** piano Free di Turso, ampiamente sufficiente per i volumi di un'app di finanza personale.
+- **Tabella `Merchants`**: ha lo schema pronto (`syncId`) ma nessun DAO/repository/flusso UI collegato — non ha ancora dati da sincronizzare.
 
 **State management:** Riverpod (generatore di codice, gratuito, si integra bene con Drift per gli stream reattivi delle query).
 
@@ -56,118 +64,94 @@ Pattern **offline-first con embedded replica**:
 
 ## 2. Struttura delle Cartelle
 
+> Aggiornata allo stato reale del codice (v. anche README.md). Rispetto alla
+> proposta iniziale sotto, alcune astrazioni previste non sono mai state
+> necessarie in pratica: niente `Failure`/`Result<T>` (gli errori arrivano
+> come eccezioni fino alla UI, che li mostra via snackbar), niente
+> `merchant_repository`/`import_export_repository` (CSV e Merchant non hanno
+> bisogno di un repository dedicato, v. sotto), niente cartella `constants/`
+> (icone e regex vivono accanto a chi le usa).
+
 ```
 lib/
 ├── main.dart
 ├── app.dart                          # MaterialApp.router + tema
 │
 ├── core/
-│   ├── di/                           # provider globali (db instance, services)
-│   ├── theme/                        # ColorScheme M3 light/dark, typography
-│   ├── router/                       # go_router config
-│   ├── utils/                        # formatters (valuta, date), extensions
-│   ├── constants/                    # icone categorie default, regex patterns
-│   └── errors/                       # Failure, Result<T> / Either
+│   ├── di/                           # provider Riverpod globali: database,
+│   │                                  # categorie, budget, ricorrenze, merchant
+│   │                                  # rules, sync, settings, tema, Gemini
+│   ├── theme/                        # ColorScheme M3 light/dark personalizzabile
+│   ├── router/                       # go_router config (app_router.dart)
+│   └── utils/                        # formatters (valuta, date), app_snackbar
 │
 ├── domain/
-│   ├── entities/
-│   │   ├── transaction_entity.dart
-│   │   ├── category_entity.dart
-│   │   ├── subcategory_entity.dart
-│   │   ├── merchant_entity.dart
-│   │   ├── merchant_rule_entity.dart
-│   │   ├── budget_entity.dart
-│   │   └── recurring_transaction_entity.dart
-│   ├── repositories/                 # interfacce astratte
-│   │   ├── transaction_repository.dart
-│   │   ├── category_repository.dart
-│   │   ├── merchant_repository.dart
-│   │   ├── budget_repository.dart
-│   │   ├── recurring_repository.dart
-│   │   └── import_export_repository.dart
+│   ├── entities/                     # transaction, category, merchant_rule,
+│   │                                  # budget, recurring (niente Merchant:
+│   │                                  # tabella pronta ma non ancora usata)
+│   ├── repositories/                  # interfacce astratte: transaction,
+│   │                                  # category, merchant_rule, budget, recurring
+│   ├── services/                     # receipt_parser_service (OCR+regex),
+│   │                                  # rule_matcher_service, csv_transaction_
+│   │                                  # parser, transaction_export_service
 │   └── usecases/
-│       ├── transaction/
-│       │   ├── add_transaction.dart
-│       │   ├── delete_transaction.dart
-│       │   └── search_transactions.dart
-│       ├── receipt/
-│       │   ├── scan_receipt.dart
-│       │   ├── classify_merchant.dart
-│       │   └── learn_new_rule.dart
-│       ├── budget/
-│       │   ├── compute_budget_balance.dart
-│       │   └── compute_real_balance.dart
-│       ├── recurring/
-│       │   └── generate_due_recurring_transactions.dart
-│       └── stats/
-│           └── build_dashboard_stats.dart
+│       ├── transaction/              # add/update/delete/search
+│       ├── category/                 # add/update/delete (categoria+sotto),
+│       │                              # reorder
+│       ├── budget/                   # set_monthly/set_category/delete
+│       ├── merchant_rule/            # add/update/delete
+│       └── recurring/                # add/update/delete/set_active/
+│                                      # generate_due_recurring
 │
 ├── data/
 │   ├── local/
 │   │   ├── database/
-│   │   │   ├── app_database.dart     # Drift @DriftDatabase
-│   │   │   ├── tables/
-│   │   │   │   ├── transactions_table.dart
-│   │   │   │   ├── categories_table.dart
-│   │   │   │   ├── subcategories_table.dart
-│   │   │   │   ├── merchants_table.dart
-│   │   │   │   ├── merchant_rules_table.dart
-│   │   │   │   ├── budgets_table.dart
-│   │   │   │   ├── recurring_table.dart
-│   │   │   │   └── settings_table.dart
-│   │   │   ├── daos/
-│   │   │   │   ├── transaction_dao.dart
-│   │   │   │   ├── category_dao.dart
-│   │   │   │   ├── merchant_dao.dart
-│   │   │   │   ├── budget_dao.dart
-│   │   │   │   └── recurring_dao.dart
-│   │   │   └── migrations/
-│   │   └── seed/                     # categorie/regole di default al primo avvio
+│   │   │   ├── app_database.dart     # Drift @DriftDatabase (schemaVersion 6)
+│   │   │   ├── tables/               # transactions, categories, subcategories,
+│   │   │   │                         # merchants, merchant_rules, budgets,
+│   │   │   │                         # recurring, settings
+│   │   │   └── daos/                 # transaction, category, merchant_rule,
+│   │   │                              # budget, recurring
+│   │   └── seed/                     # default_categories/subcategories/
+│   │                                  # merchant_rules_seed, seed_runner,
+│   │                                  # dedupe_default_taxonomy (riparazione
+│   │                                  # doppioni post-sync multi-dispositivo)
 │   ├── services/
-│   │   ├── ocr_service.dart          # wrapper Google ML Kit Text Recognition
-│   │   ├── receipt_parser_service.dart  # estrae negozio + totale dal testo OCR
-│   │   ├── rule_matcher_service.dart    # applica regex delle MerchantRules
-│   │   └── excel_service.dart        # import/export xlsx + csv (syncfusion/excel pkg free)
+│   │   ├── turso_http_client.dart    # client HTTP puro Dart per l'API Hrana
+│   │   ├── turso_sync_service.dart   # push/pull bidirezionale, conflict res.
+│   │   ├── sync_service.dart         # interfaccia SyncService + SyncStatus
+│   │   ├── gemini_vision_service.dart # lettura scontrino via Google Gemini
+│   │   └── gemini_api_key_store.dart # API key Gemini in flutter_secure_storage
 │   ├── mappers/                      # Drift row ↔ Domain entity
-│   └── repositories_impl/
-│       ├── transaction_repository_impl.dart
-│       ├── category_repository_impl.dart
-│       ├── merchant_repository_impl.dart
-│       ├── budget_repository_impl.dart
-│       ├── recurring_repository_impl.dart
-│       └── import_export_repository_impl.dart
+│   └── repositories_impl/            # transaction, category, merchant_rule,
+│                                      # budget, recurring
 │
 └── presentation/
-    ├── home/
-    │   ├── home_page.dart
-    │   ├── widgets/                  # balance_card, quick_stats, recent_list
-    │   └── home_providers.dart
-    ├── transaction/
-    │   ├── add_transaction_page.dart # inserimento manuale rapido
-    │   ├── transaction_detail_page.dart
-    │   └── widgets/                  # amount_keypad, category_picker
-    ├── scanner/
-    │   ├── receipt_scan_page.dart    # camera + preview
-    │   ├── receipt_review_page.dart  # conferma categoria/importo proposti
-    │   └── widgets/
-    ├── dashboard/
-    │   ├── dashboard_page.dart
-    │   ├── widgets/                  # charts wrappers (fl_chart)
-    │   └── dashboard_providers.dart
-    ├── budget/
-    │   ├── budget_page.dart
-    │   └── budget_edit_sheet.dart
-    ├── recurring/
-    │   ├── recurring_list_page.dart
-    │   └── recurring_edit_page.dart
-    ├── search/
-    │   └── search_page.dart
-    ├── settings/
-    │   ├── settings_page.dart
-    │   ├── categories_manage_page.dart
-    │   ├── merchant_rules_page.dart  # tabella regole modificabile
-    │   └── import_export_page.dart
-    └── shared_widgets/                # bottom nav, FAB, empty states
+    ├── home/                          # home_page, home_providers, widgets/
+    │                                  # (balance_card, budget_summary_card,
+    │                                  # monthly_stats_row, recent_transactions)
+    ├── transaction/                   # add_transaction_page (manuale +
+    │                                  # modifica + rimborso collegato),
+    │                                  # widgets/ (amount_keypad, category_picker)
+    ├── receipt/                       # receipt_scan_page (foto/galleria +
+    │                                  # Gemini/OCR su mobile, testo su desktop)
+    ├── dashboard/                     # dashboard_page/providers, widgets/
+    │                                  # (monthly_trend_chart, category_donut,
+    │                                  # subcategory_bars, annual_totals)
+    ├── budget/                        # budget_page, budget_month_page,
+    │                                  # budget_providers, widgets/
+    ├── recurring/                     # recurring_list_page, recurring_edit_page
+    ├── history/                       # history_page (ricerca full-text +
+    │                                  # elenco movimenti)
+    ├── altro/                         # altro_page (hub di navigazione
+    │                                  # secondaria: Storico, Ricorrenze, Imp.)
+    ├── settings/                      # settings_page, categories_manage_page,
+    │                                  # merchant_rules_page, import_page,
+    │                                  # export_page, sync_page, gemini_page,
+    │                                  # theme_page
+    └── shared_widgets/                # root_scaffold (bottom nav), linked_
+                                        # expense_sheet (spesa collegata a un
+                                        # rimborso)
 ```
 
 ---
@@ -217,14 +201,17 @@ Schema normalizzato in 3NF. Tutte le tabelle usano `id` autoincrementale come PK
 |---|---|---|
 | id | int (PK) | |
 | date | dateTime | |
-| amount | real | sempre positivo, il segno lo dà `type` |
+| amount | real | sempre positivo, il segno lo dà `type` (+ `isRefund`, v. sotto) |
 | type | enum(income, expense) | |
 | categoryId | int (FK) | |
 | subCategoryId | int (FK, nullable) | |
-| merchantId | int (FK, nullable) | |
+| merchantId | int (FK, nullable) | riservato: tabella Merchants non ancora popolata |
 | note | text (nullable) | |
+| isExtraordinary | bool | esclusa di default da statistiche/previsione Dashboard |
+| isRefund | bool | rimborso ricevuto: resta nella categoria di spesa ma sottratto dal totale netto |
 | receiptImagePath | text (nullable) | path locale foto scontrino |
 | recurringId | int (FK, nullable) | valorizzato se generata da ricorrenza |
+| refundOfId | int (nullable, no FK) | se `isRefund`, id della spesa collegata (auto-riferimento; niente vincolo FK per non ostacolare le cancellazioni soft-delete) |
 | createdAt | dateTime | |
 
 ### Budgets
@@ -256,7 +243,7 @@ Schema normalizzato in 3NF. Tutte le tabelle usano `id` autoincrementale come PK
 | key | text (PK) | es. "themeMode", "currency" |
 | value | text | |
 
-### Campi di sync (aggiunti a tutte le tabelle sopra)
+### Campi di sync (aggiunti a tutte le tabelle sopra, **implementati in M7**)
 
 Per supportare la sincronizzazione multi-dispositivo via Turso, ogni tabella riceve inoltre:
 
@@ -264,6 +251,7 @@ Per supportare la sincronizzazione multi-dispositivo via Turso, ogni tabella ric
 |---|---|---|
 | updatedAt | dateTime | usato per il conflict-resolution last-write-wins |
 | isDeleted | bool | soft delete, necessario perché le cancellazioni vanno propagate in sync |
+| syncId | text (nullable, unique) | UUID stabile tra dispositivi; l'id intero locale non è valido tra dispositivi diversi. Backfillato automaticamente all'avvio per le righe che non lo hanno ancora (`AppDatabase._backfillSyncIds`), toccando anche `updatedAt` così le righe riparate non restano escluse dal push |
 
 ### Relazioni
 ```
@@ -448,16 +436,23 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 - Tassonomia categorie/sottocategorie di default aggiornata + reset seed
   versionato (`kSeedVersion`) per riallineare il DB senza cancellazioni manuali
 
-**M3 — OCR e Scontrini**
-- Integrazione Google ML Kit Text Recognition (offline)
-- `receipt_parser_service` per estrazione negozio + totale
+**M3 — Scontrini** — ✅ **Completata**
+- Fotocamera/galleria (mobile) + OCR Google ML Kit Text Recognition (offline)
+- `receipt_parser_service` per estrazione negozio + totale dal testo OCR
 - Tabella MerchantRules + `rule_matcher_service` (regex)
-- Flusso apprendimento: negozio sconosciuto → chiedi categoria → crea regola
-- Schermata gestione regole in Impostazioni
+- Flusso apprendimento: negozio sconosciuto → chiedi categoria → crea regola;
+  schermata gestione regole in Impostazioni
+- **Estensione post-M3**: l'OCR+regex non è più il percorso primario — la
+  foto viene analizzata da **Google Gemini** (AI cloud gratuita, API key
+  personale in Impostazioni), più accurata; OCR+regex resta come fallback
+  automatico offline o se la chiamata cloud fallisce. Un tentativo con
+  vision-LLM locale (Ollama) è stato scartato per lentezza.
 
-**M4 — Dashboard e Statistiche**
-- Integrazione fl_chart: andamento mensile/annuale, per categoria/sottocategoria, top negozi
-- Filtri (mese, anno, categoria, sottocategoria)
+**M4 — Dashboard e Statistiche** — ✅ **Completata**
+- Integrazione fl_chart: andamento mensile (`monthly_trend_chart`), spese per
+  categoria (`category_donut`), per sottocategoria (`subcategory_bars`),
+  totali annuali (`annual_totals`)
+- Filtro mese in Dashboard
 
 **M5 — Ricorrenze** — ✅ **Completata**
 - CRUD movimenti ricorrenti (entità/usecase/repository/DAO, lista con
@@ -477,44 +472,47 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
   salvataggio via file picker). Export `.xlsx` e condivisione mobile rimandati
   come possibili estensioni.
 
-**M7 — Sync multi-dispositivo (Turso)**
-- Setup database Turso (piano Free) + embedded replica libSQL
-- `SyncService`: push/pull bidirezionale, gestione `updatedAt`/`isDeleted`
-- Indicatore di stato sync in UI (es. icona in Home: sincronizzato / in attesa / offline)
-- Build desktop (Windows/macOS/Linux) oltre a mobile, per l'accesso da PC
+**M7 — Sync multi-dispositivo (Turso)** — ✅ **Completata**
+- Setup database Turso (piano Free), sync via API HTTP (Hrana), non embedded
+  replica libSQL (v. sezione 1 per il perché)
+- `TursoSyncService`: push/pull bidirezionale per 6 tabelle, gestione
+  `updatedAt`/`isDeleted`/`syncId`, isolamento errori per tabella, timeout HTTP
+- Icona di stato in AppBar + banner ben visibile in Home se non configurata/in errore
+- Build desktop Windows (attiva) + Android (permesso INTERNET, applicationId
+  dedicato, CI); macOS/Linux non generate
 
-**M8 — Rifinitura**
-- Animazioni, dark mode completo, empty states, gestione errori
-- Test unitari su UseCase e repository, test widget sulle schermate chiave
+**M8 — Rifinitura** — 🔧 **In corso**
+- Fix bug critici del motore di sync (isolamento errori, filigrana su righe
+  scartate, backfill syncId che non toccava `updatedAt`)
+- Audit best-practice: bug silenziosi, memory leak, dipendenze inutilizzate
+- Riparazione doppioni categorie/sottocategorie/regole dopo sync multi-dispositivo
+  (`dedupe_default_taxonomy`, eseguita a ogni avvio)
+- Ancora da fare: animazioni, test automatici (unitari + widget)
 
 ---
 
 ## Note tecniche aggiuntive
 
-- **Librerie gratuite proposte:** `drift`, `sqlite3_flutter_libs`, `libsql_dart` (client Turso/embedded replica), `google_mlkit_text_recognition`, `fl_chart`, `go_router`, `flutter_riverpod` + `riverpod_generator`, `excel` (pacchetto pub.dev per xlsx, gratuito), `image_picker`/`camera`, `intl` per formattazione valuta/data.
-- **Piattaforme target:** Android, iOS, Windows, macOS, Linux — Flutter compila nativamente su tutte queste piattaforme da un'unica codebase, senza costi aggiuntivi.
-- **Turso — piano Free:** sufficiente per uso personale (v. discussione su costi); nessuna carta di credito richiesta per l'attivazione.
+- **Librerie effettivamente usate (tutte gratuite):** `drift` + `sqlite3_flutter_libs` (DB locale), `http` (client Turso HTTP e Gemini — niente `libsql_dart`, v. sezione 1), `flutter_secure_storage` (credenziali Turso + API key Gemini), `google_mlkit_text_recognition` + `camera`/`image_picker` (scontrini), `fl_chart` (dashboard), `go_router` (routing), `flutter_riverpod` (state/DI), `csv` + `file_picker` (import/export), `intl`, `uuid`, `collection`.
+- **Piattaforme generate:** Windows desktop e Android. macOS/iOS/Linux non generate (aggiungibili con `flutter create --platforms=<piattaforma> .` se servisse in futuro).
+- **Turso — piano Free:** sufficiente per uso personale; nessuna carta di credito richiesta per l'attivazione.
 - **Performance inserimento:** categoria/sottocategoria più usate vengono precaricate come default nel form manuale, riducendo a 3-4 tap il tempo di inserimento.
 
 ---
 
-**Stato attuale (26 lug 2026):** completate M0, M1, M2, M4, M5 e M6. **M3
-parziale** (parser scontrini, regole merchant e flusso di apprendimento
-presenti; manca l'acquisizione reale da fotocamera + OCR ML Kit). Extra già
-implementati oltre la roadmap: storico movimenti, import/export CSV, rimborsi
-come uscite con collegamento alla spesa originale (`refundOfId`), navigazione a
-4 voci con hub "Altro", filtro mese in Dashboard, mesi passati non impostabili
-nel Budget.
+**Stato attuale (28 lug 2026):** tutte le milestone M0-M7 completate. M8
+(rifinitura) in corso: fix critici al motore di sync Turso (isolamento errori
+per tabella, backfill syncId, timeout HTTP, alert su Home), sostituzione della
+scansione scontrini con Google Gemini (fallback su OCR ML Kit), audit
+best-practice del codice. Ancora da fare per M8: animazioni/empty states e
+test automatici (nessun test unitario/widget presente).
 
-**Prossimi passi:** M3 (OCR reale — richiede un dispositivo Android/mobile),
-poi M7 (sync Turso) e M8 (test automatici).
-
-> NOTA PIATTAFORME: al momento è generata **solo la piattaforma Windows**
-> (`windows/`). Per lo sviluppo mobile va aggiunta la piattaforma Android con
-> `flutter create --platforms=android .`; poi vanno configurati i permessi
-> fotocamera nel `AndroidManifest.xml` e verificato il `minSdk` per
-> `google_mlkit_text_recognition` e `camera` (≥ 21).
+> NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
+> (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per
+> aggiungere altre piattaforme: `flutter create --platforms=<piattaforma> .`,
+> poi verificare permessi/`minSdk` per `google_mlkit_text_recognition` e
+> `camera` (≥ 21).
 
 > NOTA BUILD: modifiche allo schema Drift o ai provider Riverpod richiedono
-> `dart run build_runner build --delete-conflicting-outputs`. L'ultima
-> migrazione DB è la v4 (`refundOfId`).
+> `dart run build_runner build --delete-conflicting-outputs`. Lo schema DB è
+> alla versione **6** (v. `AppDatabase.schemaVersion` in `app_database.dart`).
