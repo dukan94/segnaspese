@@ -9,6 +9,7 @@ import 'core/di/database_provider.dart';
 import 'core/di/recurring_providers.dart';
 import 'core/di/sync_providers.dart';
 import 'data/local/seed/dedupe_default_taxonomy.dart';
+import 'data/local/seed/repair_orphaned_subcategories.dart';
 import 'data/local/seed/seed_runner.dart';
 import 'presentation/home/home_providers.dart';
 
@@ -35,6 +36,12 @@ Future<void> main() async {
   // prima di sincronizzare (v. dedupe_default_taxonomy.dart). Innocuo e
   // veloce quando non ce ne sono.
   await dedupeDefaultTaxonomy(db);
+
+  // Ripara sottocategorie rimaste attive con una categoria padre cancellata
+  // (v. repair_orphaned_subcategories.dart). Va dopo dedupeDefaultTaxonomy:
+  // pulisce anche eventuali incoerenze che il re-pointing del dedupe stesso
+  // potrebbe rivelare.
+  await repairOrphanedSubCategories(db);
 
   // Genera le transazioni dovute dai movimenti ricorrenti attivi (recupera
   // anche le occorrenze arretrate se l'app non veniva aperta da più periodi).
