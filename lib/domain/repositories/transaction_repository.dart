@@ -32,4 +32,13 @@ abstract class TransactionRepository {
 
   /// Soft delete (necessario per propagare la cancellazione in sync).
   Future<void> delete(int id);
+
+  /// Elimina la riga per sempre, bypassando il soft delete (solo pannello
+  /// Admin: v. `HardDeleteTransaction`, che avverte del rischio di
+  /// ricomparsa via sync se non preceduto da una `syncNow()`).
+  Future<void> hardDelete(int id);
+
+  /// Elimina per sempre tutte le transazioni già soft-deleted (pulizia bulk,
+  /// solo pannello Admin). Restituisce quante ne ha eliminate.
+  Future<int> purgeSoftDeleted();
 }

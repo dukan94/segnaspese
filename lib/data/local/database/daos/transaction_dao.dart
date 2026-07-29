@@ -100,4 +100,21 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  /// Elimina la riga per sempre, bypassando il soft delete (pannello Admin).
+  ///
+  /// Il DAO non conosce Turso: sta al chiamante (v. core/di/admin_providers.dart)
+  /// propagare prima la cancellazione alla sync remota, se configurata —
+  /// altrimenti la transazione può ricomparire da un altro dispositivo alla
+  /// sync successiva, dato che il server non saprebbe mai che è stata
+  /// cancellata.
+  Future<int> hardDelete(int id) {
+    return (delete(transactions)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// Elimina per sempre tutte le righe già soft-deleted (pulizia bulk,
+  /// pannello Admin). Stessa avvertenza di [hardDelete] sulla sync.
+  Future<int> purgeSoftDeleted() {
+    return (delete(transactions)..where((t) => t.isDeleted.equals(true))).go();
+  }
 }

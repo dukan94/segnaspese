@@ -86,7 +86,7 @@ macchina. Non reintrodurre `libsql_dart`.
 - Tabella `Merchants`: schema pronto (`syncId`) ma nessun DAO/flusso UI ancora
   collegato — non ha ancora dati.
 
-## Admin e bridge temporaneo Google Sheets
+## Admin (strumenti interni)
 
 Impostazioni > **Admin** (`presentation/settings/admin_page.dart`, fuori dal
 flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
@@ -108,6 +108,19 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
     condiviso con la sua email come Editor.
   - Fallimenti di rete/permessi qui sono isolati e non bloccano/non fanno
     fallire il salvataggio locale (stesso principio della sync Turso).
+- **Manutenzione dati** (`TransactionDao.hardDelete`/`purgeSoftDeleted`,
+  usecase `HardDeleteTransaction`/`PurgeDeletedTransactions`): il DB fa di
+  norma solo soft delete (serve a propagare le cancellazioni in sync). Da
+  Admin si può eliminare per sempre (bypassa il soft delete, irreversibile):
+  una transazione scelta cercandola (nota/categoria/importo/data), o in blocco
+  tutte quelle già soft-deleted ("Pulisci database").
+  - **Prima di ogni hard delete, se Turso è configurato, l'Admin esegue una
+    `syncNow()`** (v. `_syncBeforeHardDelete` in `admin_page.dart`): altrimenti
+    il server remoto non saprebbe mai della cancellazione, e la riga
+    ricomparirebbe da un altro dispositivo alla sync successiva. Non
+    bypassare mai questo ordine (sync prima, poi elimina) se estendi questa
+    funzionalità.
+  - Solo tabella `Transactions` per ora (non categorie/budget/ricorrenze).
 
 ## Stato attuale (lug 2026)
 
@@ -125,11 +138,13 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
 - Test in `test/` (14 file): parser CSV, receipt parser, rule matcher,
   duplicate finder, sync Turso, repair sottocategorie orfane, widget animati,
   DAO ricorrenze/categorie/budget/transazioni (date-math, riordino, upsert,
-  filtri ricerca), formatter righe Google Sheets + 1 smoke widget test.
-- **Post-M8**: Admin (Impostazioni > Admin) con import CSV spostato lì e
-  bridge temporaneo verso il foglio Google "Copia di Spese" (v. sezione
-  dedicata sopra) — non è una milestone, è uno strumento ponte da rimuovere a
-  fine progetto.
+  filtri ricerca, **hard delete/purge**), formatter righe Google Sheets + 1
+  smoke widget test.
+- **Post-M8**: Admin (Impostazioni > Admin) con import CSV spostato lì,
+  bridge temporaneo verso il foglio Google "Copia di Spese" e strumenti di
+  eliminazione definitiva/pulizia (v. sezione dedicata sopra) — non è una
+  milestone, sono strumenti interni, il bridge Sheets va rimosso a fine
+  progetto.
 
 ## Convenzioni
 

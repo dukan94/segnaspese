@@ -501,8 +501,8 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
   + 1 smoke widget test). Repository impl e usecase restano senza test dedicati:
   sono delega pura al DAO sottostante, senza logica propria da verificare.
 
-**Post-M8 — Admin e bridge temporaneo Google Sheets** (non una milestone,
-strumento ponte)
+**Post-M8 — Admin, bridge temporaneo Google Sheets e manutenzione dati** (non
+una milestone, strumenti interni)
 - Nuova pagina **Impostazioni > Admin** (`admin_page.dart`, nessuna password,
   solo fuori dal flusso normale): ospita l'import CSV (spostato da
   Impostazioni) e la configurazione del bridge Google Sheets.
@@ -522,6 +522,19 @@ strumento ponte)
 - **Temporaneo**: da disattivare (switch in Admin) quando l'app sarà completa
   e testata al 100% — non va esteso oltre questo scopo (es. niente storico
   retroattivo, niente sync inversa dal foglio verso l'app).
+- **Manutenzione dati** (stessa pagina Admin): il DB fa di norma solo soft
+  delete (`isDeleted` + `updatedAt`, necessario per propagare le cancellazioni
+  alla sync). Admin aggiunge due modi di eliminare *per sempre* (bypassano il
+  soft delete, irreversibili, solo tabella `Transactions`):
+  - **Elimina definitivamente una transazione**: ricerca (nota/categoria/
+    importo/data, stesso motore client-side dello Storico) + eliminazione
+    puntuale.
+  - **Pulisci database**: elimina in blocco tutte le transazioni già
+    soft-deleted.
+  - In entrambi i casi, **se la sync Turso è configurata viene eseguita prima
+    una `syncNow()`**: altrimenti il server remoto non saprebbe mai della
+    cancellazione, e la riga ricomparirebbe da un altro dispositivo alla sync
+    successiva. Ordine da non invertire mai (sync prima, poi hard delete).
 
 ---
 
@@ -544,12 +557,14 @@ animazioni leggere, tema unificato sul colore dell'icona, rename utente a
 analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
 Test: 14 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
 finder, motore di sync Turso, repair sottocategorie orfane, widget animati,
-DAO ricorrenze/categorie/budget/transazioni, formatter righe Google Sheets +
-1 smoke widget test). Repository impl e usecase restano senza test dedicati:
-delega pura, nessuna logica propria. **Post-M8:** nuova pagina Impostazioni >
-Admin (import CSV spostato lì) con bridge temporaneo verso il foglio Google
-"Copia di Spese" (service account, disattivabile, da rimuovere a fine
-progetto — v. sezione dedicata sopra).
+DAO ricorrenze/categorie/budget/transazioni (incluso hard delete/purge),
+formatter righe Google Sheets + 1 smoke widget test). Repository impl e
+usecase restano senza test dedicati: delega pura, nessuna logica propria.
+**Post-M8:** nuova pagina Impostazioni > Admin (import CSV spostato lì) con
+bridge temporaneo verso il foglio Google "Copia di Spese" (service account,
+disattivabile, da rimuovere a fine progetto) e strumenti di eliminazione
+definitiva/pulizia database, con sync forzata prima di ogni hard delete se
+Turso è configurato (v. sezioni dedicate sopra).
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per
