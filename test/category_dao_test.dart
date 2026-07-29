@@ -1,3 +1,4 @@
+import 'package:async/async.dart';
 import 'package:drift/native.dart';
 import 'package:finance_app/data/local/database/app_database.dart';
 import 'package:finance_app/data/local/database/tables/categories_table.dart';
@@ -95,5 +96,83 @@ void main() {
 
     final carburante = await (db.select(db.subCategories)..where((s) => s.id.equals(carburanteId))).getSingle();
     expect(carburante.isDeleted, isFalse);
+  });
+
+  group('reattività del riordino su uno stream già in ascolto (senza riavviare l\'app)', () {
+    // Prima del fix, questi stream erano costruiti solo sulla query di
+    // categorie/sottocategorie: Drift li riemette in base alle sole tabelle
+    // che quella query tocca, quindi una scrittura che cambia SOLO l'ordine
+    // salvato (tabella Settings) non li faceva ripartire — l'ordine nuovo si
+    // vedeva solo dopo un riavvio dell'app (bug segnalato dall'utente).
+
+    test('watchByType riemette con il nuovo ordine appena si chiama reorderCategories', () async {
+      final casa = await insertCategory('Casa');
+      final auto = await insertCategory('Auto');
+      final queue = StreamQueue(db.categoryDao.watchByType(TransactionKind.expense));
+
+      final first = await queue.next;
+      expect(first.map((c) => c.name).toList(), ['Casa', 'Auto']);
+
+      await db.categoryDao.reorderCategories(TransactionKind.expense, [auto, casa]);
+
+      final second = await queue.next;
+      expect(second.map((c) => c.name).toList(), ['Auto', 'Casa']);
+
+      await queue.cancel();
+    });
+
+    test('watchSubCategories riemette con il nuovo ordine appena si chiama reorderSubCategories', () async {
+      final casaId = await insertCategory('Casa');
+      final bollette = await db.into(db.subCategories).insert(
+            SubCategoriesCompanion.insert(categoryId: casaId, name: 'Bollette'),
+          );
+      final affitto = await db.into(db.subCategories).insert(
+            SubCategoriesCompanion.insert(categoryId: casaId, name: 'Affitto'),
+          );
+      final queue = StreamQueue(db.categoryDao.watchSubCategories(casaId));
+
+      final first = await queue.next;
+      expect(first.map((s) => s.name).toList(), ['Bollette', 'Affitto']);
+
+      await db.categoryDao.reorderSubCategories(casaId, [affitto, bollette]);
+
+      final second = await queue.next;
+      expect(second.map((s) => s.name).toList(), ['Affitto', 'Bollette']);
+
+      await queue.cancel();
+    });
+
+    test('watchSubCategoriesForType riemette con il nuovo ordine (categorie e sottocategorie) senza ricreare la subscription', () async {
+      final casaId = await insertCategory('Casa');
+      final autoId = await insertCategory('Auto');
+      final bollette = await db.into(db.subCategories).insert(
+            SubCategoriesCompanion.insert(categoryId: casaId, name: 'Bollette'),
+          );
+      final affitto = await db.into(db.subCategories).insert(
+            SubCategoriesCompanion.insert(categoryId: casaId, name: 'Affitto'),
+          );
+      final queue = StreamQueue(db.categoryDao.watchSubCategoriesForType(TransactionKind.expense));
+
+      final first = await queue.next;
+      expect(first.map((i) => '${i.category.name}/${i.subCategory.name}').toList(),
+          ['Casa/Bollette', 'Casa/Affitto']);
+
+      // Riordina prima le categorie (Auto prima di Casa): tocca solo
+      // Settings, nessuna riga di Categories/SubCategories.
+      await db.categoryDao.reorderCategories(TransactionKind.expense, [autoId, casaId]);
+      final second = await queue.next;
+      expect(second.map((i) => '${i.category.name}/${i.subCategory.name}').toList(),
+          ['Casa/Bollette', 'Casa/Affitto'],
+          reason: 'categoria riordinata, sottocategorie di Casa ancora nell\'ordine originale');
+
+      // Poi le sottocategorie di Casa (Affitto prima di Bollette): stessa
+      // storia, solo Settings.
+      await db.categoryDao.reorderSubCategories(casaId, [affitto, bollette]);
+      final third = await queue.next;
+      expect(third.map((i) => '${i.category.name}/${i.subCategory.name}').toList(),
+          ['Casa/Affitto', 'Casa/Bollette']);
+
+      await queue.cancel();
+    });
   });
 }

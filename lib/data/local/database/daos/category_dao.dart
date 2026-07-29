@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 
 import '../app_database.dart';
@@ -6,6 +8,54 @@ import '../tables/settings_table.dart';
 import '../tables/subcategories_table.dart';
 
 part 'category_dao.g.dart';
+
+/// Combina due stream in uno che riemette ogni volta che UNO dei due produce
+/// un valore nuovo, usando l'ultimo valore noto dell'altro.
+///
+/// Serve perché gli stream di categorie/sottocategorie riordinabili (v.
+/// [CategoryDao.watchByType] e affini) sono costruiti su una query che tocca
+/// solo le tabelle Categories/SubCategories: Drift invalida uno stream in
+/// base alle sole tabelle referenziate dalla query, quindi un cambio
+/// nell'ordine salvato — che vive nella tabella Settings, letta a parte —
+/// non lo faceva ripartire (bug osservato: l'ordine si aggiornava solo al
+/// riavvio dell'app, mai a caldo dopo un riordino). Combinando i due stream,
+/// un cambiamento in uno qualsiasi dei due fa ricalcolare il risultato.
+Stream<R> _combineLatest2<A, B, R>(
+  Stream<A> a,
+  Stream<B> b,
+  R Function(A, B) combine,
+) {
+  late final StreamController<R> controller;
+  StreamSubscription<A>? subA;
+  StreamSubscription<B>? subB;
+  A? latestA;
+  B? latestB;
+  var hasA = false, hasB = false;
+
+  void emitIfReady() {
+    if (hasA && hasB) controller.add(combine(latestA as A, latestB as B));
+  }
+
+  controller = StreamController<R>(
+    onListen: () {
+      subA = a.listen((value) {
+        latestA = value;
+        hasA = true;
+        emitIfReady();
+      }, onError: controller.addError);
+      subB = b.listen((value) {
+        latestB = value;
+        hasB = true;
+        emitIfReady();
+      }, onError: controller.addError);
+    },
+    onCancel: () async {
+      await subA?.cancel();
+      await subB?.cancel();
+    },
+  );
+  return controller.stream;
+}
 
 /// Sottocategoria abbinata alla sua categoria padre: la selezione nella
 /// schermata "Nuova Operazione" avviene direttamente sulla sottocategoria
@@ -36,11 +86,18 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
   static const _categoryOrderKeyPrefix = 'category_order_';
   static const _subCategoryOrderKeyPrefix = 'subcategory_order_';
 
-  Future<List<int>> _readOrderedIds(String key) async {
-    final row = await (select(settings)..where((s) => s.key.equals(key))).getSingleOrNull();
-    if (row == null || row.value.isEmpty) return const [];
-    return row.value.split(',').map(int.parse).toList();
+  /// Osserva l'intera tabella Settings (poche righe in tutto: temi, chiavi
+  /// API, ordine di categorie/sottocategorie — va benissimo osservarla per
+  /// intero). Serve a far reagire [watchByType]/[watchSubCategories]/
+  /// [watchSubCategoriesForType] anche ai soli cambi dell'ordine salvato:
+  /// v. commento su [_combineLatest2] per il perché non basterebbe il
+  /// `.watch()` sulla sola query di categorie/sottocategorie.
+  Stream<Map<String, String>> _watchSettingsMap() {
+    return select(settings).watch().map((rows) => {for (final r in rows) r.key: r.value});
   }
+
+  List<int> _parseOrder(String? raw) =>
+      (raw == null || raw.isEmpty) ? const [] : raw.split(',').map(int.parse).toList();
 
   Future<void> _writeOrderedIds(String key, List<int> ids) {
     return into(settings).insertOnConflictUpdate(
@@ -72,10 +129,12 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
     final query = select(categories)
       ..where((c) => c.isDeleted.equals(false) & c.type.equalsValue(type))
       ..orderBy([(c) => OrderingTerm.asc(c.id)]);
-    return query.watch().asyncMap((list) async {
-      final order = await _readOrderedIds('$_categoryOrderKeyPrefix${type.name}');
-      return _applyOrder(list, order, (c) => c.id);
-    });
+    final key = '$_categoryOrderKeyPrefix${type.name}';
+    return _combineLatest2(
+      query.watch(),
+      _watchSettingsMap(),
+      (list, settingsMap) => _applyOrder(list, _parseOrder(settingsMap[key]), (c) => c.id),
+    );
   }
 
   /// Tutte le categorie non cancellate (utile per le lookup id → categoria
@@ -93,10 +152,12 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
     final query = select(subCategories)
       ..where((s) => s.isDeleted.equals(false) & s.categoryId.equals(categoryId))
       ..orderBy([(s) => OrderingTerm.asc(s.id)]);
-    return query.watch().asyncMap((list) async {
-      final order = await _readOrderedIds('$_subCategoryOrderKeyPrefix$categoryId');
-      return _applyOrder(list, order, (s) => s.id);
-    });
+    final key = '$_subCategoryOrderKeyPrefix$categoryId';
+    return _combineLatest2(
+      query.watch(),
+      _watchSettingsMap(),
+      (list, settingsMap) => _applyOrder(list, _parseOrder(settingsMap[key]), (s) => s.id),
+    );
   }
 
   /// Tutte le sottocategorie disponibili per un tipo (income/expense), ognuna
@@ -119,34 +180,40 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
         OrderingTerm.asc(subCategories.id),
       ]);
 
-    return query.watch().asyncMap((rows) async {
-      final items = rows
-          .map(
-            (row) => SubCategoryWithCategory(
-              subCategory: row.readTable(subCategories),
-              category: row.readTable(categories),
-            ),
-          )
-          .toList();
+    final categoryOrderKey = '$_categoryOrderKeyPrefix${type.name}';
 
-      final byCategory = <int, List<SubCategoryWithCategory>>{};
-      for (final item in items) {
-        byCategory.putIfAbsent(item.category.id, () => []).add(item);
-      }
+    return _combineLatest2(
+      query.watch(),
+      _watchSettingsMap(),
+      (rows, settingsMap) {
+        final items = rows
+            .map(
+              (row) => SubCategoryWithCategory(
+                subCategory: row.readTable(subCategories),
+                category: row.readTable(categories),
+              ),
+            )
+            .toList();
 
-      final categoryOrder = await _readOrderedIds('$_categoryOrderKeyPrefix${type.name}');
-      final orderedCategoryIds =
-          _applyOrder(byCategory.keys.toList(), categoryOrder, (id) => id);
+        final byCategory = <int, List<SubCategoryWithCategory>>{};
+        for (final item in items) {
+          byCategory.putIfAbsent(item.category.id, () => []).add(item);
+        }
 
-      final result = <SubCategoryWithCategory>[];
-      for (final categoryId in orderedCategoryIds) {
-        final subOrder = await _readOrderedIds('$_subCategoryOrderKeyPrefix$categoryId');
-        result.addAll(
-          _applyOrder(byCategory[categoryId]!, subOrder, (i) => i.subCategory.id),
-        );
-      }
-      return result;
-    });
+        final categoryOrder = _parseOrder(settingsMap[categoryOrderKey]);
+        final orderedCategoryIds =
+            _applyOrder(byCategory.keys.toList(), categoryOrder, (id) => id);
+
+        final result = <SubCategoryWithCategory>[];
+        for (final categoryId in orderedCategoryIds) {
+          final subOrder = _parseOrder(settingsMap['$_subCategoryOrderKeyPrefix$categoryId']);
+          result.addAll(
+            _applyOrder(byCategory[categoryId]!, subOrder, (i) => i.subCategory.id),
+          );
+        }
+        return result;
+      },
+    );
   }
 
   /// Salva l'ordine manuale delle categorie di tipo [type] (drag & drop

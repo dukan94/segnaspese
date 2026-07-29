@@ -66,6 +66,27 @@ richiede di rilanciare `build_runner`, altrimenti `analyze`/`test` falliscono
 su codice generato disallineato. I file `*.g.dart` sono generati: non
 modificarli a mano.
 
+## Stream Drift che dipendono da un'altra tabella (insidia)
+
+`Stream.watch()` di Drift invalida in base alle SOLE tabelle referenziate
+dalla query originale. Se dentro un `.asyncMap()` fai una lettura separata su
+un'altra tabella (es. `CategoryDao` che legge l'ordine manuale da `Settings`
+dentro il calcolo di `watchByType`/`watchSubCategories`/
+`watchSubCategoriesForType`), uno stream così **non si accorge se cambia
+solo quell'altra tabella** — resta fermo alla vecchia istantanea finché non
+cambia qualcosa nella tabella "vera" della query (o l'app non riparte).
+
+Bug reale (29 lug 2026): riordinare categorie/sottocategorie in Impostazioni
+scriveva solo su `Settings`, quindi il menù a tendina di "Nuova Operazione"
+(altro stream, stessa tabella Settings) non si aggiornava finché l'utente
+non riavviava l'app. Fix in `category_dao.dart`: `_combineLatest2` (stream
+di supporto locale al DAO) combina lo stream della query principale con uno
+stream sull'intera tabella `Settings`, così un cambiamento in una delle due
+fa ricalcolare il risultato. Se aggiungi un nuovo stream Drift che legge da
+una tabella diversa da quella osservata, usa lo stesso pattern (o assicurati
+che la query stessa tocchi quella tabella) invece di un `asyncMap` con una
+lettura "silenziosa".
+
 ## Sync (Turso) — dettaglio critico
 
 Si usa l'**API HTTP di Turso** (Hrana-over-HTTP, endpoint `/v2/pipeline`) col
