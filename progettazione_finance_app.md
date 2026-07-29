@@ -501,11 +501,33 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
   + 1 smoke widget test). Repository impl e usecase restano senza test dedicati:
   sono delega pura al DAO sottostante, senza logica propria da verificare.
 
+**Post-M8 — Admin e bridge temporaneo Google Sheets** (non una milestone,
+strumento ponte)
+- Nuova pagina **Impostazioni > Admin** (`admin_page.dart`, nessuna password,
+  solo fuori dal flusso normale): ospita l'import CSV (spostato da
+  Impostazioni) e la configurazione del bridge Google Sheets.
+- **Bridge Google Sheets**: finché attivo, ogni transazione salvata da
+  `addTransactionProvider` (entrata o uscita, non il bulk import CSV) viene
+  copiata in background sul foglio Google "Copia di Spese" già usato a mano
+  da Mario, con lo stesso schema di colonne (`Data;Quanto;Sub Categoria;Note;
+  Tipologia Spesa;Categoria;Tipologia`, ricalcato da `spese.csv`).
+- Autenticazione **service account** (`googleapis`/`googleapis_auth`), non
+  OAuth interattivo: `google_sign_in` non supporta Windows desktop, e questa
+  app gira da un'unica codebase su Windows e Android. Nessun login: il
+  service account è condiviso come Editor sul foglio, fuori dall'app.
+  Credenziali (chiave JSON, id foglio, nome tab) in Admin, chiave JSON in
+  `flutter_secure_storage`.
+- Fallimenti isolati: un problema di rete/permessi su Sheets non blocca né fa
+  fallire il salvataggio locale (stesso principio della sync Turso).
+- **Temporaneo**: da disattivare (switch in Admin) quando l'app sarà completa
+  e testata al 100% — non va esteso oltre questo scopo (es. niente storico
+  retroattivo, niente sync inversa dal foglio verso l'app).
+
 ---
 
 ## Note tecniche aggiuntive
 
-- **Librerie effettivamente usate (tutte gratuite):** `drift` + `sqlite3_flutter_libs` (DB locale), `http` (client Turso HTTP e Gemini — niente `libsql_dart`, v. sezione 1), `flutter_secure_storage` (credenziali Turso + API key Gemini), `google_mlkit_text_recognition` + `camera`/`image_picker` (scontrini), `fl_chart` (dashboard), `go_router` (routing), `flutter_riverpod` (state/DI), `csv` + `file_picker` (import/export), `intl`, `uuid`, `collection`.
+- **Librerie effettivamente usate (tutte gratuite):** `drift` + `sqlite3_flutter_libs` (DB locale), `http` (client Turso HTTP e Gemini — niente `libsql_dart`, v. sezione 1), `googleapis` + `googleapis_auth` (bridge temporaneo Google Sheets via service account, niente `google_sign_in`: non supporta Windows desktop), `flutter_secure_storage` (credenziali Turso + API key Gemini + chiave service account Sheets), `google_mlkit_text_recognition` + `camera`/`image_picker` (scontrini), `fl_chart` (dashboard), `go_router` (routing), `flutter_riverpod` (state/DI), `csv` + `file_picker` (import/export), `intl`, `uuid`, `collection`.
 - **Piattaforme generate:** Windows desktop e Android. macOS/iOS/Linux non generate (aggiungibili con `flutter create --platforms=<piattaforma> .` se servisse in futuro).
 - **Turso — piano Free:** sufficiente per uso personale; nessuna carta di credito richiesta per l'attivazione.
 - **Performance inserimento:** categoria/sottocategoria più usate vengono precaricate come default nel form manuale, riducendo a 3-4 tap il tempo di inserimento.
@@ -520,11 +542,14 @@ best-practice del codice, dedupe della tassonomia post-sync, empty states +
 animazioni leggere, tema unificato sul colore dell'icona, rename utente a
 "Tally" (solo UX). **CI attiva** (`.github/workflows/ci.yml`): `flutter
 analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
-Test: 13 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
+Test: 14 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
 finder, motore di sync Turso, repair sottocategorie orfane, widget animati,
-DAO ricorrenze/categorie/budget/transazioni + 1 smoke widget test). Repository
-impl e usecase restano senza test dedicati: delega pura, nessuna logica
-propria.
+DAO ricorrenze/categorie/budget/transazioni, formatter righe Google Sheets +
+1 smoke widget test). Repository impl e usecase restano senza test dedicati:
+delega pura, nessuna logica propria. **Post-M8:** nuova pagina Impostazioni >
+Admin (import CSV spostato lì) con bridge temporaneo verso il foglio Google
+"Copia di Spese" (service account, disattivabile, da rimuovere a fine
+progetto — v. sezione dedicata sopra).
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per

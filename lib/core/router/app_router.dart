@@ -19,6 +19,7 @@ import '../../presentation/settings/export_page.dart';
 import '../../presentation/settings/sync_page.dart';
 import '../../presentation/settings/theme_page.dart';
 import '../../presentation/settings/gemini_page.dart';
+import '../../presentation/settings/admin_page.dart';
 import '../../presentation/shared_widgets/root_scaffold.dart';
 
 /// Configurazione di navigazione dell'app.
@@ -144,6 +145,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'theme',
           builder: (context, state) => const ThemePage(),
+        ),
+        GoRoute(
+          path: 'admin',
+          builder: (context, state) => const AdminPage(),
         ),
       ],
     ),

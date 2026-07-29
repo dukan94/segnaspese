@@ -35,6 +35,14 @@ dependencies:
   http: ^1.2.0
   flutter_secure_storage: ^9.2.2
 
+  # Bridge temporaneo verso Google Sheets (Admin > foglio "Copia di Spese",
+  # v. CLAUDE.md): autenticazione service account, non OAuth interattivo
+  # (google_sign_in non supporta Windows desktop). Pacchetti Dart puri
+  # mantenuti da Google, nessuna toolchain nativa (stesso principio già
+  # seguito per Turso).
+  googleapis_auth: ^2.3.3
+  googleapis: ^16.0.0
+
   # OCR offline scontrini
   google_mlkit_text_recognition: ^0.13.0
   camera: ^0.11.0
