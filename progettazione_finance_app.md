@@ -553,6 +553,17 @@ una milestone, strumenti interni)
     volta confermata la cancellazione, l'hard delete rimuove comunque il
     tombstone locale: irrilevante per un secondo dispositivo con storico non
     ancora risincronizzato finché resta tale.
+- **Fix reattività riordino categorie/sottocategorie** (`category_dao.dart`):
+  il riordino manuale (drag & drop in Impostazioni) non si vedeva nel menù a
+  tendina di "Nuova Operazione" finché non si riavviava l'app. Causa: gli
+  stream Drift (`watchByType`/`watchSubCategories`/`watchSubCategoriesForType`)
+  erano costruiti su query che toccano solo Categories/SubCategories, ma
+  leggevano l'ordine manuale da una tabella diversa (`Settings`) dentro un
+  `asyncMap` — Drift invalida uno stream in base alle sole tabelle della
+  query originale, quindi una scrittura solo su `Settings` non lo faceva mai
+  ripartire. Fix: `_combineLatest2` combina la query principale con uno
+  stream sull'intera tabella `Settings`, così un cambiamento in una delle due
+  ricalcola subito il risultato — nessun riavvio più necessario.
 
 ---
 
@@ -576,14 +587,17 @@ analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
 Test: 16 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
 finder, motore di sync Turso (incluso rientranza `syncNow()` e verifica
 remota puntuale), repair sottocategorie orfane, widget animati, DAO
-ricorrenze/categorie/budget/transazioni (incluso hard delete/purge),
-formatter e servizio Google Sheets (header matching), `SafeTransactionDeletionService`
-+ 1 smoke widget test). Repository impl e usecase restano senza test dedicati:
-delega pura, nessuna logica propria. Verifica approfondita del codice
-Admin/Sheets fatta il 29/07: bug corretti, e il rischio residuo sulla sync in
-background (identificato nella stessa verifica) risolto lo stesso giorno con
-`SafeTransactionDeletionService` + fix alla rientranza di `syncNow()` (v.
-CLAUDE.md, sezione Admin).
+ricorrenze/categorie/budget/transazioni (incluso hard delete/purge e
+riemissione live del riordino), formatter e servizio Google Sheets (header
+matching), `SafeTransactionDeletionService` + 1 smoke widget test).
+Repository impl e usecase restano senza test dedicati: delega pura, nessuna
+logica propria. Verifica approfondita del codice Admin/Sheets fatta il
+29/07: bug corretti, il rischio residuo sulla sync in background
+(identificato nella stessa verifica) risolto lo stesso giorno con
+`SafeTransactionDeletionService` + fix alla rientranza di `syncNow()`, e un
+bug di reattività Drift sul riordino categorie/sottocategorie (segnalato da
+Mario dopo un reset del dispositivo Android) risolto subito dopo (v.
+CLAUDE.md, sezioni Admin e "Stream Drift che dipendono da un'altra tabella").
 **Post-M8:** nuova pagina Impostazioni > Admin (import CSV spostato lì) con
 bridge temporaneo verso il foglio Google "Copia di Spese" (service account,
 disattivabile, da rimuovere a fine progetto) e strumenti di eliminazione

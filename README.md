@@ -30,7 +30,10 @@ desktop Windows** grazie a Flutter.
   import/export CSV round-trip (compatibile con Excel).
 - **Sync multi-dispositivo** — sincronizzazione offline-first tra dispositivi
   via Turso (HTTP), con alert visibile in Home se non configurata o in
-  errore, oltre alla build desktop dedicata.
+  errore, oltre alla build desktop dedicata. Pensata per più dispositivi
+  attivi insieme (es. 2 PC Windows + 1 Android): le eliminazioni definitive
+  vengono confermate direttamente dal server prima di essere fisiche, per
+  evitare che un movimento cancellato ricompaia da un altro dispositivo.
 
 ## Stack tecnologico
 

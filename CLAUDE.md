@@ -231,3 +231,25 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
    se cambia design/schema) — senza aspettare che venga richiesto
    esplicitamente. Obiettivo: chi apre una nuova sessione (umano o AI) deve
    trovare qui lo stato vero, non doverlo ricostruire da `git log`.
+
+## Autorizzazioni permanenti (non richiedere di nuovo conferma per queste)
+
+Mario le ha già concesse esplicitamente; valgono per ogni sessione futura,
+non solo quella in cui sono state date:
+
+- **Workflow git per fix/feature importanti**: branch dedicato →
+  `flutter analyze` + `flutter test` in locale → merge diretto su `main`
+  (`--no-ff`) → push di branch e main. **Nessuna Pull Request**, mai (progetto
+  personale mono-sviluppatore). Per typo/doc/modifiche cosmetiche a basso
+  rischio: commit diretto su `main`, senza branch.
+- **Verifica con build reale**: lanciare `flutter build windows --release` e
+  avviare l'eseguibile per un controllo a runtime è autorizzato come parte
+  normale della verifica, senza chiedere il permesso ogni volta. Se serve
+  automatizzare click/screenshot: MAI uno screenshot a schermo intero (rischio
+  di catturare altre finestre/dati non tuoi) — solo della finestra dell'app,
+  ritagliata al suo rettangolo.
+- **Reset locale (Android)**: `android:allowBackup` resta al default (non
+  disattivarlo) — deciso esplicitamente il 29 lug 2026, non riproporlo salvo
+  nuovo contesto.
+- **Pannello Admin senza password**: deciso esplicitamente (v. sezione Admin
+  sopra) — non riproporre un gate a password salvo richiesta esplicita.
