@@ -108,6 +108,15 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
     condiviso con la sua email come Editor.
   - Fallimenti di rete/permessi qui sono isolati e non bloccano/non fanno
     fallire il salvataggio locale (stesso principio della sync Turso).
+  - Copre solo `addTransactionProvider` (inserimento manuale/da scontrino):
+    **non** copre le transazioni generate dalle ricorrenze (`RecurringDao.
+    generateDue` inserisce direttamente via DAO), né modifiche o
+    cancellazioni fatte dopo il salvataggio. Il foglio può divergere
+    dall'app in quei casi (comunicato in UI).
+  - `testConnection` verifica anche che l'intestazione reale del tab
+    combaci con `GoogleSheetsService.expectedHeader` (stesso ordine di
+    `GoogleSheetsRowFormatter`), non solo che il tab esista — altrimenti le
+    righe finirebbero silenziosamente nelle colonne sbagliate.
 - **Gestione transazioni** (`TransactionDao.hardDelete`/`purgeSoftDeleted`,
   usecase `HardDeleteTransaction`/`PurgeDeletedTransactions`): il DB fa di
   norma solo soft delete (serve a propagare le cancellazioni in sync). Da
@@ -121,6 +130,27 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
     bypassare mai questo ordine (sync prima, poi elimina) se estendi questa
     funzionalità.
   - Solo tabella `Transactions` per ora (non categorie/budget/ricorrenze).
+  - `_destructiveOpInProgress` disabilita TUTTI i pulsanti distruttivi
+    (pulisci + ogni elimina-per-sempre nei risultati) mentre uno è in corso,
+    per evitare due `syncNow()` sovrapposte dallo stesso utente.
+  - **RISCHIO RESIDUO NOTO, non risolto (v. mega-verifica 29 lug 2026):**
+    `TursoSyncService.syncNow()` ha una guardia di rientranza
+    (`if (_syncing) return;`) che, se una sync è già in corso per altri
+    motivi (timer periodico, resume dell'app), fa ritornare
+    `_syncBeforeHardDelete()` **senza eccezione e senza garanzia che il
+    tombstone sia stato davvero spinto** — la rete di sicurezza pre-hard-delete
+    non è a prova di bomba in quel caso specifico. Idem se il push della
+    riga viene scartato in silenzio da `_pushTransactions` (`syncId`/
+    categoria non ancora sincronizzati) o se l'upsert LWW non aggiorna nulla
+    per clock skew. Il mitigante applicato (serializzare le operazioni
+    distruttive dello stesso utente) copre lo scenario più probabile per un
+    singolo utente, non la sync in background. Non estendere l'hard delete
+    (es. ad altre tabelle) senza prima affrontare questo punto con un
+    design esplicito.
+  - L'hard delete rimuove anche il "tombstone" locale: se il secondo
+    dispositivo con lo storico non ancora risincronizzato (v. memoria
+    `project_second_device_pending`) reinserisse la stessa transazione, non
+    c'è più modo per l'app di riconoscerla come duplicata.
 
 ## Stato attuale (lug 2026)
 
@@ -135,11 +165,11 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
   rename utente a "Tally", **CI attiva** — `.github/workflows/ci.yml`:
   `flutter analyze` + `flutter test` su ogni push/PR con rigenerazione del
   codice — copertura test estesa al motore di sync e ai DAO con logica reale).
-- Test in `test/` (14 file): parser CSV, receipt parser, rule matcher,
+- Test in `test/` (15 file): parser CSV, receipt parser, rule matcher,
   duplicate finder, sync Turso, repair sottocategorie orfane, widget animati,
   DAO ricorrenze/categorie/budget/transazioni (date-math, riordino, upsert,
-  filtri ricerca, **hard delete/purge**), formatter righe Google Sheets + 1
-  smoke widget test.
+  filtri ricerca, **hard delete/purge**), formatter righe e servizio Google
+  Sheets (header matching) + 1 smoke widget test.
 - **Post-M8**: Admin (Impostazioni > Admin) con import CSV spostato lì,
   bridge temporaneo verso il foglio Google "Copia di Spese" e strumenti di
   eliminazione definitiva/pulizia (v. sezione dedicata sopra) — non è una

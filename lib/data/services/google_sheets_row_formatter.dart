@@ -5,10 +5,18 @@ import '../../domain/entities/transaction_entity.dart';
 /// Converte una transazione dell'app nella riga da accodare sul foglio
 /// Google "Copia di Spese" (bridge temporaneo, v. CLAUDE.md sezione Admin).
 ///
-/// Ricalca esattamente il pattern con cui Mario compilava il foglio a mano
-/// (v. `spese.csv` alla radice del repo, stesse colonne già lette
-/// dall'importatore CSV esistente): `Data;Quanto;Sub Categoria;Note;
-/// Tipologia Spesa;Categoria;Tipologia`.
+/// Ricalca il pattern con cui Mario compilava il foglio a mano, dedotto da
+/// un export CSV locale del foglio stesso (non versionato, dati personali):
+/// `Data;Quanto;Sub Categoria;Note;Tipologia Spesa;Categoria;Tipologia`.
+/// Le prime 5 colonne sono le stesse lette da `CsvTransactionParser`
+/// (import CSV); `Categoria` e `Tipologia` sono aggiunte qui solo per
+/// somigliare visivamente al foglio, non lette da nessun importatore.
+///
+/// ATTENZIONE: l'ordine delle colonne qui sotto è assunto uguale a quello
+/// reale del tab Google — `GoogleSheetsService.testConnection` verifica solo
+/// che il tab esista, non che l'intestazione corrisponda. Se il foglio reale
+/// ha un ordine diverso, le righe scritte finiscono nelle colonne sbagliate
+/// senza alcun errore.
 class GoogleSheetsRowFormatter {
   GoogleSheetsRowFormatter._();
 

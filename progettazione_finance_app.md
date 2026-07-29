@@ -507,10 +507,14 @@ una milestone, strumenti interni)
   solo fuori dal flusso normale): ospita l'import CSV (spostato da
   Impostazioni) e la configurazione del bridge Google Sheets.
 - **Bridge Google Sheets**: finché attivo, ogni transazione salvata da
-  `addTransactionProvider` (entrata o uscita, non il bulk import CSV) viene
-  copiata in background sul foglio Google "Copia di Spese" già usato a mano
-  da Mario, con lo stesso schema di colonne (`Data;Quanto;Sub Categoria;Note;
-  Tipologia Spesa;Categoria;Tipologia`, ricalcato da `spese.csv`).
+  `addTransactionProvider` (entrata o uscita, non il bulk import CSV, non le
+  ricorrenze generate automaticamente, non modifiche/cancellazioni successive)
+  viene copiata in background sul foglio Google "Copia di Spese" già usato a
+  mano da Mario, con lo stesso schema di colonne (`Data;Quanto;Sub Categoria;
+  Note;Tipologia Spesa;Categoria;Tipologia`, dedotto da un export CSV locale
+  non versionato del foglio stesso). `testConnection` verifica anche che
+  l'intestazione reale del tab combaci con quella attesa, non solo che il tab
+  esista.
 - Autenticazione **service account** (`googleapis`/`googleapis_auth`), non
   OAuth interattivo: `google_sign_in` non supporta Windows desktop, e questa
   app gira da un'unica codebase su Windows e Android. Nessun login: il
@@ -535,6 +539,15 @@ una milestone, strumenti interni)
     una `syncNow()`**: altrimenti il server remoto non saprebbe mai della
     cancellazione, e la riga ricomparirebbe da un altro dispositivo alla sync
     successiva. Ordine da non invertire mai (sync prima, poi hard delete).
+    `_destructiveOpInProgress` serializza le operazioni distruttive tra loro
+    (evita due `syncNow()` sovrapposte dallo stesso utente).
+  - **Rischio residuo noto, non risolto** (v. CLAUDE.md sezione Admin per il
+    dettaglio): la guardia di rientranza di `syncNow()` può far ritornare la
+    sync "con successo" senza aver davvero spinto il tombstone, se una sync
+    di sfondo è già in corso per altri motivi; idem se il push scarta la riga
+    in silenzio o se l'upsert LWW non aggiorna nulla per clock skew. L'hard
+    delete rimuove anche la capacità di riconoscere la riga come duplicata da
+    un secondo dispositivo non ancora risincronizzato.
 
 ---
 
@@ -555,11 +568,14 @@ best-practice del codice, dedupe della tassonomia post-sync, empty states +
 animazioni leggere, tema unificato sul colore dell'icona, rename utente a
 "Tally" (solo UX). **CI attiva** (`.github/workflows/ci.yml`): `flutter
 analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
-Test: 14 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
+Test: 15 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
 finder, motore di sync Turso, repair sottocategorie orfane, widget animati,
 DAO ricorrenze/categorie/budget/transazioni (incluso hard delete/purge),
-formatter righe Google Sheets + 1 smoke widget test). Repository impl e
-usecase restano senza test dedicati: delega pura, nessuna logica propria.
+formatter righe e servizio Google Sheets (header matching) + 1 smoke widget
+test). Repository impl e usecase restano senza test dedicati: delega pura,
+nessuna logica propria. Verifica approfondita del codice Admin/Sheets fatta
+il 29/07: alcuni bug corretti, un rischio residuo sulla sync in background
+resta noto e non risolto (v. CLAUDE.md, sezione Admin).
 **Post-M8:** nuova pagina Impostazioni > Admin (import CSV spostato lì) con
 bridge temporaneo verso il foglio Google "Copia di Spese" (service account,
 disattivabile, da rimuovere a fine progetto) e strumenti di eliminazione

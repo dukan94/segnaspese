@@ -103,7 +103,8 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
 
   /// Elimina la riga per sempre, bypassando il soft delete (pannello Admin).
   ///
-  /// Il DAO non conosce Turso: sta al chiamante (v. core/di/admin_providers.dart)
+  /// Il DAO non conosce Turso: sta al chiamante (v.
+  /// presentation/settings/admin_page.dart, `_syncBeforeHardDelete`)
   /// propagare prima la cancellazione alla sync remota, se configurata —
   /// altrimenti la transazione può ricomparire da un altro dispositivo alla
   /// sync successiva, dato che il server non saprebbe mai che è stata

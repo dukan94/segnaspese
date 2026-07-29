@@ -16,9 +16,9 @@ import '../home/home_providers.dart';
 enum _SheetsTestStatus { unknown, testing, valid, invalid }
 
 /// Strumenti interni, fuori dal flusso normale di Impostazioni: import CSV
-/// (v. memoria "project-csv-import-dev-only" — solo per sviluppo/backfill,
-/// non il vero import da estratto conto) e il bridge temporaneo verso il
-/// foglio Google "Copia di Spese" (v. CLAUDE.md), disattivabile da qui.
+/// (solo per sviluppo/backfill, non il vero import da estratto conto), il
+/// bridge temporaneo verso il foglio Google "Copia di Spese" (v. CLAUDE.md),
+/// disattivabile da qui, e gli strumenti di eliminazione definitiva.
 class AdminPage extends ConsumerStatefulWidget {
   const AdminPage({super.key});
 
@@ -79,7 +79,17 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     }
   }
 
+  /// true se una cancellazione definitiva (singola o pulizia bulk) è già in
+  /// corso: usato per disabilitare TUTTI i pulsanti distruttivi mentre una è
+  /// in volo, non solo quello premuto. Senza questo, due tap ravvicinati su
+  /// transazioni diverse potrebbero sovrapporre due `syncNow()`: la seconda
+  /// troverebbe la sync della prima ancora in corso e (per come è fatta oggi
+  /// `TursoSyncService.syncNow`) ritornerebbe subito senza aver davvero
+  /// sincronizzato nulla, vanificando la rete di sicurezza pre-hard-delete.
+  bool get _destructiveOpInProgress => _purgeBusy || _hardDeletingId != null;
+
   Future<void> _confirmAndPurge() async {
+    if (_destructiveOpInProgress) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -119,6 +129,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
   }
 
   Future<void> _confirmAndHardDelete(TransactionEntity tx) async {
+    if (_destructiveOpInProgress) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -153,7 +164,18 @@ class _AdminPageState extends ConsumerState<AdminPage> {
       showSuccessSnackBar(context, 'Transazione eliminata per sempre');
     } catch (e) {
       if (!mounted) return;
-      showErrorSnackBar(context, 'Errore durante l\'eliminazione: $e');
+      // A questo punto la transazione è già stata rimossa dalle liste (il
+      // soft delete iniziale è andato a buon fine): l'errore qui riguarda
+      // solo la sync/l'eliminazione fisica finale, non un'operazione
+      // completamente fallita — altrimenti "Errore durante l'eliminazione"
+      // suggerirebbe che nulla sia successo, quando invece la transazione
+      // non è più visibile da nessuna parte.
+      showErrorSnackBar(
+        context,
+        'La transazione non è più visibile (cancellata) ma non è stata '
+        'eliminata definitivamente (errore: $e). Usa "Pulisci database" '
+        'più tardi per completare la pulizia.',
+      );
     } finally {
       if (mounted) setState(() => _hardDeletingId = null);
     }
@@ -212,6 +234,15 @@ class _AdminPageState extends ConsumerState<AdminPage> {
       showErrorSnackBar(context, 'Errore durante il salvataggio: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _toggleGoogleSheetsEnabled(bool value) async {
+    try {
+      await ref.read(setGoogleSheetsEnabledProvider)(value);
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Errore nel salvare lo stato del bridge: $e');
     }
   }
 
@@ -279,9 +310,11 @@ class _AdminPageState extends ConsumerState<AdminPage> {
           const SizedBox(height: 4),
           Text(
             'Finché l\'app non è completa e testata al 100%, ogni entrata/uscita '
-            'salvata può essere copiata anche sul foglio Google usato finora, '
-            'seguendo lo stesso schema di colonne. Da disattivare qui quando non '
-            'serve più.',
+            'inserita a mano o da scontrino può essere copiata anche sul foglio '
+            'Google usato finora, seguendo lo stesso schema di colonne. Non '
+            'copre i movimenti generati dalle ricorrenze, né le modifiche o '
+            'cancellazioni fatte dopo il salvataggio: il foglio può divergere '
+            'dall\'app in quei casi. Da disattivare qui quando non serve più.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -292,9 +325,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                   ? 'Configurato'
                   : 'Configura prima le credenziali qui sotto'),
               value: enabled && _alreadyConfigured,
-              onChanged: !_alreadyConfigured
-                  ? null
-                  : (value) => ref.read(setGoogleSheetsEnabledProvider)(value),
+              onChanged: !_alreadyConfigured ? null : _toggleGoogleSheetsEnabled,
             ),
           ),
           const SizedBox(height: 16),
@@ -383,7 +414,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
               foregroundColor: theme.colorScheme.error,
               side: BorderSide(color: theme.colorScheme.error),
             ),
-            onPressed: _purgeBusy ? null : _confirmAndPurge,
+            onPressed: _destructiveOpInProgress ? null : _confirmAndPurge,
             icon: _purgeBusy
                 ? const SizedBox(
                     width: 18,
@@ -456,10 +487,13 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                                     )
                                   : IconButton(
                                       icon: Icon(Icons.delete_forever_outlined,
-                                          color: theme.colorScheme.error),
+                                          color: _destructiveOpInProgress
+                                              ? theme.disabledColor
+                                              : theme.colorScheme.error),
                                       tooltip: 'Elimina per sempre',
-                                      onPressed: () =>
-                                          _confirmAndHardDelete(tx),
+                                      onPressed: _destructiveOpInProgress
+                                          ? null
+                                          : () => _confirmAndHardDelete(tx),
                                     ),
                             ),
                           ),
