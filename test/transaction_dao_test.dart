@@ -114,16 +114,12 @@ void main() {
     expect(raw, null);
   });
 
-  test('purgeSoftDeleted elimina solo le righe già soft-deleted, non le altre', () async {
+  test('getSoftDeletedIds restituisce solo gli id delle righe già soft-deleted', () async {
     final deletedId = await insertTransazione(categoryId: categoriaCasa, amount: 10, date: DateTime(2025, 6, 1), isDeleted: true);
-    final activeId = await insertTransazione(categoryId: categoriaCasa, amount: 20, date: DateTime(2025, 6, 2));
+    await insertTransazione(categoryId: categoriaCasa, amount: 20, date: DateTime(2025, 6, 2));
 
-    final purged = await db.transactionDao.purgeSoftDeleted();
+    final ids = await db.transactionDao.getSoftDeletedIds();
 
-    expect(purged, 1);
-    final deletedRow = await (db.select(db.transactions)..where((t) => t.id.equals(deletedId))).getSingleOrNull();
-    expect(deletedRow, null);
-    final activeRow = await (db.select(db.transactions)..where((t) => t.id.equals(activeId))).getSingleOrNull();
-    expect(activeRow != null, true);
+    expect(ids, [deletedId]);
   });
 }

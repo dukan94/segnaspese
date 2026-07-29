@@ -71,14 +71,4 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<void> delete(int id) async {
     await _dao.softDelete(id);
   }
-
-  @override
-  Future<void> hardDelete(int id) async {
-    await _dao.hardDelete(id);
-  }
-
-  @override
-  Future<int> purgeSoftDeleted() {
-    return _dao.purgeSoftDeleted();
-  }
 }

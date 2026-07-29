@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:finance_app/data/local/database/app_database.dart';
@@ -50,6 +52,11 @@ void main() {
     double amount = 25.0,
     String? note = 'Cena',
     bool isRefund = false,
+    // Fissato ed esplicitamente vecchio (non il default `currentDateAndTime`
+    // di SQLite, a risoluzione di secondo): un successivo softDelete() che
+    // imposta `updatedAt: DateTime.now()` deve risultare sempre più recente,
+    // senza ambiguità legate alla risoluzione dell'orologio nei test veloci.
+    DateTime? updatedAt,
   }) {
     return db.into(db.transactions).insert(
           TransactionsCompanion.insert(
@@ -61,6 +68,7 @@ void main() {
             note: Value(note),
             isRefund: Value(isRefund),
             syncId: Value(syncId),
+            updatedAt: Value(updatedAt ?? DateTime(2020, 1, 1)),
           ),
         );
   }
@@ -168,4 +176,64 @@ void main() {
           reason: 'il doppione remoto va segnalato cancellato così converge sugli altri device');
     },
   );
+
+  test(
+    'syncNow concorrenti: una chiamata che arriva mentre una è già in corso '
+    'non si accontenta del suo risultato, ne aspetta una fresca che include '
+    'le modifiche fatte nel frattempo',
+    () async {
+      // Blocca la prima sync "a metà" (dentro la sua prima execute()), per
+      // simulare una sync di sfondo già partita ma non ancora finita.
+      final gate = Completer<void>();
+      fakeClient.blockUntil = gate.future;
+
+      final firstSync = sync.syncNow();
+
+      // Una seconda chiamata concorrente, come farebbe un hard delete in
+      // Admin subito dopo un soft delete mentre una sync di sfondo gira già.
+      final secondSync = sync.syncNow();
+      // Lascia girare l'event loop così la seconda chiamata entra davvero
+      // nel ramo "aspetta quella in corso" prima di sbloccare la prima.
+      await Future.delayed(Duration.zero);
+
+      // Solo ORA, dopo che entrambe le chiamate sono partite, arriva una
+      // modifica locale: la prima sync (già bloccata dentro la sua execute)
+      // non può averla fotografata; solo una sync fresca, avviata dopo,
+      // può includerla.
+      await insertLocalTransaction(syncId: 'tardiva', amount: 9.99, note: 'Tardiva');
+
+      gate.complete();
+      await Future.wait([firstSync, secondSync]);
+
+      expect(fakeClient.tables['sync_transactions']?['tardiva'], isNotNull,
+          reason: 'la seconda chiamata a syncNow() deve aver lanciato un giro '
+              'fresco che include la transazione scritta dopo la prima chiamata, '
+              'non essersi accontentata del giro già in corso');
+    },
+  );
+
+  group('isTransactionDeletionConfirmedRemotely', () {
+    test('true se Turso non è configurato (client iniettato ma senza credenziali reali non è il caso qui: verifichiamo il caso "mai sincronizzata")', () async {
+      final id = await insertLocalTransaction(syncId: 'mai-sincronizzata');
+      // Nessun syncNow() eseguito: il server non ha mai visto questa riga.
+      expect(await sync.isTransactionDeletionConfirmedRemotely(id), isTrue);
+    });
+
+    test('true se il server conferma is_deleted = 1', () async {
+      final id = await insertLocalTransaction(syncId: 'confermata');
+      await sync.syncNow();
+      await db.transactionDao.softDelete(id);
+      await sync.syncNow();
+
+      expect(await sync.isTransactionDeletionConfirmedRemotely(id), isTrue);
+    });
+
+    test('false se il server ha ancora is_deleted = 0 (sync non ancora avvenuta dopo il soft delete)', () async {
+      final id = await insertLocalTransaction(syncId: 'non-ancora');
+      await sync.syncNow(); // la riga arriva sul server, ma non cancellata
+      await db.transactionDao.softDelete(id); // soft delete locale, MAI sincronizzato
+
+      expect(await sync.isTransactionDeletionConfirmedRemotely(id), isFalse);
+    });
+  });
 }

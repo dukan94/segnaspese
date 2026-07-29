@@ -526,28 +526,33 @@ una milestone, strumenti interni)
 - **Temporaneo**: da disattivare (switch in Admin) quando l'app sarà completa
   e testata al 100% — non va esteso oltre questo scopo (es. niente storico
   retroattivo, niente sync inversa dal foglio verso l'app).
-- **Gestione transazioni** (stessa pagina Admin): il DB fa di norma solo soft
+- **Gestione transazioni** (stessa pagina Admin, `data/services/
+  safe_transaction_deletion_service.dart`): il DB fa di norma solo soft
   delete (`isDeleted` + `updatedAt`, necessario per propagare le cancellazioni
-  alla sync). Admin aggiunge due modi di eliminare *per sempre* (bypassano il
-  soft delete, irreversibili, solo tabella `Transactions`):
-  - **Elimina definitivamente una transazione**: ricerca (nota/categoria/
-    importo/data, stesso motore client-side dello Storico) + eliminazione
-    puntuale.
-  - **Pulisci database**: elimina in blocco tutte le transazioni già
-    soft-deleted.
-  - In entrambi i casi, **se la sync Turso è configurata viene eseguita prima
-    una `syncNow()`**: altrimenti il server remoto non saprebbe mai della
-    cancellazione, e la riga ricomparirebbe da un altro dispositivo alla sync
-    successiva. Ordine da non invertire mai (sync prima, poi hard delete).
-    `_destructiveOpInProgress` serializza le operazioni distruttive tra loro
-    (evita due `syncNow()` sovrapposte dallo stesso utente).
-  - **Rischio residuo noto, non risolto** (v. CLAUDE.md sezione Admin per il
-    dettaglio): la guardia di rientranza di `syncNow()` può far ritornare la
-    sync "con successo" senza aver davvero spinto il tombstone, se una sync
-    di sfondo è già in corso per altri motivi; idem se il push scarta la riga
-    in silenzio o se l'upsert LWW non aggiorna nulla per clock skew. L'hard
-    delete rimuove anche la capacità di riconoscere la riga come duplicata da
-    un secondo dispositivo non ancora risincronizzato.
+  alla sync). Admin aggiunge due modi di eliminare *per sempre* (irreversibili,
+  solo tabella `Transactions`): ricerca puntuale + eliminazione, o "Pulisci
+  database" (bulk su tutte le già soft-deleted).
+  - **`SafeTransactionDeletionService` è l'unico punto d'accesso**: prima di
+    ogni hard delete/purge fa un tentativo di sync (best-effort, fino a 3
+    volte) e poi LEGGE DIRETTAMENTE dal server se quella riga risulta
+    davvero cancellata, prima di eliminarla fisicamente. Se non confermata,
+    resta soft-deleted (nascosta, recuperabile solo da "Pulisci database"
+    più tardi).
+  - Questo copre in un colpo solo i 3 modi in cui una `syncNow()` "senza
+    eccezioni" può comunque non aver davvero spinto la cancellazione: righe
+    scartate in silenzio dal push (FK non ancora sincronizzata), upsert LWW
+    che non aggiorna nulla (clock skew o pareggio esatto di `updatedAt`), e
+    sync di sfondo già in corso.
+  - `TursoSyncService.syncNow()` non ha più una guardia di rientranza
+    silenziosa: una chiamata concorrente aspetta quella in corso e ne lancia
+    comunque una fresca, invece di accontentarsi di un giro iniziato prima
+    della propria chiamata — necessario con più dispositivi attivi, dove le
+    sync di sfondo si sovrappongono spesso.
+  - Righe mai sincronizzate (nessuna copia remota) sono sempre sicure da
+    eliminare subito: nessuna copia da cui potrebbero "ricomparire". Una
+    volta confermata la cancellazione, l'hard delete rimuove comunque il
+    tombstone locale: irrilevante per un secondo dispositivo con storico non
+    ancora risincronizzato finché resta tale.
 
 ---
 
@@ -568,19 +573,22 @@ best-practice del codice, dedupe della tassonomia post-sync, empty states +
 animazioni leggere, tema unificato sul colore dell'icona, rename utente a
 "Tally" (solo UX). **CI attiva** (`.github/workflows/ci.yml`): `flutter
 analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
-Test: 15 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
-finder, motore di sync Turso, repair sottocategorie orfane, widget animati,
-DAO ricorrenze/categorie/budget/transazioni (incluso hard delete/purge),
-formatter righe e servizio Google Sheets (header matching) + 1 smoke widget
-test). Repository impl e usecase restano senza test dedicati: delega pura,
-nessuna logica propria. Verifica approfondita del codice Admin/Sheets fatta
-il 29/07: alcuni bug corretti, un rischio residuo sulla sync in background
-resta noto e non risolto (v. CLAUDE.md, sezione Admin).
+Test: 16 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
+finder, motore di sync Turso (incluso rientranza `syncNow()` e verifica
+remota puntuale), repair sottocategorie orfane, widget animati, DAO
+ricorrenze/categorie/budget/transazioni (incluso hard delete/purge),
+formatter e servizio Google Sheets (header matching), `SafeTransactionDeletionService`
++ 1 smoke widget test). Repository impl e usecase restano senza test dedicati:
+delega pura, nessuna logica propria. Verifica approfondita del codice
+Admin/Sheets fatta il 29/07: bug corretti, e il rischio residuo sulla sync in
+background (identificato nella stessa verifica) risolto lo stesso giorno con
+`SafeTransactionDeletionService` + fix alla rientranza di `syncNow()` (v.
+CLAUDE.md, sezione Admin).
 **Post-M8:** nuova pagina Impostazioni > Admin (import CSV spostato lì) con
 bridge temporaneo verso il foglio Google "Copia di Spese" (service account,
 disattivabile, da rimuovere a fine progetto) e strumenti di eliminazione
-definitiva/pulizia database, con sync forzata prima di ogni hard delete se
-Turso è configurato (v. sezioni dedicate sopra).
+definitiva/pulizia database, con verifica diretta sul server prima di ogni
+hard delete se Turso è configurato (v. sezioni dedicate sopra).
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per

@@ -101,21 +101,25 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     );
   }
 
-  /// Elimina la riga per sempre, bypassando il soft delete (pannello Admin).
+  /// Elimina la riga per sempre, bypassando il soft delete.
   ///
-  /// Il DAO non conosce Turso: sta al chiamante (v.
-  /// presentation/settings/admin_page.dart, `_syncBeforeHardDelete`)
-  /// propagare prima la cancellazione alla sync remota, se configurata —
-  /// altrimenti la transazione può ricomparire da un altro dispositivo alla
-  /// sync successiva, dato che il server non saprebbe mai che è stata
-  /// cancellata.
+  /// Primitiva di basso livello: NON chiamarla direttamente dal pannello
+  /// Admin o da un usecase. Il DAO non conosce Turso, quindi non sa se la
+  /// cancellazione è già stata propagata alla sync remota — passare sempre
+  /// da [SafeTransactionDeletionService], che verifica sul server prima di
+  /// chiamare questo metodo (altrimenti la transazione può ricomparire da un
+  /// altro dispositivo alla sync successiva).
   Future<int> hardDelete(int id) {
     return (delete(transactions)..where((t) => t.id.equals(id))).go();
   }
 
-  /// Elimina per sempre tutte le righe già soft-deleted (pulizia bulk,
-  /// pannello Admin). Stessa avvertenza di [hardDelete] sulla sync.
-  Future<int> purgeSoftDeleted() {
-    return (delete(transactions)..where((t) => t.isDeleted.equals(true))).go();
+  /// Id di tutte le transazioni già soft-deleted, per il controllo riga per
+  /// riga di [SafeTransactionDeletionService] prima della pulizia bulk
+  /// ("Pulisci database" in Admin) — niente `DELETE` bulk qui: ogni riga va
+  /// verificata sul server individualmente prima di eliminarla per sempre.
+  Future<List<int>> getSoftDeletedIds() {
+    return (select(transactions)..where((t) => t.isDeleted.equals(true)))
+        .map((row) => row.id)
+        .get();
   }
 }

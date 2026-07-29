@@ -64,6 +64,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  # Test double ufficiale di FlutterSecureStorage (v.
+  # test/safe_transaction_deletion_service_test.dart): già una dipendenza
+  # transitiva di flutter_secure_storage, dichiarata qui perché importata
+  # direttamente nei test.
+  flutter_secure_storage_platform_interface: ^1.1.2
 
   # Code generation
   build_runner: ^2.4.11

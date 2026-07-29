@@ -129,22 +129,38 @@ class TursoSyncService implements SyncService {
     return true;
   }
 
-  bool _syncing = false;
+  /// Il giro di sync attualmente in corso, se ce n'è uno.
+  Future<void>? _currentRun;
 
   @override
   Future<void> syncNow() async {
-    // Senza questa guardia, un pausa/ripresa ravvicinati (v. app.dart) o il
-    // timer periodico che scatta mentre una sync precedente è ancora in
-    // corso potevano avviare due syncNow() in parallelo: non corrompono i
-    // dati (upsert idempotenti, i pull scartano righe non più recenti), ma
-    // sprecano chiamate HTTP verso Turso e possono far "sfarfallare" lo
-    // stato mostrato in UI.
-    if (_syncing) return;
-    _syncing = true;
+    // Se un giro è già in corso, NON ci accontentiamo del suo risultato: è
+    // partito prima di questa chiamata, quindi potrebbe aver già fotografato
+    // le righe da spingere PRIMA di una modifica fatta proprio ora (es. un
+    // soft delete appena scritto in vista di un hard delete in Admin, v.
+    // SafeTransactionDeletionService). Aspettiamo che finisca (ignorando un
+    // suo eventuale errore: non è il nostro, lo rilancia chi l'ha avviato) e
+    // ne lanciamo comunque uno nuovo, partito per certo dopo la chiamata.
+    //
+    // Prima di questo fix, un giro già in corso faceva ritornare subito
+    // senza eccezione (v. git history): efficiente per i trigger di sfondo
+    // (pausa/ripresa, timer periodico) che si sovrappongono spesso con più
+    // dispositivi attivi, ma rendeva silenziosamente vana la garanzia "dopo
+    // syncNow() il server sa della cancellazione".
+    while (_currentRun != null) {
+      final waiting = _currentRun!;
+      try {
+        await waiting;
+      } catch (_) {
+        // Ignorato qui: quell'errore appartiene a chi ha avviato quel giro.
+      }
+    }
+    final run = _syncNowInner();
+    _currentRun = run;
     try {
-      await _syncNowInner();
+      await run;
     } finally {
-      _syncing = false;
+      if (identical(_currentRun, run)) _currentRun = null;
     }
   }
 
@@ -344,6 +360,38 @@ class TursoSyncService implements SyncService {
     final row =
         await (_db.select(_db.transactions)..where((t) => t.id.equals(id))).getSingleOrNull();
     return row?.syncId;
+  }
+
+  /// Verifica DIRETTAMENTE sul server (non sullo stato locale) che la
+  /// transazione [localId] risulti già cancellata su Turso (`is_deleted = 1`
+  /// nella riga remota con lo stesso `syncId`).
+  ///
+  /// Usato da [SafeTransactionDeletionService] come unica vera garanzia
+  /// prima di un hard delete: a differenza di "aspettare che `syncNow()` non
+  /// lanci eccezioni", questo controllo è autorevole in ogni caso — copre
+  /// sia una riga scartata in silenzio dal push (FK non ancora sincronizzata,
+  /// v. `_pushTransactions`) sia un upsert last-write-wins che non ha
+  /// aggiornato nulla per clock skew, sia (prima del fix alla rientranza di
+  /// `syncNow()`) un giro di sync in corso per altri motivi.
+  ///
+  /// Restituisce true anche se non c'è nulla da temere: Turso non
+  /// configurato, transazione mai sincronizzata (nessun `syncId`), o mai
+  /// arrivata sul server (nessuna riga remota con quel `syncId`) — in tutti
+  /// questi casi il server non ha alcuna copia da far "ricomparire".
+  Future<bool> isTransactionDeletionConfirmedRemotely(int localId) async {
+    if (!await _ensureClient()) return true;
+    final syncId = await _transactionSyncId(localId);
+    if (syncId == null) return true;
+
+    final results = await _client!.execute([
+      TursoStatement(
+        'SELECT is_deleted FROM sync_transactions WHERE sync_id = ?',
+        [syncId],
+      ),
+    ]);
+    final rows = results.first.asMaps();
+    if (rows.isEmpty) return true;
+    return _intToBool(rows.first['is_deleted']);
   }
 
   Future<int?> _transactionIdFor(String? syncId) async {
