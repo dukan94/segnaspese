@@ -162,6 +162,14 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
 
   // --- Scrittura CRUD (Milestone M2: gestione categorie da UI) ---
 
+  Future<Category?> getCategoryById(int id) {
+    return (select(categories)..where((c) => c.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<SubCategory?> getSubCategoryById(int id) {
+    return (select(subCategories)..where((s) => s.id.equals(id))).getSingleOrNull();
+  }
+
   Future<int> insertCategory(CategoriesCompanion entry) {
     return into(categories).insert(entry);
   }

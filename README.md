@@ -45,6 +45,9 @@ desktop Windows** grazie a Flutter.
 - **fl_chart** — grafici della dashboard
 - **Turso** — sincronizzazione cloud multi-dispositivo via API HTTP (Hrana),
   non tramite client nativo libSQL (evita la toolchain Rust in build)
+- **googleapis** / **googleapis_auth** — bridge temporaneo (Impostazioni >
+  Admin) verso il foglio Google usato finora per le spese, disattivabile;
+  da rimuovere quando l'app sarà completa e testata al 100%
 
 ## Requisiti
 

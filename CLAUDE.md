@@ -25,6 +25,7 @@ Flutter/Dart · **Drift** (SQLite locale, codice generato) · **Riverpod**
 **fl_chart** (grafici) · **Google Gemini** (lettura scontrini via cloud, key
 personale) con fallback **Google ML Kit** OCR offline · **Turso** (sync cloud
 multi-dispositivo via API HTTP) · `csv`+`file_picker` (import/export) ·
+`googleapis`/`googleapis_auth` (bridge temporaneo Google Sheets, v. sotto) ·
 `flutter_secure_storage` (credenziali) · `intl`/`uuid`/`collection`.
 
 SDK Dart `>=3.4.0 <4.0.0`. Versione app `0.1.0`. Schema DB Drift: **v6**.
@@ -85,6 +86,29 @@ macchina. Non reintrodurre `libsql_dart`.
 - Tabella `Merchants`: schema pronto (`syncId`) ma nessun DAO/flusso UI ancora
   collegato — non ha ancora dati.
 
+## Admin e bridge temporaneo Google Sheets
+
+Impostazioni > **Admin** (`presentation/settings/admin_page.dart`, fuori dal
+flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
+
+- **Import CSV** (spostato qui da Impostazioni, v. `import_page.dart`): solo
+  sviluppo/backfill, non il vero import da estratto conto bancario (quello è
+  lavoro futuro separato, non ancora progettato).
+- **Bridge Google Sheets** verso il foglio "Copia di Spese" già usato a mano:
+  finché attivo, ogni transazione salvata tramite `addTransactionProvider`
+  (non l'import CSV, che resta un bulk tool separato) viene copiata in
+  background anche lì, stesso schema colonne (`data/services/
+  google_sheets_row_formatter.dart`, ricalca `spese.csv`). **Temporaneo**:
+  da disattivare col relativo switch quando l'app sarà completa e testata al
+  100% — non va esteso oltre questo scopo.
+  - Autenticazione **service account** (`google_sheets_service.dart`), non
+    OAuth interattivo: `google_sign_in` non supporta Windows desktop, e
+    l'app gira da un'unica codebase su Windows+Android. Setup (fuori
+    dall'app, a cura di Mario): service account su Google Cloud, foglio
+    condiviso con la sua email come Editor.
+  - Fallimenti di rete/permessi qui sono isolati e non bloccano/non fanno
+    fallire il salvataggio locale (stesso principio della sync Turso).
+
 ## Stato attuale (lug 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
@@ -98,10 +122,14 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
   rename utente a "Tally", **CI attiva** — `.github/workflows/ci.yml`:
   `flutter analyze` + `flutter test` su ogni push/PR con rigenerazione del
   codice — copertura test estesa al motore di sync e ai DAO con logica reale).
-- Test in `test/` (13 file): parser CSV, receipt parser, rule matcher,
+- Test in `test/` (14 file): parser CSV, receipt parser, rule matcher,
   duplicate finder, sync Turso, repair sottocategorie orfane, widget animati,
   DAO ricorrenze/categorie/budget/transazioni (date-math, riordino, upsert,
-  filtri ricerca) + 1 smoke widget test.
+  filtri ricerca), formatter righe Google Sheets + 1 smoke widget test.
+- **Post-M8**: Admin (Impostazioni > Admin) con import CSV spostato lì e
+  bridge temporaneo verso il foglio Google "Copia di Spese" (v. sezione
+  dedicata sopra) — non è una milestone, è uno strumento ponte da rimuovere a
+  fine progetto.
 
 ## Convenzioni
 
@@ -113,8 +141,8 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
 - **Font importi**: `PublicSans` (OFL) al posto di Aptos Display (proprietario,
   non ridistribuibile). Font variabile, un solo file per tutti i pesi.
 - **Lint**: `package:flutter_lints/flutter.yaml` (`analysis_options.yaml`).
-- **Segreti** (credenziali Turso, API key Gemini): solo in
-  `flutter_secure_storage`, mai committati.
+- **Segreti** (credenziali Turso, API key Gemini, chiave JSON service account
+  Google Sheets): solo in `flutter_secure_storage`, mai committati.
 
 ## Come lavorare su questo progetto
 

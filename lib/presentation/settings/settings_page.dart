@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Impostazioni: gestione categorie, regole merchant, import/export,
-/// tema, stato sync Turso.
+/// Impostazioni: gestione categorie, regole merchant, export, tema, stato
+/// sync Turso. L'import CSV e il bridge Google Sheet vivono in "Admin"
+/// (strumenti interni, v. admin_page.dart), fuori da questo flusso normale.
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
@@ -23,12 +24,6 @@ class SettingsPage extends StatelessWidget {
             title: const Text('Regole di classificazione scontrini'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/rules'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.file_upload_outlined),
-            title: const Text('Importa operazioni da CSV'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/settings/import'),
           ),
           ListTile(
             leading: const Icon(Icons.file_download_outlined),
@@ -53,6 +48,12 @@ class SettingsPage extends StatelessWidget {
             title: const Text('Tema'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/theme'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.admin_panel_settings_outlined),
+            title: const Text('Admin'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/admin'),
           ),
         ],
       ),

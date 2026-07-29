@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database/daos/transaction_dao.dart';
@@ -9,6 +11,7 @@ import '../../domain/usecases/transaction/delete_transaction.dart';
 import '../../domain/usecases/transaction/search_transactions.dart';
 import '../../domain/usecases/transaction/update_transaction.dart';
 import 'database_provider.dart';
+import 'google_sheets_providers.dart';
 
 /// DAO delle transazioni, ricavato dall'istanza condivisa di [AppDatabase].
 final transactionDaoProvider = Provider<TransactionDao>((ref) {
@@ -23,8 +26,21 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepositoryImpl(dao);
 });
 
-final addTransactionProvider = Provider<AddTransaction>((ref) {
-  return AddTransaction(ref.watch(transactionRepositoryProvider));
+/// Oltre a salvare la transazione, se il bridge Google Sheet (Impostazioni >
+/// Admin) è attivo ne invia in background una copia al foglio "Copia di
+/// Spese" configurato — bridge temporaneo finché l'app non lo sostituisce
+/// del tutto (v. CLAUDE.md). Un fallimento lì non tocca il salvataggio
+/// locale, già andato a buon fine a quel punto.
+final addTransactionProvider =
+    Provider<Future<int> Function(TransactionEntity)>((ref) {
+  final useCase = AddTransaction(ref.watch(transactionRepositoryProvider));
+  return (transaction) async {
+    final id = await useCase.call(transaction);
+    unawaited(
+      pushTransactionToGoogleSheet(ref, transaction.copyWith(id: id)),
+    );
+    return id;
+  };
 });
 
 final deleteTransactionProvider = Provider<DeleteTransaction>((ref) {
