@@ -69,6 +69,9 @@ dev_dependencies:
   # transitiva di flutter_secure_storage, dichiarata qui perché importata
   # direttamente nei test.
   flutter_secure_storage_platform_interface: ^1.1.2
+  # StreamQueue (v. test/category_dao_test.dart): ordina in modo deterministico
+  # le emissioni di uno stream nei test, senza `Future.delayed` a caso.
+  async: ^2.11.0
 
   # Code generation
   build_runner: ^2.4.11
