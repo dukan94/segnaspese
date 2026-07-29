@@ -108,7 +108,7 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
     condiviso con la sua email come Editor.
   - Fallimenti di rete/permessi qui sono isolati e non bloccano/non fanno
     fallire il salvataggio locale (stesso principio della sync Turso).
-- **Manutenzione dati** (`TransactionDao.hardDelete`/`purgeSoftDeleted`,
+- **Gestione transazioni** (`TransactionDao.hardDelete`/`purgeSoftDeleted`,
   usecase `HardDeleteTransaction`/`PurgeDeletedTransactions`): il DB fa di
   norma solo soft delete (serve a propagare le cancellazioni in sync). Da
   Admin si può eliminare per sempre (bypassa il soft delete, irreversibile):

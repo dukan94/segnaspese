@@ -522,7 +522,7 @@ una milestone, strumenti interni)
 - **Temporaneo**: da disattivare (switch in Admin) quando l'app sarà completa
   e testata al 100% — non va esteso oltre questo scopo (es. niente storico
   retroattivo, niente sync inversa dal foglio verso l'app).
-- **Manutenzione dati** (stessa pagina Admin): il DB fa di norma solo soft
+- **Gestione transazioni** (stessa pagina Admin): il DB fa di norma solo soft
   delete (`isDeleted` + `updatedAt`, necessario per propagare le cancellazioni
   alla sync). Admin aggiunge due modi di eliminare *per sempre* (bypassano il
   soft delete, irreversibili, solo tabella `Transactions`):

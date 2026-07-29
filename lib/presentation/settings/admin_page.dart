@@ -263,7 +263,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Strumenti interni', style: theme.textTheme.titleMedium),
+          Text('Import CSV', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
@@ -274,7 +274,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
               onTap: () => context.push('/settings/import'),
             ),
           ),
-          const SizedBox(height: 24),
+          const _AdminSectionDivider(),
           Text('Google Sheet spese (temporaneo)', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
@@ -368,8 +368,8 @@ class _AdminPageState extends ConsumerState<AdminPage> {
               ),
             ),
           ],
-          const SizedBox(height: 24),
-          Text('Manutenzione dati', style: theme.textTheme.titleMedium),
+          const _AdminSectionDivider(),
+          Text('Gestione transazioni', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
             'Il database elimina di norma solo "a metà" (soft delete): serve '
@@ -479,6 +479,21 @@ class _AdminPageState extends ConsumerState<AdminPage> {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// Distacco visivo tra le 3 sezioni di Admin (import CSV, Google Sheet,
+/// gestione transazioni): più respiro di un semplice SizedBox, con una riga
+/// a separare chiaramente dove finisce una sezione e inizia la successiva.
+class _AdminSectionDivider extends StatelessWidget {
+  const _AdminSectionDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 28),
+      child: Divider(height: 1),
     );
   }
 }
