@@ -2,9 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/di/category_providers.dart';
 import '../../core/di/google_sheets_providers.dart';
+import '../../core/di/sync_providers.dart';
+import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
+import '../../core/utils/formatters.dart';
+import '../../data/local/database/app_database.dart';
 import '../../data/services/google_sheets_service.dart';
+import '../../domain/entities/transaction_entity.dart';
+import '../home/home_providers.dart';
 
 enum _SheetsTestStatus { unknown, testing, valid, invalid }
 
@@ -27,6 +34,11 @@ class _AdminPageState extends ConsumerState<AdminPage> {
   bool _busy = false;
   bool _alreadyConfigured = false;
   _SheetsTestStatus _testStatus = _SheetsTestStatus.unknown;
+
+  final _deleteSearchController = TextEditingController();
+  String _deleteQuery = '';
+  bool _purgeBusy = false;
+  int? _hardDeletingId;
 
   @override
   void initState() {
@@ -53,7 +65,116 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     _credentialsController.dispose();
     _spreadsheetController.dispose();
     _sheetNameController.dispose();
+    _deleteSearchController.dispose();
     super.dispose();
+  }
+
+  /// Se la sync Turso è configurata, la esegue prima di un'eliminazione
+  /// definitiva: propaga il tombstone (soft delete) al server remoto, così
+  /// la riga non ricompare da un altro dispositivo alla sync successiva.
+  Future<void> _syncBeforeHardDelete() async {
+    final syncService = ref.read(syncServiceProvider);
+    if (await syncService.isConfigured()) {
+      await syncService.syncNow();
+    }
+  }
+
+  Future<void> _confirmAndPurge() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Pulisci database'),
+        content: const Text(
+          'Elimina per sempre tutte le transazioni già cancellate '
+          '(operazione irreversibile). Se la sync Turso è configurata, '
+          'viene eseguita prima, per evitare che ricompaiano da un altro '
+          'dispositivo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Elimina per sempre'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _purgeBusy = true);
+    try {
+      await _syncBeforeHardDelete();
+      final count = await ref.read(purgeDeletedTransactionsProvider)();
+      if (!mounted) return;
+      showSuccessSnackBar(context, 'Eliminate per sempre $count transazioni');
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Errore durante la pulizia: $e');
+    } finally {
+      if (mounted) setState(() => _purgeBusy = false);
+    }
+  }
+
+  Future<void> _confirmAndHardDelete(TransactionEntity tx) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Elimina definitivamente'),
+        content: Text(
+          '${tx.note?.isNotEmpty == true ? tx.note : 'Senza nota'} · '
+          '${AppFormatters.signedCurrency(tx.signedAmount)} · '
+          '${AppFormatters.shortDate(tx.date)}\n\n'
+          'Operazione irreversibile: non finisce nel cestino, sparisce del '
+          'tutto. Se la sync Turso è configurata, viene eseguita prima.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Elimina per sempre'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || tx.id == null || !mounted) return;
+
+    setState(() => _hardDeletingId = tx.id);
+    try {
+      await ref.read(deleteTransactionProvider).call(tx.id!);
+      await _syncBeforeHardDelete();
+      await ref.read(hardDeleteTransactionProvider)(tx.id!);
+      if (!mounted) return;
+      showSuccessSnackBar(context, 'Transazione eliminata per sempre');
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Errore durante l\'eliminazione: $e');
+    } finally {
+      if (mounted) setState(() => _hardDeletingId = null);
+    }
+  }
+
+  List<TransactionEntity> _filterForDelete(
+    List<TransactionEntity> all,
+    Map<int, Category> catById,
+  ) {
+    if (_deleteQuery.isEmpty) return const [];
+    return all.where((t) {
+      final cat = catById[t.categoryId]?.name ?? '';
+      final haystack = [
+        t.note ?? '',
+        cat,
+        AppFormatters.shortDate(t.date),
+        t.amount.toStringAsFixed(2),
+        t.amount.toStringAsFixed(2).replaceAll('.', ','),
+      ].join(' ').toLowerCase();
+      return haystack.contains(_deleteQuery);
+    }).toList();
   }
 
   Future<void> _save() async {
@@ -247,6 +368,115 @@ class _AdminPageState extends ConsumerState<AdminPage> {
               ),
             ),
           ],
+          const SizedBox(height: 24),
+          Text('Manutenzione dati', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(
+            'Il database elimina di norma solo "a metà" (soft delete): serve '
+            'per propagare le cancellazioni alla sync. Qui invece elimini '
+            'per sempre, senza possibilità di recupero.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+              side: BorderSide(color: theme.colorScheme.error),
+            ),
+            onPressed: _purgeBusy ? null : _confirmAndPurge,
+            icon: _purgeBusy
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_sweep_outlined),
+            label: const Text('Pulisci database'),
+          ),
+          const SizedBox(height: 20),
+          Text('Elimina definitivamente una transazione',
+              style: theme.textTheme.titleSmall),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _deleteSearchController,
+            decoration: InputDecoration(
+              hintText: 'Cerca per nota, categoria, importo, data...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _deleteQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        _deleteSearchController.clear();
+                        setState(() => _deleteQuery = '');
+                      },
+                    ),
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (v) =>
+                setState(() => _deleteQuery = v.trim().toLowerCase()),
+          ),
+          if (_deleteQuery.isNotEmpty)
+            Consumer(
+              builder: (context, ref, _) {
+                final txAsync = ref.watch(allTransactionsProvider);
+                final categories =
+                    ref.watch(allCategoriesProvider).valueOrNull ?? const [];
+                final catById = {for (final c in categories) c.id: c};
+                return txAsync.when(
+                  data: (all) {
+                    final results = _filterForDelete(all, catById);
+                    if (results.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 12),
+                        child: Text('Nessun risultato'),
+                      );
+                    }
+                    return Column(
+                      children: [
+                        for (final tx in results)
+                          Card(
+                            margin: const EdgeInsets.only(top: 8),
+                            child: ListTile(
+                              title: Text(tx.note?.isNotEmpty == true
+                                  ? tx.note!
+                                  : (catById[tx.categoryId]?.name ??
+                                      'Senza categoria')),
+                              subtitle: Text(
+                                '${AppFormatters.signedCurrency(tx.signedAmount)} · '
+                                '${AppFormatters.shortDate(tx.date)}',
+                              ),
+                              trailing: _hardDeletingId == tx.id
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : IconButton(
+                                      icon: Icon(Icons.delete_forever_outlined,
+                                          color: theme.colorScheme.error),
+                                      tooltip: 'Elimina per sempre',
+                                      onPressed: () =>
+                                          _confirmAndHardDelete(tx),
+                                    ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                  loading: () => const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (e, _) => Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text('Errore: $e'),
+                  ),
+                );
+              },
+            ),
         ],
       ),
     );

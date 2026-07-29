@@ -8,6 +8,8 @@ import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../../domain/usecases/transaction/add_transaction.dart';
 import '../../domain/usecases/transaction/delete_transaction.dart';
+import '../../domain/usecases/transaction/hard_delete_transaction.dart';
+import '../../domain/usecases/transaction/purge_deleted_transactions.dart';
 import '../../domain/usecases/transaction/search_transactions.dart';
 import '../../domain/usecases/transaction/update_transaction.dart';
 import 'database_provider.dart';
@@ -45,6 +47,19 @@ final addTransactionProvider =
 
 final deleteTransactionProvider = Provider<DeleteTransaction>((ref) {
   return DeleteTransaction(ref.watch(transactionRepositoryProvider));
+});
+
+/// Solo pannello Admin: v. `hard_delete_transaction.dart` per l'avvertenza
+/// sulla sync (da propagare prima, se configurata).
+final hardDeleteTransactionProvider = Provider<HardDeleteTransaction>((ref) {
+  return HardDeleteTransaction(ref.watch(transactionRepositoryProvider));
+});
+
+/// Solo pannello Admin: pulizia bulk di tutte le transazioni già
+/// soft-deleted.
+final purgeDeletedTransactionsProvider =
+    Provider<PurgeDeletedTransactions>((ref) {
+  return PurgeDeletedTransactions(ref.watch(transactionRepositoryProvider));
 });
 
 final updateTransactionProvider = Provider<UpdateTransaction>((ref) {

@@ -104,4 +104,26 @@ void main() {
 
     expect(result, hasLength(2));
   });
+
+  test('hardDelete rimuove la riga per sempre, non solo dai risultati filtrati', () async {
+    final id = await insertTransazione(categoryId: categoriaCasa, amount: 50, date: DateTime(2025, 6, 1));
+
+    await db.transactionDao.hardDelete(id);
+
+    final raw = await (db.select(db.transactions)..where((t) => t.id.equals(id))).getSingleOrNull();
+    expect(raw, null);
+  });
+
+  test('purgeSoftDeleted elimina solo le righe già soft-deleted, non le altre', () async {
+    final deletedId = await insertTransazione(categoryId: categoriaCasa, amount: 10, date: DateTime(2025, 6, 1), isDeleted: true);
+    final activeId = await insertTransazione(categoryId: categoriaCasa, amount: 20, date: DateTime(2025, 6, 2));
+
+    final purged = await db.transactionDao.purgeSoftDeleted();
+
+    expect(purged, 1);
+    final deletedRow = await (db.select(db.transactions)..where((t) => t.id.equals(deletedId))).getSingleOrNull();
+    expect(deletedRow, null);
+    final activeRow = await (db.select(db.transactions)..where((t) => t.id.equals(activeId))).getSingleOrNull();
+    expect(activeRow != null, true);
+  });
 }
