@@ -95,10 +95,13 @@ class TursoHttpClient {
             body: body,
           )
           // Senza timeout, una connessione che resta aperta senza rispondere
-          // blocca syncNow() indefinitamente: dato che syncNow() si protegge
-          // da chiamate concorrenti con una guardia rilasciata solo a fine
-          // esecuzione, una singola richiesta bloccata impedirebbe ogni sync
-          // successiva (avvio, timer, lifecycle) fino al riavvio dell'app.
+          // blocca syncNow() indefinitamente: dato che le chiamate
+          // concorrenti a syncNow() ora ASPETTANO quella in corso invece di
+          // ritornare subito (v. TursoSyncService.syncNow, fix del 29 lug
+          // 2026), una singola richiesta bloccata farebbe accodare
+          // indefinitamente anche ogni sync successiva (avvio, timer,
+          // lifecycle, hard delete da Admin) fino allo scadere di questo
+          // timeout.
           .timeout(const Duration(seconds: 30));
     } on TimeoutException {
       throw TursoApiException('Turso non ha risposto entro 30s.');

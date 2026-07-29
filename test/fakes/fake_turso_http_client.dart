@@ -20,8 +20,17 @@ class FakeTursoHttpClient extends TursoHttpClient {
 
   int executeCallCount = 0;
 
+  /// Se impostato, ogni chiamata a [execute] aspetta questo future prima di
+  /// procedere: serve solo nei test sulla rientranza di
+  /// `TursoSyncService.syncNow()`, per simulare una richiesta HTTP ancora
+  /// "in volo" e controllare deterministicamente la sovrapposizione tra due
+  /// syncNow() concorrenti (altrimenti, senza rete vera, ogni execute()
+  /// risolverebbe troppo in fretta per poterla osservare).
+  Future<void>? blockUntil;
+
   @override
   Future<List<TursoResult>> execute(List<TursoStatement> statements) async {
+    if (blockUntil != null) await blockUntil;
     executeCallCount++;
     final out = <TursoResult>[];
     for (final stmt in statements) {
@@ -34,6 +43,9 @@ class FakeTursoHttpClient extends TursoHttpClient {
         out.add(const TursoResult([], []));
       } else if (sql.toUpperCase().startsWith('INSERT INTO')) {
         out.add(_handleInsert(sql, stmt.args));
+      } else if (sql.toUpperCase().startsWith('SELECT') &&
+          sql.contains('WHERE sync_id')) {
+        out.add(_handleSelectBySyncId(sql, stmt.args));
       } else if (sql.toUpperCase().startsWith('SELECT')) {
         out.add(_handleSelect(sql, stmt.args));
       } else if (sql.toUpperCase().startsWith('UPDATE')) {
@@ -81,6 +93,22 @@ class FakeTursoHttpClient extends TursoHttpClient {
         .map((row) => [for (final c in columns) row[c]])
         .toList();
     return TursoResult(columns, rows);
+  }
+
+  /// `SELECT <colonne> FROM <tabella> WHERE sync_id = ?`: lookup puntuale per
+  /// una singola riga per sync_id (v. `isTransactionDeletionConfirmedRemotely`),
+  /// diversa dalla scansione `WHERE updated_at > ?` di push/pull.
+  TursoResult _handleSelectBySyncId(String sql, List<Object?> args) {
+    final m = RegExp(r'SELECT\s+(.+?)\s+FROM\s+(\w+)\s+WHERE\s+sync_id\s*=\s*\?').firstMatch(sql)!;
+    final columns = m.group(1)!.split(',').map((c) => c.trim()).toList();
+    final table = m.group(2)!;
+    final syncId = args[0].toString();
+
+    final row = tables[table]?[syncId];
+    if (row == null) return TursoResult(columns, const []);
+    return TursoResult(columns, [
+      [for (final c in columns) row[c]],
+    ]);
   }
 
   /// Unica forma di UPDATE prodotta dal motore di sync: il tombstone dei

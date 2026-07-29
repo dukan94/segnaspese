@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/di/category_providers.dart';
 import '../../core/di/google_sheets_providers.dart';
-import '../../core/di/sync_providers.dart';
 import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
@@ -69,23 +68,11 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     super.dispose();
   }
 
-  /// Se la sync Turso è configurata, la esegue prima di un'eliminazione
-  /// definitiva: propaga il tombstone (soft delete) al server remoto, così
-  /// la riga non ricompare da un altro dispositivo alla sync successiva.
-  Future<void> _syncBeforeHardDelete() async {
-    final syncService = ref.read(syncServiceProvider);
-    if (await syncService.isConfigured()) {
-      await syncService.syncNow();
-    }
-  }
-
   /// true se una cancellazione definitiva (singola o pulizia bulk) è già in
   /// corso: usato per disabilitare TUTTI i pulsanti distruttivi mentre una è
-  /// in volo, non solo quello premuto. Senza questo, due tap ravvicinati su
-  /// transazioni diverse potrebbero sovrapporre due `syncNow()`: la seconda
-  /// troverebbe la sync della prima ancora in corso e (per come è fatta oggi
-  /// `TursoSyncService.syncNow`) ritornerebbe subito senza aver davvero
-  /// sincronizzato nulla, vanificando la rete di sicurezza pre-hard-delete.
+  /// in volo, non solo quello premuto (semplice cortesia per l'utente — la
+  /// sicurezza vera contro le sovrapposizioni è la verifica sul server fatta
+  /// da [SafeTransactionDeletionService], non questo flag).
   bool get _destructiveOpInProgress => _purgeBusy || _hardDeletingId != null;
 
   Future<void> _confirmAndPurge() async {
@@ -95,10 +82,10 @@ class _AdminPageState extends ConsumerState<AdminPage> {
       builder: (context) => AlertDialog(
         title: const Text('Pulisci database'),
         content: const Text(
-          'Elimina per sempre tutte le transazioni già cancellate '
-          '(operazione irreversibile). Se la sync Turso è configurata, '
-          'viene eseguita prima, per evitare che ricompaiano da un altro '
-          'dispositivo.',
+          'Elimina per sempre tutte le transazioni già cancellate, ma solo '
+          'quelle di cui il server conferma la cancellazione (se la sync '
+          'Turso è configurata) — le altre restano nascoste per ora. '
+          'Operazione irreversibile.',
         ),
         actions: [
           TextButton(
@@ -116,10 +103,16 @@ class _AdminPageState extends ConsumerState<AdminPage> {
 
     setState(() => _purgeBusy = true);
     try {
-      await _syncBeforeHardDelete();
-      final count = await ref.read(purgeDeletedTransactionsProvider)();
+      final outcome = await ref
+          .read(safeTransactionDeletionServiceProvider)
+          .purgeSoftDeletedTransactions();
       if (!mounted) return;
-      showSuccessSnackBar(context, 'Eliminate per sempre $count transazioni');
+      final message = outcome.skippedCount == 0
+          ? 'Eliminate per sempre ${outcome.purgedCount} transazioni'
+          : 'Eliminate per sempre ${outcome.purgedCount} transazioni — '
+              '${outcome.skippedCount} non ancora confermate dal server, '
+              'riprova più tardi';
+      showSuccessSnackBar(context, message);
     } catch (e) {
       if (!mounted) return;
       showErrorSnackBar(context, 'Errore durante la pulizia: $e');
@@ -139,7 +132,8 @@ class _AdminPageState extends ConsumerState<AdminPage> {
           '${AppFormatters.signedCurrency(tx.signedAmount)} · '
           '${AppFormatters.shortDate(tx.date)}\n\n'
           'Operazione irreversibile: non finisce nel cestino, sparisce del '
-          'tutto. Se la sync Turso è configurata, viene eseguita prima.',
+          'tutto, ma solo dopo conferma del server (se la sync Turso è '
+          'configurata).',
         ),
         actions: [
           TextButton(
@@ -157,19 +151,20 @@ class _AdminPageState extends ConsumerState<AdminPage> {
 
     setState(() => _hardDeletingId = tx.id);
     try {
-      await ref.read(deleteTransactionProvider).call(tx.id!);
-      await _syncBeforeHardDelete();
-      await ref.read(hardDeleteTransactionProvider)(tx.id!);
+      final outcome = await ref
+          .read(safeTransactionDeletionServiceProvider)
+          .hardDeleteTransaction(tx.id!);
       if (!mounted) return;
-      showSuccessSnackBar(context, 'Transazione eliminata per sempre');
+      if (outcome.deleted) {
+        showSuccessSnackBar(context, 'Transazione eliminata per sempre');
+      } else {
+        // A questo punto la transazione è già stata rimossa dalle liste (il
+        // soft delete iniziale è andato a buon fine): il messaggio non deve
+        // suggerire che l'operazione sia fallita del tutto.
+        showErrorSnackBar(context, outcome.reason ?? 'Non eliminata definitivamente');
+      }
     } catch (e) {
       if (!mounted) return;
-      // A questo punto la transazione è già stata rimossa dalle liste (il
-      // soft delete iniziale è andato a buon fine): l'errore qui riguarda
-      // solo la sync/l'eliminazione fisica finale, non un'operazione
-      // completamente fallita — altrimenti "Errore durante l'eliminazione"
-      // suggerirebbe che nulla sia successo, quando invece la transazione
-      // non è più visibile da nessuna parte.
       showErrorSnackBar(
         context,
         'La transazione non è più visibile (cancellata) ma non è stata '
