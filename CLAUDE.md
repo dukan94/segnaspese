@@ -90,17 +90,18 @@ macchina. Non reintrodurre `libsql_dart`.
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
 
-- **M0–M7 completate**: setup + Clean Architecture, core transazioni,
+- **M0–M8 completate**: setup + Clean Architecture, core transazioni,
   categorie/budget, scontrini (Gemini + fallback OCR), dashboard, ricorrenti,
-  ricerca/import-export CSV, sync Turso + build desktop/Android.
-- **M8 (rifinitura) — quasi conclusa**: fix bug critici sync, audit
-  best-practice, dedupe tassonomia post-sync, empty states + animazioni leggere
-  fatti, **CI attiva** (`.github/workflows/ci.yml`: `flutter analyze` +
-  `flutter test` su ogni push/PR, con rigenerazione del codice), copertura test
-  estesa al motore di sync.
-- Test in `test/` (9 file): parser CSV, receipt parser, rule matcher, duplicate
-  finder, sync Turso, repair sottocategorie orfane, widget animati + 1 smoke
-  widget test.
+  ricerca/import-export CSV, sync Turso + build desktop/Android, rifinitura
+  (fix bug critici sync, audit best-practice, dedupe tassonomia post-sync,
+  empty states + animazioni leggere, tema unificato sul colore dell'icona,
+  rename utente a "Tally", **CI attiva** — `.github/workflows/ci.yml`:
+  `flutter analyze` + `flutter test` su ogni push/PR con rigenerazione del
+  codice — copertura test estesa al motore di sync e ai DAO con logica reale).
+- Test in `test/` (13 file): parser CSV, receipt parser, rule matcher,
+  duplicate finder, sync Turso, repair sottocategorie orfane, widget animati,
+  DAO ricorrenze/categorie/budget/transazioni (date-math, riordino, upsert,
+  filtri ricerca) + 1 smoke widget test.
 
 ## Convenzioni
 

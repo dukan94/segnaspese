@@ -79,9 +79,8 @@ flutter doctor
 
 ## Stato del progetto
 
-Sviluppo per milestone incrementali. Tutte le milestone pianificate sono
-completate; il progetto è ora in fase di hardening post-M7 (fix bug di sync,
-audit, miglioramenti scansione scontrini). Integrazione continua attiva
+Sviluppo per milestone incrementali. Tutte le milestone pianificate, incluso
+l'hardening post-M7, sono completate. Integrazione continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
 | Milestone | Contenuto | Stato |
@@ -94,7 +93,7 @@ audit, miglioramenti scansione scontrini). Integrazione continua attiva
 | **M5** | Movimenti ricorrenti | ✅ Completata |
 | **M6** | Ricerca, import/export CSV | ✅ Completata |
 | **M7** | Sync multi-dispositivo su Turso + build desktop/Android | ✅ Completata |
-| **M8** | Rifinitura: fix bug di sync, audit best-practice, dedupe tassonomia, empty states + animazioni, CI (`flutter analyze`/`flutter test`), test sul motore di sync | 🔧 In chiusura |
+| **M8** | Rifinitura: fix bug di sync, audit best-practice, dedupe tassonomia, empty states + animazioni, tema unificato sull'icona, rename a "Tally", CI (`flutter analyze`/`flutter test`), test estesi (motore di sync + DAO) | ✅ Completata |
 
 ## Struttura del database
 

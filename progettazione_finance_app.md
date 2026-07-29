@@ -481,19 +481,25 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 - Build desktop Windows (attiva) + Android (permesso INTERNET, applicationId
   dedicato, CI); macOS/Linux non generate
 
-**M8 — Rifinitura** — 🔧 **In chiusura**
+**M8 — Rifinitura** — ✅ **Completata**
 - Fix bug critici del motore di sync (isolamento errori, filigrana su righe
   scartate, backfill syncId che non toccava `updatedAt`)
 - Audit best-practice: bug silenziosi, memory leak, dipendenze inutilizzate
 - Riparazione doppioni categorie/sottocategorie/regole dopo sync multi-dispositivo
   (`dedupe_default_taxonomy`, eseguita a ogni avvio)
 - Empty states coerenti + animazioni leggere (conteggio numeri, fade-in liste)
+- Tema unificato su un solo seed color (dall'icona dell'app) per chiaro/scuro,
+  al posto delle 4 varianti scure indipendenti; rename utente a "Tally" (solo
+  UX: titolo, nome visibile sotto l'icona Android, doc — applicationId, nome
+  pacchetto Dart e namespace UUID dei seed di default restano invariati)
 - **CI attiva** (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test`
   su ogni push e PR, con rigenerazione del codice (`build_runner`)
-- Copertura test estesa: 9 file di test in `test/` (parser CSV, receipt parser,
+- Copertura test estesa: 13 file di test in `test/` (parser CSV, receipt parser,
   rule matcher, duplicate finder, **motore di sync Turso**, repair sottocategorie
-  orfane, widget animati + 1 smoke widget test)
-- Ancora da valutare: ulteriore copertura su repository/usecase/DAO
+  orfane, widget animati, **DAO ricorrenze/categorie/budget/transazioni** —
+  date-math occorrenze, riordino con gap-fill, upsert budget, filtri ricerca —
+  + 1 smoke widget test). Repository impl e usecase restano senza test dedicati:
+  sono delega pura al DAO sottostante, senza logica propria da verificare.
 
 ---
 
@@ -506,17 +512,19 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 
 ---
 
-**Stato attuale (29 lug 2026):** tutte le milestone M0-M7 completate. M8
-(rifinitura) in chiusura: fix critici al motore di sync Turso (isolamento
-errori per tabella, backfill syncId, timeout HTTP, alert su Home), sostituzione
-della scansione scontrini con Google Gemini (fallback su OCR ML Kit), audit
+**Stato attuale (29 lug 2026):** tutte le milestone M0-M8 completate. M8
+(rifinitura): fix critici al motore di sync Turso (isolamento errori per
+tabella, backfill syncId, timeout HTTP, alert su Home), sostituzione della
+scansione scontrini con Google Gemini (fallback su OCR ML Kit), audit
 best-practice del codice, dedupe della tassonomia post-sync, empty states +
-animazioni leggere. **CI attiva** (`.github/workflows/ci.yml`): `flutter
+animazioni leggere, tema unificato sul colore dell'icona, rename utente a
+"Tally" (solo UX). **CI attiva** (`.github/workflows/ci.yml`): `flutter
 analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
-Test: 9 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
-finder, motore di sync Turso, repair sottocategorie orfane, widget animati + 1
-smoke widget test). Resta da valutare ulteriore copertura su
-repository/usecase/DAO.
+Test: 13 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
+finder, motore di sync Turso, repair sottocategorie orfane, widget animati,
+DAO ricorrenze/categorie/budget/transazioni + 1 smoke widget test). Repository
+impl e usecase restano senza test dedicati: delega pura, nessuna logica
+propria.
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per
