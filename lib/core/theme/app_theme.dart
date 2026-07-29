@@ -1,30 +1,24 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// Le 4 varianti disponibili per il tema scuro (scelte dall'utente in
-/// Impostazioni > Tema): ognuna ha una propria identità cromatica, non solo
-/// una declinazione scura dello stesso verde del tema chiaro.
-enum DarkThemeVariant {
-  boscoNotturno('Bosco notturno', Color(0xFF4CAF7D)),
-  inchiostroEOttone('Inchiostro e ottone', Color(0xFFC99B4A)),
-  grafiteETerracotta('Grafite e terracotta', Color(0xFFD9764A)),
-  prugnaProfonda('Prugna profonda', Color(0xFFB98BC9));
-
-  const DarkThemeVariant(this.label, this.seedColor);
-
-  final String label;
-  final Color seedColor;
-}
-
-/// Tema centralizzato dell'app: Material 3, seed color per tema (v.
-/// progettazione, sezione Design). Il tema chiaro ha un contrasto testo
-/// alzato rispetto al default M3 (richiesto dall'utente); il tema scuro ha
-/// 4 varianti selezionabili (v. [DarkThemeVariant]), ognuna con un proprio
-/// colore-chiave invece di essere una semplice inversione del verde chiaro.
+/// Tema centralizzato dell'app: Material 3, un'unica identità cromatica
+/// (stesso seed per chiaro e scuro, v. progettazione sezione Design) che
+/// riprende l'icona dell'app — carrello ambra/arancio su sfondo crema.
+/// Prima del rebranding il tema scuro aveva 4 varianti selezionabili
+/// indipendenti dal chiaro: rimosse per avere un'identità unica e coerente
+/// con l'icona invece che scollegata da essa.
 class AppTheme {
   AppTheme._();
 
-  static const _lightSeedColor = Color(0xFF2E7D5B); // verde: coerente col tema "finanze"
+  /// Stesso arancione/marrone del segno nell'icona dell'app: seed sia per il
+  /// tema chiaro che per lo scuro, così le due modalità restano la stessa
+  /// identità invece di due palette indipendenti.
+  static const _brandSeedColor = Color(0xFFC46C2A);
+
+  /// Stesso crema di sfondo dell'icona. Il tema scuro non ha un equivalente
+  /// esplicito: lì la scala di superficie generata da Material 3 dal seed
+  /// (bruno caldo scuro) è già coerente, non serve fissarla a mano come qui.
+  static const _brandCream = Color(0xFFFAF0E0);
 
   /// Font dedicato agli importi in denaro mostrati in evidenza (saldo,
   /// liste, grafici). Richiesto "Aptos Display", non liberamente
@@ -57,28 +51,42 @@ class AppTheme {
         : const Color(0xFF6B4E00);
   }
 
-  static ThemeData get light => _buildTheme(
-        brightness: Brightness.light,
-        seedColor: _lightSeedColor,
-        contrastLevel: 0.5, // "medium contrast" M3: testo più leggibile, stessa identità
-      );
-
-  static ThemeData darkVariant(DarkThemeVariant variant) => _buildTheme(
-        brightness: Brightness.dark,
-        seedColor: variant.seedColor,
-      );
-
-  static ThemeData _buildTheme({
-    required Brightness brightness,
-    required Color seedColor,
-    double contrastLevel = 0.0,
-  }) {
-    final colorScheme = ColorScheme.fromSeed(
-      seedColor: seedColor,
-      brightness: brightness,
-      contrastLevel: contrastLevel,
+  static ThemeData get light {
+    // "medium contrast" M3 (testo più leggibile) come base per secondary/
+    // tertiary/error, ma la scala di superficie e il primary generati dal
+    // seed derivano verso un bruno scuro poco somigliante all'icona: qui
+    // sotto vengono fissati a mano sul crema/arancio reali dell'icona.
+    final base = ColorScheme.fromSeed(
+      seedColor: _brandSeedColor,
+      brightness: Brightness.light,
+      contrastLevel: 0.5,
     );
+    final colorScheme = base.copyWith(
+      primary: _brandSeedColor,
+      onPrimary: const Color(0xFFFFF8EE),
+      primaryContainer: const Color(0xFFF0C79B),
+      onPrimaryContainer: const Color(0xFF3A2410),
+      surface: _brandCream,
+      surfaceContainerLowest: const Color(0xFFFFFBF3),
+      surfaceContainerLow: const Color(0xFFF5E8D3),
+      surfaceContainer: const Color(0xFFF0DFC4),
+      surfaceContainerHigh: const Color(0xFFEAD6B4),
+      surfaceContainerHighest: const Color(0xFFE3CCA0),
+      onSurface: const Color(0xFF2E2018),
+      onSurfaceVariant: const Color(0xFF6B5C4A),
+      outline: const Color(0xFFB8A68C),
+    );
+    return _buildTheme(colorScheme);
+  }
 
+  static ThemeData get dark => _buildTheme(
+        ColorScheme.fromSeed(
+          seedColor: _brandSeedColor,
+          brightness: Brightness.dark,
+        ),
+      );
+
+  static ThemeData _buildTheme(ColorScheme colorScheme) {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,

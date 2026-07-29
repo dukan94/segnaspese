@@ -63,17 +63,11 @@ class _FinanceAppState extends ConsumerState<FinanceApp> with WidgetsBindingObse
     }
     final themeMode = themeModeAsync.valueOrNull ?? ThemeMode.system;
 
-    final darkVariantAsync = ref.watch(darkVariantProvider);
-    if (darkVariantAsync.hasError) {
-      debugPrint('Errore lettura variante scura: ${darkVariantAsync.error}');
-    }
-    final darkVariant = darkVariantAsync.valueOrNull ?? DarkThemeVariant.boscoNotturno;
-
     return MaterialApp.router(
       title: 'Finanze',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      darkTheme: AppTheme.darkVariant(darkVariant),
+      darkTheme: AppTheme.dark,
       themeMode: themeMode,
       locale: const Locale('it'),
       supportedLocales: const [Locale('it')],
