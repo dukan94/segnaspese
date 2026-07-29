@@ -481,15 +481,19 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 - Build desktop Windows (attiva) + Android (permesso INTERNET, applicationId
   dedicato, CI); macOS/Linux non generate
 
-**M8 — Rifinitura** — 🔧 **In corso**
+**M8 — Rifinitura** — 🔧 **In chiusura**
 - Fix bug critici del motore di sync (isolamento errori, filigrana su righe
   scartate, backfill syncId che non toccava `updatedAt`)
 - Audit best-practice: bug silenziosi, memory leak, dipendenze inutilizzate
 - Riparazione doppioni categorie/sottocategorie/regole dopo sync multi-dispositivo
   (`dedupe_default_taxonomy`, eseguita a ogni avvio)
-- Presenti 23 test unitari (parser CSV, receipt parser, rule matcher) + 1
-  smoke widget test, non lanciati in CI
-- Ancora da fare: animazioni, test su repository/usecase/sync, test in CI
+- Empty states coerenti + animazioni leggere (conteggio numeri, fade-in liste)
+- **CI attiva** (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test`
+  su ogni push e PR, con rigenerazione del codice (`build_runner`)
+- Copertura test estesa: 9 file di test in `test/` (parser CSV, receipt parser,
+  rule matcher, duplicate finder, **motore di sync Turso**, repair sottocategorie
+  orfane, widget animati + 1 smoke widget test)
+- Ancora da valutare: ulteriore copertura su repository/usecase/DAO
 
 ---
 
@@ -502,16 +506,17 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
 
 ---
 
-**Stato attuale (28 lug 2026):** tutte le milestone M0-M7 completate. M8
-(rifinitura) in corso: fix critici al motore di sync Turso (isolamento errori
-per tabella, backfill syncId, timeout HTTP, alert su Home), sostituzione della
-scansione scontrini con Google Gemini (fallback su OCR ML Kit), audit
-best-practice del codice. Test: 23 unitari su `csv_transaction_parser`,
-`receipt_parser_service`, `rule_matcher_service` + 1 smoke widget test
-(`test/`) — non ancora eseguiti in CI (`android-build.yml` compila l'APK ma
-non lancia `flutter test`), e senza copertura su repository/usecase/DAO o
-sul motore di sync. Ancora da fare per M8: animazioni/empty states e ampliare
-i test automatici.
+**Stato attuale (29 lug 2026):** tutte le milestone M0-M7 completate. M8
+(rifinitura) in chiusura: fix critici al motore di sync Turso (isolamento
+errori per tabella, backfill syncId, timeout HTTP, alert su Home), sostituzione
+della scansione scontrini con Google Gemini (fallback su OCR ML Kit), audit
+best-practice del codice, dedupe della tassonomia post-sync, empty states +
+animazioni leggere. **CI attiva** (`.github/workflows/ci.yml`): `flutter
+analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
+Test: 9 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
+finder, motore di sync Turso, repair sottocategorie orfane, widget animati + 1
+smoke widget test). Resta da valutare ulteriore copertura su
+repository/usecase/DAO.
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per

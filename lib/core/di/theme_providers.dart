@@ -3,13 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database/app_database.dart';
-import '../theme/app_theme.dart';
 import 'database_provider.dart';
 
-/// Chiavi nella tabella Settings (stesso pattern key-value già usato per
+/// Chiave nella tabella Settings (stesso pattern key-value già usato per
 /// l'obiettivo di risparmio annuo e l'ordine drag & drop delle categorie).
 const String _themeModeKey = 'theme_mode';
-const String _darkVariantKey = 'dark_variant';
 
 ThemeMode _parseThemeMode(String? value) {
   switch (value) {
@@ -47,29 +45,6 @@ final setThemeModeProvider = Provider<Future<void> Function(ThemeMode)>((ref) {
         SettingsCompanion.insert(
           key: _themeModeKey,
           value: _themeModeToValue(mode),
-          updatedAt: Value(DateTime.now()),
-        ),
-      );
-});
-
-/// Variante del tema scuro scelta dall'utente tra le 4 disponibili (v.
-/// [DarkThemeVariant]), default "Bosco notturno".
-final darkVariantProvider = StreamProvider<DarkThemeVariant>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return (db.select(db.settings)..where((s) => s.key.equals(_darkVariantKey)))
-      .watchSingleOrNull()
-      .map((row) => DarkThemeVariant.values.firstWhere(
-            (v) => v.name == row?.value,
-            orElse: () => DarkThemeVariant.boscoNotturno,
-          ));
-});
-
-final setDarkVariantProvider = Provider<Future<void> Function(DarkThemeVariant)>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return (variant) => db.into(db.settings).insertOnConflictUpdate(
-        SettingsCompanion.insert(
-          key: _darkVariantKey,
-          value: variant.name,
           updatedAt: Value(DateTime.now()),
         ),
       );

@@ -32,7 +32,7 @@ class HomePage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Benvenuto sulla tua App SegnaSpese',
+          'Tally',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

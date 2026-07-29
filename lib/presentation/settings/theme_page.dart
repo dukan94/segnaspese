@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/di/theme_providers.dart';
-import '../../core/theme/app_theme.dart';
 
-/// Scelta del tema (Milestone M8): modalità chiaro/scuro/sistema e, per lo
-/// scuro, una delle 4 varianti cromatiche disponibili (v. [DarkThemeVariant]).
+/// Scelta del tema (Milestone M8): modalità chiaro/scuro/sistema. Un'unica
+/// identità cromatica per entrambe le modalità (v. AppTheme), niente più
+/// varianti da scegliere.
 class ThemePage extends ConsumerWidget {
   const ThemePage({super.key});
 
@@ -14,14 +14,7 @@ class ThemePage extends ConsumerWidget {
     final modeAsync = ref.watch(themeModeProvider);
     if (modeAsync.hasError) debugPrint('Errore lettura tema: ${modeAsync.error}');
     final mode = modeAsync.valueOrNull ?? ThemeMode.system;
-
-    final variantAsync = ref.watch(darkVariantProvider);
-    if (variantAsync.hasError) {
-      debugPrint('Errore lettura variante scura: ${variantAsync.error}');
-    }
-    final variant = variantAsync.valueOrNull ?? DarkThemeVariant.boscoNotturno;
     final setMode = ref.read(setThemeModeProvider);
-    final setVariant = ref.read(setDarkVariantProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -49,30 +42,6 @@ class ThemePage extends ConsumerWidget {
                     title: Text('Scuro'),
                     value: ThemeMode.dark,
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text('Variante scura', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Si applica quando il tema scuro è attivo (anche seguendo il sistema).',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: RadioGroup<DarkThemeVariant>(
-              groupValue: variant,
-              onChanged: (v) => setVariant(v!),
-              child: Column(
-                children: [
-                  for (final v in DarkThemeVariant.values)
-                    RadioListTile<DarkThemeVariant>(
-                      secondary: CircleAvatar(backgroundColor: v.seedColor),
-                      title: Text(v.label),
-                      value: v,
-                    ),
                 ],
               ),
             ),
