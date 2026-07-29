@@ -64,7 +64,7 @@ class _FinanceAppState extends ConsumerState<FinanceApp> with WidgetsBindingObse
     final themeMode = themeModeAsync.valueOrNull ?? ThemeMode.system;
 
     return MaterialApp.router(
-      title: 'Finanze',
+      title: 'Tally',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
