@@ -122,5 +122,8 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
    affidarti a questi documenti.
 3. Dopo modifiche a schema Drift o provider: rilancia `build_runner`, poi
    `flutter analyze` e `flutter test`.
-4. Tieni allineati `README.md`, `progettazione_finance_app.md` e questo file
-   quando lo stato cambia in modo sostanziale.
+4. **Dopo ogni cambiamento** (feature, fix, refactor, milestone che avanza),
+   aggiorna subito `README.md` e questo file (e `progettazione_finance_app.md`
+   se cambia design/schema) — senza aspettare che venga richiesto
+   esplicitamente. Obiettivo: chi apre una nuova sessione (umano o AI) deve
+   trovare qui lo stato vero, non doverlo ricostruire da `git log`.
