@@ -18,6 +18,17 @@ import '../local/database/tables/categories_table.dart';
 /// cancellazione — a differenza dei doppioni di tassonomia di default
 /// (v. dedupe_default_taxonomy.dart), dove "stesso nome" implica sempre
 /// "stessa entità logica".
+///
+/// Se i candidati locali sono 2 o più (storico già duplicato PRIMA che
+/// esistesse questa logica, es. stesso CSV importato indipendentemente su
+/// più device: caso reale, non solo teorico — v. memoria
+/// `project_transaction_duplicates_pre_sync`), non c'è modo di scegliere
+/// quale sia "il duplicato giusto" da segnare cancellato senza rischiare di
+/// eliminare la riga sbagliata: meglio non riconoscerlo come duplicato
+/// (torna null, la riga arrivata dal pull viene inserita come nuova) che
+/// lanciare un'eccezione che blocca l'intero pull di TUTTE le transazioni
+/// (bug reale del 31 lug 2026: `getSingleOrNull()` lanciava "Bad state: Too
+/// many elements" non appena incontrava il primo gruppo con 2+ candidati).
 Future<Transaction?> findContentDuplicateTransaction(
   AppDatabase db, {
   required DateTime date,
@@ -28,7 +39,7 @@ Future<Transaction?> findContentDuplicateTransaction(
   required bool isRefund,
   required String? note,
   required String excludeSyncId,
-}) {
+}) async {
   final query = db.select(db.transactions)
     ..where((t) =>
         t.isDeleted.equals(false) &
@@ -43,5 +54,6 @@ Future<Transaction?> findContentDuplicateTransaction(
         ? t.subCategoryId.isNull()
         : t.subCategoryId.equals(subCategoryId))
     ..where((t) => note == null ? t.note.isNull() : t.note.equals(note));
-  return query.getSingleOrNull();
+  final matches = await query.get();
+  return matches.length == 1 ? matches.single : null;
 }

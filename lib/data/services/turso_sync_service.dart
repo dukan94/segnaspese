@@ -21,9 +21,10 @@ class TursoSyncPartialFailureException implements Exception {
   final Map<String, Object> stepErrors;
 
   @override
-  String toString() =>
-      'TursoSyncPartialFailureException: ${stepErrors.length} passo/i falliti '
-      '(${stepErrors.keys.join(', ')})';
+  String toString() {
+    final detail = stepErrors.entries.map((e) => '${e.key}: ${e.value}').join(' | ');
+    return 'TursoSyncPartialFailureException: ${stepErrors.length} passo/i falliti: $detail';
+  }
 }
 
 /// Implementazione di [SyncService] basata sull'API HTTP di Turso (v.

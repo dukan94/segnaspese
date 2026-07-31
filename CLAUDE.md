@@ -106,6 +106,24 @@ macchina. Non reintrodurre `libsql_dart`.
   altre. Banner di avviso in Home se la sync non è configurata o è in errore.
 - Tabella `Merchants`: schema pronto (`syncId`) ma nessun DAO/flusso UI ancora
   collegato — non ha ancora dati.
+- **Storico locale con doppioni preesistenti** (scoperto 31 lug 2026, v.
+  memoria `project_transaction_duplicates_pre_sync`): sul dispositivo di
+  Mario ~94% delle transazioni (749/796) hanno un duplicato di contenuto
+  esatto (stessa data/importo/categoria/nota), probabile storico importato
+  indipendentemente su più device prima che la sync esistesse.
+  `transaction_duplicate_finder.dart` (`findContentDuplicateTransaction`,
+  usata da `_pullTransactions` per riconoscere un movimento arrivato da un
+  altro device come lo stesso già presente in locale sotto un `syncId`
+  diverso) assumeva al massimo 1 candidato locale: con 2+ candidati già
+  esistenti lanciava un'eccezione (`Bad state: Too many elements`) che
+  bloccava il pull di **tutte** le transazioni, non solo quelle duplicate
+  (bug reale, non solo teorico — occorreva quasi a ogni sync). Fix: con 2+
+  candidati ambigui la funzione ora ritorna `null` (non riconosce un
+  duplicato, non sceglie a caso quale cancellare) invece di lanciare — la
+  riga arrivata dal pull viene inserita come nuova. La pulizia dei ~374
+  gruppi di doppioni già presenti nel DB resta un lavoro separato, non
+  ancora fatto: è una decisione dell'utente (dati finanziari reali), non
+  automatizzabile senza il suo ok esplicito.
 
 ## Icona app e splash screen
 

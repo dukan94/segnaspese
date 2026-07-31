@@ -110,4 +110,15 @@ void main() {
 
     expect(found, isNull);
   });
+
+  test(
+      'due candidati locali identici (storico già duplicato prima della sync): '
+      'ambiguo, non sceglie a caso e non lancia eccezioni', () async {
+    await insertTransaction(syncId: 'local-1');
+    await insertTransaction(syncId: 'local-2');
+
+    final found = await find(excludeSyncId: 'remote-3');
+
+    expect(found, isNull);
+  });
 }
