@@ -107,6 +107,43 @@ macchina. Non reintrodurre `libsql_dart`.
 - Tabella `Merchants`: schema pronto (`syncId`) ma nessun DAO/flusso UI ancora
   collegato — non ha ancora dati.
 
+## Icona app e splash screen
+
+Sorgente in `assets/icon/`: `tally_icon.png` (carrello ambra/arancio con "T",
+sfondo crema pieno — stessi colori del tema, v. `_brandSeedColor`/
+`_brandCream` in `app_theme.dart`) e `tally_icon_foreground.png` (solo
+carrello+T, sfondo trasparente). Generate con `flutter_launcher_icons` e
+`flutter_native_splash` (dev dependency, config in fondo a `pubspec.yaml`),
+non a mano.
+
+Per rigenerare dopo aver cambiato i PNG sorgente:
+
+```bash
+dart run flutter_launcher_icons
+dart run flutter_native_splash:create
+powershell -File tool/generate_windows_icon.ps1
+```
+
+**Il terzo comando non è opzionale.** `flutter_launcher_icons` per Windows
+scrive `windows/runner/resources/app_icon.ico` con una sola risoluzione
+(256, da `icon_size` in pubspec.yaml): nitido a piena dimensione ma sfocato
+quando Windows lo scala per taskbar/Alt-Tab/finestra. Lo script ricostruisce
+lo stesso file con 7 risoluzioni (16–256) dalla stessa sorgente PNG. Se
+rilanci solo `flutter_launcher_icons` senza lo script dopo, il file torna
+a una sola risoluzione senza errori visibili: da controllare se l'icona in
+taskbar sembra sfocata.
+
+Android usa icona adattiva (API 26+, `mipmap-anydpi-v26/ic_launcher.xml`,
+sfondo colore `#FAF0E0` + foreground trasparente) più fallback legacy per
+API più vecchie; splash screen nativo sia pre-Android 12 (`launch_background.
+xml`) sia Android 12+ (`windowSplashScreenBackground`/
+`windowSplashScreenAnimatedIcon` in `values-v31/styles.xml`), stesso schema
+crema/arancione. `flutter build apk --release` fallisce per un problema R8/
+ProGuard preesistente e scollegato da questo (classi ML Kit multilingua
+mancanti, mai emerso perché il progetto builda solo APK **debug**, v.
+`.github/workflows/android-build.yml`): usa `--debug` per verificare in
+locale, non `--release`.
+
 ## Admin (strumenti interni)
 
 Impostazioni > **Admin** (`presentation/settings/admin_page.dart`, fuori dal
@@ -204,7 +241,8 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
   bridge temporaneo verso il foglio Google "Copia di Spese" e strumenti di
   eliminazione definitiva/pulizia (v. sezione dedicata sopra) — non è una
   milestone, sono strumenti interni, il bridge Sheets va rimosso a fine
-  progetto.
+  progetto. Icona app e splash screen Android/Windows finalizzati (v.
+  sezione dedicata sopra): non più il placeholder di Flutter.
 
 ## Convenzioni
 

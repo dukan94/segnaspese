@@ -101,6 +101,11 @@ l'hardening post-M7, sono completate. Integrazione continua attiva
 | **M7** | Sync multi-dispositivo su Turso + build desktop/Android | ✅ Completata |
 | **M8** | Rifinitura: fix bug di sync, audit best-practice, dedupe tassonomia, empty states + animazioni, tema unificato sull'icona, rename a "Tally", CI (`flutter analyze`/`flutter test`), test estesi (motore di sync + DAO) | ✅ Completata |
 
+Post-M8 (non milestone, strumenti/rifiniture interne): pannello Admin
+(import CSV, bridge Google Sheets temporaneo, eliminazione definitiva/pulizia
+transazioni); icona app e splash screen Android/Windows con il logo Tally
+(carrello + "T", v. `CLAUDE.md` sezione dedicata per come rigenerarli).
+
 ## Struttura del database
 
 Schema Drift con le tabelle: `Categories`, `SubCategories`, `Merchants`,
