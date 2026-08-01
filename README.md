@@ -17,7 +17,9 @@ desktop Windows** grazie a Flutter.
 - **Categorizzazione** — categorie e sottocategorie personalizzabili (con
   riordino drag & drop), regole per merchant.
 - **Inserimento manuale** — schermata "Nuova Operazione" con tastierino rapido
-  per aggiungere spese a mano.
+  per aggiungere spese a mano; avvisa se esiste già un'operazione con stessa
+  data, categoria e importo (probabile doppione, es. scontrino inserito due
+  volte), chiedendo conferma prima di salvare comunque.
 - **Dashboard** — grafici e riepiloghi (andamento mensile, per categoria/
   sottocategoria, totali annuali) per monitorare l'andamento delle spese.
 - **Budget** — piano annuale con budget totale mese per mese, suddiviso tra
