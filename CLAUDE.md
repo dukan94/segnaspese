@@ -144,6 +144,32 @@ macchina. Non reintrodurre `libsql_dart`.
   (`finance_app.sqlite.backup-2026-08-01-pre-dedupe`) per sicurezza — v.
   memoria `project_transaction_duplicates_pre_sync` per il dettaglio
   completo.
+- **Doppioni categoria default vs personalizzata** (scoperto 2 ago 2026, v.
+  memoria `project_category_default_vs_custom_duplicates`): `dedupe_default_
+  taxonomy.dart` (gira a ogni avvio) fonde solo doppioni TRA categorie con
+  `isDefault = true` — di proposito ignora quelle personalizzate, per non
+  toccare a sorpresa dati creati a mano dall'utente. Questo lascia scoperto
+  un caso reale: Mario aveva ricreato a mano `Casa`/`Salute`/`Viaggio`
+  (nomi identici ai default seedati dall'app, ma sottocategorie diverse,
+  allineate al suo storico CSV/Google Sheet) pensando che eliminare gli
+  originali li facesse sparire — invece restavano attivi (`isDeleted =
+  false`), coesistendo come alberi paralleli con transazioni vere sparse su
+  entrambi. Non è un bug di regressione del fix dei doppioni transazioni:
+  è un caso strutturalmente diverso (default vs personalizzata, non
+  default vs default), che quel meccanismo non copre e non dovrebbe coprire
+  in automatico (richiede una mappatura sottocategoria per sottocategoria
+  decisa da un umano, non deducibile in sicurezza dal solo nome). Pulizia
+  una tantum eseguita lo stesso giorno (stesso metodo: script via
+  `AppDatabase.forTesting` sul DB reale, poi rimosso, non committato):
+  transazioni/regole merchant delle 3 categorie di default ripuntate sulle
+  equivalenti personalizzate (mappatura per nome dove identico, altrimenti
+  confermata da Mario), poi le 3 categorie/sottocategorie di default
+  soft-deleted. Verificato: 0 doppioni residui, nessuna transazione persa
+  (420 attive invariate). Backup pre-pulizia:
+  `finance_app.sqlite.backup-2026-08-02-pre-category-merge`. **Resta un
+  gap noto**: creare a mano una categoria con lo stesso nome di una già
+  esistente non è impedito né segnalato dalla UI (`categories_manage_page.
+  dart`) — può succedere di nuovo.
 
 ## Icona app e splash screen
 
