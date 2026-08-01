@@ -113,12 +113,20 @@ void main() {
 
   test(
       'due candidati locali identici (storico già duplicato prima della sync): '
-      'ambiguo, non sceglie a caso e non lancia eccezioni', () async {
+      'riconosce comunque il duplicato, senza scegliere quale candidato tenere '
+      'e senza lanciare eccezioni', () async {
     await insertTransaction(syncId: 'local-1');
     await insertTransaction(syncId: 'local-2');
 
     final found = await find(excludeSyncId: 'remote-3');
 
-    expect(found, isNull);
+    // Non importa quale dei due candidati locali torni: entrambi sono
+    // identici per contenuto, e nessuno dei due viene toccato/cancellato.
+    // Conta solo che la riga remota "remote-3" venga riconosciuta come
+    // duplicata (found non-null) invece di essere inserita come nuova,
+    // il che farebbe crescere il gruppo già duplicato invece di lasciarlo
+    // stabile (v. CLAUDE.md "Sync (Turso)").
+    expect(found, isNotNull);
+    expect(found!.syncId, anyOf('local-1', 'local-2'));
   });
 }

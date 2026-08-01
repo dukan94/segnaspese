@@ -108,23 +108,33 @@ macchina. Non reintrodurre `libsql_dart`.
   collegato — non ha ancora dati.
 - **Storico locale con doppioni preesistenti** (scoperto 31 lug 2026, v.
   memoria `project_transaction_duplicates_pre_sync`): sul dispositivo di
-  Mario ~94% delle transazioni (749/796) hanno un duplicato di contenuto
+  Mario ~94% delle transazioni (749/796) avevano un duplicato di contenuto
   esatto (stessa data/importo/categoria/nota), probabile storico importato
   indipendentemente su più device prima che la sync esistesse.
   `transaction_duplicate_finder.dart` (`findContentDuplicateTransaction`,
   usata da `_pullTransactions` per riconoscere un movimento arrivato da un
   altro device come lo stesso già presente in locale sotto un `syncId`
-  diverso) assumeva al massimo 1 candidato locale: con 2+ candidati già
-  esistenti lanciava un'eccezione (`Bad state: Too many elements`) che
-  bloccava il pull di **tutte** le transazioni, non solo quelle duplicate
-  (bug reale, non solo teorico — occorreva quasi a ogni sync). Fix: con 2+
-  candidati ambigui la funzione ora ritorna `null` (non riconosce un
-  duplicato, non sceglie a caso quale cancellare) invece di lanciare — la
-  riga arrivata dal pull viene inserita come nuova. Senza pulizia questo fa
-  CRESCERE i gruppi doppi a ogni sync (verificato lo stesso giorno: da 374
-  gruppi tutti da 2 copie a 194 da 2 + 180 da 3, dopo un solo altro giro di
-  sync con un altro dispositivo) — non è solo un problema statico.
-  **Pulizia già eseguita** (1 ago 2026, script una tantum via
+  diverso, senza inserirlo una seconda volta) assumeva al massimo 1
+  candidato locale: con 2+ candidati già esistenti lanciava un'eccezione
+  (`Bad state: Too many elements`) che bloccava il pull di **tutte** le
+  transazioni, non solo quelle duplicate (bug reale, non solo teorico —
+  occorreva quasi a ogni sync). Due fix in sequenza lo stesso giorno:
+  1. Un primo fix faceva tornare `null` con 2+ candidati ambigui (niente più
+     crash, ma non riconosceva il duplicato): la riga arrivata dal pull
+     veniva comunque inserita come nuova, quindi i gruppi già doppi
+     CRESCEVANO a ogni sync tra device invece di restare stabili
+     (verificato lo stesso giorno: 374 gruppi tutti da 2 copie → 194 da 2 +
+     180 da 3 dopo un solo altro giro di sync).
+  2. Fix definitivo (1 ago 2026): con 1 o più candidati locali che
+     combaciano su tutti i campi, la riga remota è comunque riconosciuta
+     come duplicata — la funzione torna un candidato qualsiasi (non importa
+     quale: sono identici per contenuto, nessuno dei due viene toccato) solo
+     per segnalare "già rappresentato in locale, non inserire". Con 0
+     candidati resta `null` (davvero nuovo, va inserito). Questo è il
+     comportamento voluto: *se un dispositivo ha già sincronizzato queste
+     transazioni prima, quello stato va rispettato*, non ridiscusso a ogni
+     pull.
+  **Pulizia del backlog già eseguita** (1 ago 2026, script una tantum via
   `AppDatabase.forTesting` puntato sul DB reale, poi rimosso, non
   committato): tenuta 1 riga per gruppo (id più basso; nessuna aveva una
   foto scontrino collegata, quindi la scelta non perde dati), soft-delete
@@ -133,9 +143,7 @@ macchina. Non reintrodurre `libsql_dart`.
   file `.sqlite` pre-pulizia lasciato accanto all'originale
   (`finance_app.sqlite.backup-2026-08-01-pre-dedupe`) per sicurezza — v.
   memoria `project_transaction_duplicates_pre_sync` per il dettaglio
-  completo. Se ricompare un gruppo con 2+ copie in futuro (es. da un
-  dispositivo rimasto scollegato a lungo che pusha un vecchio doppione mai
-  visto), lo stesso script è riproducibile allo stesso modo.
+  completo.
 
 ## Icona app e splash screen
 

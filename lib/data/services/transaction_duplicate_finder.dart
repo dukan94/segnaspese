@@ -22,13 +22,18 @@ import '../local/database/tables/categories_table.dart';
 /// Se i candidati locali sono 2 o più (storico già duplicato PRIMA che
 /// esistesse questa logica, es. stesso CSV importato indipendentemente su
 /// più device: caso reale, non solo teorico — v. memoria
-/// `project_transaction_duplicates_pre_sync`), non c'è modo di scegliere
-/// quale sia "il duplicato giusto" da segnare cancellato senza rischiare di
-/// eliminare la riga sbagliata: meglio non riconoscerlo come duplicato
-/// (torna null, la riga arrivata dal pull viene inserita come nuova) che
-/// lanciare un'eccezione che blocca l'intero pull di TUTTE le transazioni
-/// (bug reale del 31 lug 2026: `getSingleOrNull()` lanciava "Bad state: Too
-/// many elements" non appena incontrava il primo gruppo con 2+ candidati).
+/// `project_transaction_duplicates_pre_sync`), la riga arrivata dal pull
+/// viene comunque riconosciuta come duplicata: qui NON scegliamo quale
+/// candidato locale è "quello giusto" (nessuno viene toccato/cancellato),
+/// scegliamo solo se la riga remota va inserita come nuova oppure no. Con
+/// 1+ candidati che combaciano su tutti i campi, il contenuto è già
+/// rappresentato in locale — inserirla comunque farebbe ricrescere un
+/// gruppo già duplicato invece di lasciarlo stabile (bug reale del 31 lug
+/// 2026: con `getSingleOrNull()` un pull su un gruppo con 2+ candidati
+/// lanciava "Bad state: Too many elements", bloccando l'intero pull di
+/// TUTTE le transazioni; il fix intermedio tornava null su 2+, il che
+/// evitava il crash ma faceva CRESCERE i gruppi già duplicati a ogni sync
+/// tra due device, invece di lasciarli stabili — v. stessa memoria).
 Future<Transaction?> findContentDuplicateTransaction(
   AppDatabase db, {
   required DateTime date,
@@ -55,5 +60,5 @@ Future<Transaction?> findContentDuplicateTransaction(
         : t.subCategoryId.equals(subCategoryId))
     ..where((t) => note == null ? t.note.isNull() : t.note.equals(note));
   final matches = await query.get();
-  return matches.length == 1 ? matches.single : null;
+  return matches.isEmpty ? null : matches.first;
 }
