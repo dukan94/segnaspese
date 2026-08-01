@@ -152,8 +152,71 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     }
   }
 
+  /// Cerca tra le transazioni già presenti una con stessa data (giorno),
+  /// categoria e importo del movimento che si sta per salvare: probabile
+  /// doppione (es. scontrino inserito due volte per errore).
+  TransactionEntity? _findPossibleDuplicate() {
+    final all = ref.read(allTransactionsProvider).valueOrNull ?? const [];
+    for (final t in all) {
+      if (t.categoryId == _selection!.categoryId &&
+          t.amount == _amount &&
+          t.date.year == _date.year &&
+          t.date.month == _date.month &&
+          t.date.day == _date.day) {
+        return t;
+      }
+    }
+    return null;
+  }
+
+  /// Mostra il dialog di avviso doppione; true se l'utente conferma comunque.
+  Future<bool> _confirmPossibleDuplicate(TransactionEntity match) async {
+    final categories = ref.read(allCategoriesProvider).valueOrNull ?? const [];
+    var catName = 'questa categoria';
+    for (final c in categories) {
+      if (c.id == match.categoryId) {
+        catName = c.name;
+        break;
+      }
+    }
+    final proceed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Probabilmente già inserita'),
+        content: Text(
+          'Esiste già un\'operazione del ${AppFormatters.shortDate(match.date)} '
+          'da ${AppFormatters.currency(match.amount)} in "$catName". '
+          'Vuoi salvarla comunque?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Salva comunque'),
+          ),
+        ],
+      ),
+    );
+    return proceed ?? false;
+  }
+
   Future<void> _save() async {
     if (!_canSave) return;
+
+    // Solo per operazioni nuove: in modifica l'utente sta correggendo un
+    // movimento già esistente, e un rimborso è già esplicitamente collegato
+    // a una spesa scelta dall'utente, quindi non è un doppione.
+    if (!_isEditing && !_isRefund) {
+      final duplicate = _findPossibleDuplicate();
+      if (duplicate != null) {
+        final proceed = await _confirmPossibleDuplicate(duplicate);
+        if (!mounted || !proceed) return;
+      }
+    }
+
     setState(() => _saving = true);
 
     final note = _noteController.text.trim().isEmpty
