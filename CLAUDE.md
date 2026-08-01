@@ -176,11 +176,22 @@ sfondo colore `#FAF0E0` + foreground trasparente) più fallback legacy per
 API più vecchie; splash screen nativo sia pre-Android 12 (`launch_background.
 xml`) sia Android 12+ (`windowSplashScreenBackground`/
 `windowSplashScreenAnimatedIcon` in `values-v31/styles.xml`), stesso schema
-crema/arancione. `flutter build apk --release` fallisce per un problema R8/
-ProGuard preesistente e scollegato da questo (classi ML Kit multilingua
-mancanti, mai emerso perché il progetto builda solo APK **debug**, v.
-`.github/workflows/android-build.yml`): usa `--debug` per verificare in
-locale, non `--release`.
+crema/arancione.
+
+**`flutter build apk --release` ora funziona** (fix 1 ago 2026): falliva per
+un problema R8 preesistente e scollegato dall'icona/splash, scoperto mentre
+si indagava sul crash della sync — R8 vedeva riferimenti a classi ML Kit dei
+riconoscitori testo per altri alfabeti (cinese/giapponese/coreano/
+devanagari, mai usati: l'app legge solo scontrini in italiano/latino) e
+falliva senza una regola che lo rassicurasse. Fix in
+`android/app/proguard-rules.pro` (righe `-dontwarn` per quelle 8 classi,
+collegato al build type release in `android/app/build.gradle.kts` via
+`proguardFiles`). Release è anche molto più leggero del debug (~95MB contro
+~200MB, minificazione/shrink attivi solo in release).
+`.github/workflows/android-build.yml` continua comunque a buildare
+**debug** (scelta esplicita di Mario, 1 ago 2026, non riproporre il cambio
+senza nuovo contesto): il fix resta disponibile per quando/se servirà una
+build release.
 
 ## Admin (strumenti interni)
 
