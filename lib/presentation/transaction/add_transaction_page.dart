@@ -7,6 +7,7 @@ import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../../domain/usecases/transaction/search_transactions.dart';
 import '../home/home_providers.dart';
 import '../shared_widgets/empty_state.dart';
 import 'widgets/amount_keypad.dart';
@@ -152,49 +153,79 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     }
   }
 
-  /// Cerca tra le transazioni già presenti una con stessa data (giorno),
-  /// categoria e importo del movimento che si sta per salvare: probabile
-  /// doppione (es. scontrino inserito due volte per errore).
-  TransactionEntity? _findPossibleDuplicate() {
-    final all = ref.read(allTransactionsProvider).valueOrNull ?? const [];
-    for (final t in all) {
-      if (t.categoryId == _selection!.categoryId &&
-          t.amount == _amount &&
-          t.date.year == _date.year &&
-          t.date.month == _date.month &&
-          t.date.day == _date.day) {
-        return t;
-      }
-    }
-    return null;
+  /// Interroga il database (non la cache in memoria) per una transazione
+  /// attiva con stessa data (giorno), categoria e importo di quella che si
+  /// sta per salvare: probabile doppione (es. scontrino inserito due volte
+  /// per errore). Va chiamato prima di generare la nuova transazione.
+  Future<TransactionEntity?> _findPossibleDuplicate() async {
+    final matches = await ref.read(searchTransactionsProvider).call(
+          SearchTransactionsParams(
+            categoryId: _selection!.categoryId,
+            amount: _amount,
+            date: _date,
+          ),
+        );
+    return matches.isEmpty ? null : matches.first;
   }
 
-  /// Mostra il dialog di avviso doppione; true se l'utente conferma comunque.
+  /// Mostra il dialog di avviso doppione, con link alla spesa di riferimento;
+  /// true se l'utente conferma comunque il salvataggio.
   Future<bool> _confirmPossibleDuplicate(TransactionEntity match) async {
     final categories = ref.read(allCategoriesProvider).valueOrNull ?? const [];
-    var catName = 'questa categoria';
+    var catName = 'Senza categoria';
     for (final c in categories) {
       if (c.id == match.categoryId) {
         catName = c.name;
         break;
       }
     }
+    final hasNote = match.note?.isNotEmpty == true;
+
     final proceed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Probabilmente già inserita'),
-        content: Text(
-          'Esiste già un\'operazione del ${AppFormatters.shortDate(match.date)} '
-          'da ${AppFormatters.currency(match.amount)} in "$catName". '
-          'Vuoi salvarla comunque?',
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Possibile doppione'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Questa spesa potrebbe già essere stata inserita. '
+              'Vuoi inserirla comunque?',
+            ),
+            const SizedBox(height: 12),
+            Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                leading: const Icon(Icons.link),
+                title: Text(hasNote ? match.note! : catName),
+                subtitle: Text(
+                  '$catName · ${AppFormatters.shortDate(match.date)} · '
+                  '${AppFormatters.currency(match.amount)}',
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  // Chiude il dialog (l'utente sta abbandonando questa
+                  // operazione per andare a controllare quella esistente) e
+                  // apre la spesa di riferimento.
+                  Navigator.of(dialogContext).pop(false);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => AddTransactionPage(existing: match),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Annulla'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Salva comunque'),
           ),
         ],
@@ -210,7 +241,8 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     // movimento già esistente, e un rimborso è già esplicitamente collegato
     // a una spesa scelta dall'utente, quindi non è un doppione.
     if (!_isEditing && !_isRefund) {
-      final duplicate = _findPossibleDuplicate();
+      final duplicate = await _findPossibleDuplicate();
+      if (!mounted) return;
       if (duplicate != null) {
         final proceed = await _confirmPossibleDuplicate(duplicate);
         if (!mounted || !proceed) return;
