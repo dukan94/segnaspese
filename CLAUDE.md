@@ -120,10 +120,22 @@ macchina. Non reintrodurre `libsql_dart`.
   (bug reale, non solo teorico — occorreva quasi a ogni sync). Fix: con 2+
   candidati ambigui la funzione ora ritorna `null` (non riconosce un
   duplicato, non sceglie a caso quale cancellare) invece di lanciare — la
-  riga arrivata dal pull viene inserita come nuova. La pulizia dei ~374
-  gruppi di doppioni già presenti nel DB resta un lavoro separato, non
-  ancora fatto: è una decisione dell'utente (dati finanziari reali), non
-  automatizzabile senza il suo ok esplicito.
+  riga arrivata dal pull viene inserita come nuova. Senza pulizia questo fa
+  CRESCERE i gruppi doppi a ogni sync (verificato lo stesso giorno: da 374
+  gruppi tutti da 2 copie a 194 da 2 + 180 da 3, dopo un solo altro giro di
+  sync con un altro dispositivo) — non è solo un problema statico.
+  **Pulizia già eseguita** (1 ago 2026, script una tantum via
+  `AppDatabase.forTesting` puntato sul DB reale, poi rimosso, non
+  committato): tenuta 1 riga per gruppo (id più basso; nessuna aveva una
+  foto scontrino collegata, quindi la scelta non perde dati), soft-delete
+  sulle altre 554 righe, poi sync per propagare. Verificato: 0 gruppi
+  duplicati residui tra le transazioni attive dopo la pulizia. Backup del
+  file `.sqlite` pre-pulizia lasciato accanto all'originale
+  (`finance_app.sqlite.backup-2026-08-01-pre-dedupe`) per sicurezza — v.
+  memoria `project_transaction_duplicates_pre_sync` per il dettaglio
+  completo. Se ricompare un gruppo con 2+ copie in futuro (es. da un
+  dispositivo rimasto scollegato a lungo che pusha un vecchio doppione mai
+  visto), lo stesso script è riproducibile allo stesso modo.
 
 ## Icona app e splash screen
 
