@@ -45,6 +45,10 @@ android {
             // Firmato con le stesse chiavi di debug per ora (nessuna
             // distribuzione su store): vedi signingConfigs sopra.
             signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
