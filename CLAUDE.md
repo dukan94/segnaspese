@@ -205,6 +205,17 @@ macchina. Non reintrodurre `libsql_dart`.
        `MergeSubCategory` (`domain/usecases/category/`), entità
        `CategoryMergeImpact` (`domain/entities/category_entity.dart`). Test
        in `test/category_dao_test.dart`.
+     - **Verificato manualmente end-to-end da Mario (2 ago 2026)**, oltre ai
+       test automatici: creata una coppia categoria/sottocategoria di prova
+       con una transazione collegata, sincronizzata sui due dispositivi
+       (PC + telefono), unita la sottocategoria (verso una sottocategoria
+       di un'altra categoria padre) e poi la categoria ormai vuota, poi
+       eliminate entrambe — ogni passaggio si è propagato correttamente
+       sull'altro dispositivo alla sync successiva, nessun errore, nessun
+       doppione. Nota emersa durante il test, non un bug: una categoria
+       senza sottocategorie non compare mai nel picker di "Nuova Operazione"
+       (che sceglie solo la sottocategoria, mai la categoria da sola) —
+       comportamento esistente indipendente da questa feature.
 
 ## Icona app e splash screen
 
