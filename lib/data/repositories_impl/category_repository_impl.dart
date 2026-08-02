@@ -69,4 +69,29 @@ class CategoryRepositoryImpl implements CategoryRepository {
   Future<void> reorderSubCategories(int categoryId, List<int> orderedSubCategoryIds) {
     return _dao.reorderSubCategories(categoryId, orderedSubCategoryIds);
   }
+
+  @override
+  Future<bool> categoryHasBlockingSubCategories(int categoryId) {
+    return _dao.categoryHasBlockingSubCategories(categoryId);
+  }
+
+  @override
+  Future<CategoryMergeImpact> categoryMergeImpact(int categoryId) {
+    return _dao.categoryMergeImpact(categoryId);
+  }
+
+  @override
+  Future<CategoryMergeImpact> subCategoryMergeImpact(int subCategoryId) {
+    return _dao.subCategoryMergeImpact(subCategoryId);
+  }
+
+  @override
+  Future<void> mergeCategory({required int sourceId, required int targetId}) {
+    return _dao.mergeCategoryInto(sourceId: sourceId, targetId: targetId);
+  }
+
+  @override
+  Future<void> mergeSubCategory({required int sourceId, required int targetId}) {
+    return _dao.mergeSubCategoryInto(sourceId: sourceId, targetId: targetId);
+  }
 }

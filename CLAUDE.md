@@ -166,10 +166,45 @@ macchina. Non reintrodurre `libsql_dart`.
   confermata da Mario), poi le 3 categorie/sottocategorie di default
   soft-deleted. Verificato: 0 doppioni residui, nessuna transazione persa
   (420 attive invariate). Backup pre-pulizia:
-  `finance_app.sqlite.backup-2026-08-02-pre-category-merge`. **Resta un
-  gap noto**: creare a mano una categoria con lo stesso nome di una già
-  esistente non è impedito né segnalato dalla UI (`categories_manage_page.
-  dart`) — può succedere di nuovo.
+  `finance_app.sqlite.backup-2026-08-02-pre-category-merge`.
+
+  **Gap chiuso (2 ago 2026)**, con due fix nella stessa sessione invece di
+  un'altra pulizia manuale se il problema si ripresentasse:
+  1. `categories_manage_page.dart` ora blocca in UI la creazione/rinomina di
+     una categoria o sottocategoria con un nome già esistente (confronto
+     case-insensitive, spazi ai bordi ignorati; per le categorie tra quelle
+     dello stesso tipo Uscite/Entrate, per le sottocategorie tra quelle
+     della stessa categoria padre) — errore inline sul campo Nome, salvataggio
+     bloccato finché il nome non cambia.
+  2. Per i doppioni che si creano comunque (es. un dispositivo non ancora
+     aggiornato, o un caso default-vs-personalizzata come questo), una nuova
+     azione **"Unisci con..."** (icona `Icons.merge_type`, accanto a
+     modifica/elimina) in Categorie e sottocategorie sposta transazioni,
+     regole merchant, budget e ricorrenze dalla categoria/sottocategoria
+     sorgente a quella scelta come destinazione — tutto in un'unica
+     transazione Drift, `updatedAt` aggiornato su ogni riga toccata per la
+     ripropagazione in sync — poi elimina (soft delete) la sorgente. Risolve
+     lo stesso caso di questa pulizia (e Salute/Viaggio) dall'app, senza
+     script una tantum sul DB reale.
+     - **Sottocategoria**: la destinazione può appartenere a una categoria
+       padre diversa (serve esattamente per il caso Salute sopra: sposta sia
+       `categoryId` sia `subCategoryId`).
+     - **Categoria**: rifiutata (eccezione, non silenziosa) se la sorgente ha
+       ancora sottocategorie attive con transazioni/regole/ricorrenze
+       collegate — vanno prima unite o eliminate quelle (stesso ordine di
+       operazioni già seguito a mano per Casa/Salute/Viaggio). Sottocategorie
+       attive ma senza dati non bloccano: la cascata di eliminazione già
+       esistente (`softDeleteCategory`) le elimina comunque.
+     - Dialog di conferma con il conteggio di quante righe verrebbero
+       spostate prima di procedere.
+     - Codice: `CategoryDao.mergeCategoryInto`/`mergeSubCategoryInto` +
+       `categoryHasBlockingSubCategories`/`categoryMergeImpact`/
+       `subCategoryMergeImpact` (`data/local/database/daos/category_dao.dart`,
+       tabelle aggiunte al `@DriftAccessor`: Transactions, MerchantRules,
+       Budgets, RecurringTransactions), usecase `MergeCategory`/
+       `MergeSubCategory` (`domain/usecases/category/`), entità
+       `CategoryMergeImpact` (`domain/entities/category_entity.dart`). Test
+       in `test/category_dao_test.dart`.
 
 ## Icona app e splash screen
 
@@ -308,10 +343,10 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
   duplicate finder, sync Turso (incluso **rientranza syncNow()** e verifica
   remota puntuale), repair sottocategorie orfane, widget animati, DAO
   ricorrenze/categorie/budget/transazioni (date-math, riordino, upsert,
-  filtri ricerca, hard delete/purge), formatter e servizio Google Sheets
-  (header matching), **SafeTransactionDeletionService** (con
-  `FakeTursoHttpClient` + test double ufficiale di `FlutterSecureStorage`)
-  + 1 smoke widget test.
+  filtri ricerca, hard delete/purge, **unione categorie/sottocategorie**),
+  formatter e servizio Google Sheets (header matching),
+  **SafeTransactionDeletionService** (con `FakeTursoHttpClient` + test
+  double ufficiale di `FlutterSecureStorage`) + 1 smoke widget test.
 - **Post-M8**: Admin (Impostazioni > Admin) con import CSV spostato lì,
   bridge temporaneo verso il foglio Google "Copia di Spese" e strumenti di
   eliminazione definitiva/pulizia (v. sezione dedicata sopra) — non è una

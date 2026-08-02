@@ -2,10 +2,15 @@ import 'dart:async';
 
 import 'package:drift/drift.dart';
 
+import '../../../../domain/entities/category_entity.dart' show CategoryMergeImpact;
 import '../app_database.dart';
+import '../tables/budgets_table.dart';
 import '../tables/categories_table.dart';
+import '../tables/merchant_rules_table.dart';
+import '../tables/recurring_table.dart';
 import '../tables/settings_table.dart';
 import '../tables/subcategories_table.dart';
+import '../tables/transactions_table.dart';
 
 part 'category_dao.g.dart';
 
@@ -78,7 +83,15 @@ class SubCategoryWithCategory {
 /// niente nuove colonne né migrazioni di schema su Categories/SubCategories.
 /// Le categorie/sottocategorie non ancora presenti in un elenco salvato
 /// (es. appena create) vengono semplicemente aggiunte in coda.
-@DriftAccessor(tables: [Categories, SubCategories, Settings])
+@DriftAccessor(tables: [
+  Categories,
+  SubCategories,
+  Settings,
+  Transactions,
+  MerchantRules,
+  Budgets,
+  RecurringTransactions,
+])
 class CategoryDao extends DatabaseAccessor<AppDatabase>
     with _$CategoryDaoMixin {
   CategoryDao(super.db);
@@ -275,5 +288,158 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
         updatedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  // --- Unione categorie/sottocategorie (risolve doppioni senza script sul DB,
+  // v. CLAUDE.md sezione Sync per l'incidente Casa/Salute/Viaggio che ha
+  // motivato questa feature) ---
+
+  /// True se [categoryId] ha ancora almeno una sottocategoria attiva
+  /// referenziata da una transazione/regola/ricorrenza non cancellata: in tal
+  /// caso [mergeCategoryInto] va rifiutato, va prima risolta quella
+  /// sottocategoria (unione o eliminazione). Le sottocategorie attive ma
+  /// senza dati collegati NON bloccano: vengono soft-deleted in automatico
+  /// dalla cascata già esistente di [softDeleteCategory].
+  Future<bool> categoryHasBlockingSubCategories(int categoryId) async {
+    final activeSubIds = await (select(subCategories)
+          ..where((s) => s.categoryId.equals(categoryId) & s.isDeleted.equals(false)))
+        .map((s) => s.id)
+        .get();
+    if (activeSubIds.isEmpty) return false;
+
+    final linkedTransactions = await (select(transactions)
+          ..where((t) => t.subCategoryId.isIn(activeSubIds) & t.isDeleted.equals(false))
+          ..limit(1))
+        .get();
+    if (linkedTransactions.isNotEmpty) return true;
+
+    final linkedRules = await (select(merchantRules)
+          ..where((r) => r.subCategoryId.isIn(activeSubIds) & r.isDeleted.equals(false))
+          ..limit(1))
+        .get();
+    if (linkedRules.isNotEmpty) return true;
+
+    final linkedRecurring = await (select(recurringTransactions)
+          ..where((r) => r.subCategoryId.isIn(activeSubIds) & r.isDeleted.equals(false))
+          ..limit(1))
+        .get();
+    return linkedRecurring.isNotEmpty;
+  }
+
+  /// Conteggio delle righe che [mergeCategoryInto] sposterebbe da
+  /// [categoryId] alla destinazione, per il dialog di conferma.
+  Future<CategoryMergeImpact> categoryMergeImpact(int categoryId) async {
+    final txCount = await (select(transactions)
+          ..where((t) => t.categoryId.equals(categoryId) & t.isDeleted.equals(false)))
+        .get();
+    final ruleCount = await (select(merchantRules)
+          ..where((r) => r.categoryId.equals(categoryId) & r.isDeleted.equals(false)))
+        .get();
+    final budgetCount = await (select(budgets)
+          ..where((b) => b.categoryId.equals(categoryId) & b.isDeleted.equals(false)))
+        .get();
+    final recurringCount = await (select(recurringTransactions)
+          ..where((r) => r.categoryId.equals(categoryId) & r.isDeleted.equals(false)))
+        .get();
+    return CategoryMergeImpact(
+      transactions: txCount.length,
+      merchantRules: ruleCount.length,
+      budgets: budgetCount.length,
+      recurringTransactions: recurringCount.length,
+    );
+  }
+
+  /// Conteggio delle righe che [mergeSubCategoryInto] sposterebbe da
+  /// [subCategoryId] alla destinazione, per il dialog di conferma. I Budget
+  /// non hanno una sottocategoria propria: [CategoryMergeImpact.budgets]
+  /// resta sempre 0 qui.
+  Future<CategoryMergeImpact> subCategoryMergeImpact(int subCategoryId) async {
+    final txCount = await (select(transactions)
+          ..where((t) => t.subCategoryId.equals(subCategoryId) & t.isDeleted.equals(false)))
+        .get();
+    final ruleCount = await (select(merchantRules)
+          ..where((r) => r.subCategoryId.equals(subCategoryId) & r.isDeleted.equals(false)))
+        .get();
+    final recurringCount = await (select(recurringTransactions)
+          ..where((r) => r.subCategoryId.equals(subCategoryId) & r.isDeleted.equals(false)))
+        .get();
+    return CategoryMergeImpact(
+      transactions: txCount.length,
+      merchantRules: ruleCount.length,
+      budgets: 0,
+      recurringTransactions: recurringCount.length,
+    );
+  }
+
+  /// Sposta transazioni/regole/budget/ricorrenze non cancellate di
+  /// [sourceId] su [targetId] (aggiornando `updatedAt` su ogni riga toccata,
+  /// così si ripropagano in sync), poi elimina [sourceId] con
+  /// [softDeleteCategory] (che a sua volta soft-deleta a cascata le sue
+  /// sottocategorie, ormai senza dati collegati). Lancia se [sourceId] ha
+  /// ancora sottocategorie bloccanti: v. [categoryHasBlockingSubCategories].
+  Future<void> mergeCategoryInto({required int sourceId, required int targetId}) async {
+    if (sourceId == targetId) {
+      throw ArgumentError('Categoria di origine e destinazione coincidono');
+    }
+    if (await categoryHasBlockingSubCategories(sourceId)) {
+      throw StateError(
+        'La categoria ha ancora sottocategorie con transazioni o regole collegate: unisci o elimina prima quelle',
+      );
+    }
+    final now = DateTime.now();
+    await transaction(() async {
+      await (update(transactions)
+            ..where((t) => t.categoryId.equals(sourceId) & t.isDeleted.equals(false)))
+          .write(TransactionsCompanion(categoryId: Value(targetId), updatedAt: Value(now)));
+      await (update(merchantRules)
+            ..where((r) => r.categoryId.equals(sourceId) & r.isDeleted.equals(false)))
+          .write(MerchantRulesCompanion(categoryId: Value(targetId), updatedAt: Value(now)));
+      await (update(budgets)
+            ..where((b) => b.categoryId.equals(sourceId) & b.isDeleted.equals(false)))
+          .write(BudgetsCompanion(categoryId: Value(targetId), updatedAt: Value(now)));
+      await (update(recurringTransactions)
+            ..where((r) => r.categoryId.equals(sourceId) & r.isDeleted.equals(false)))
+          .write(RecurringTransactionsCompanion(categoryId: Value(targetId), updatedAt: Value(now)));
+      await softDeleteCategory(sourceId);
+    });
+  }
+
+  /// Sposta transazioni/regole/ricorrenze non cancellate di [sourceId] su
+  /// [targetId] (categoria E sottocategoria, dato che la destinazione può
+  /// appartenere a una categoria padre diversa — v. incidente Salute in
+  /// CLAUDE.md), poi elimina [sourceId] con [softDeleteSubCategory].
+  Future<void> mergeSubCategoryInto({required int sourceId, required int targetId}) async {
+    if (sourceId == targetId) {
+      throw ArgumentError('Sottocategoria di origine e destinazione coincidono');
+    }
+    final target = await getSubCategoryById(targetId);
+    if (target == null) {
+      throw StateError('Sottocategoria di destinazione non trovata');
+    }
+    final now = DateTime.now();
+    await transaction(() async {
+      await (update(transactions)
+            ..where((t) => t.subCategoryId.equals(sourceId) & t.isDeleted.equals(false)))
+          .write(TransactionsCompanion(
+        categoryId: Value(target.categoryId),
+        subCategoryId: Value(targetId),
+        updatedAt: Value(now),
+      ));
+      await (update(merchantRules)
+            ..where((r) => r.subCategoryId.equals(sourceId) & r.isDeleted.equals(false)))
+          .write(MerchantRulesCompanion(
+        categoryId: Value(target.categoryId),
+        subCategoryId: Value(targetId),
+        updatedAt: Value(now),
+      ));
+      await (update(recurringTransactions)
+            ..where((r) => r.subCategoryId.equals(sourceId) & r.isDeleted.equals(false)))
+          .write(RecurringTransactionsCompanion(
+        categoryId: Value(target.categoryId),
+        subCategoryId: Value(targetId),
+        updatedAt: Value(now),
+      ));
+      await softDeleteSubCategory(sourceId);
+    });
   }
 }

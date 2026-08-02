@@ -32,4 +32,27 @@ abstract class CategoryRepository {
   /// Salva l'ordine manuale (drag & drop) delle sottocategorie di
   /// [categoryId].
   Future<void> reorderSubCategories(int categoryId, List<int> orderedSubCategoryIds);
+
+  /// True se [categoryId] ha ancora sottocategorie attive referenziate da
+  /// transazioni/regole/ricorrenze non cancellate: va prima risolto quello
+  /// (unendole o eliminandole) prima di poter unire la categoria stessa.
+  Future<bool> categoryHasBlockingSubCategories(int categoryId);
+
+  /// Quante righe verrebbero spostate unendo [categoryId] in un'altra
+  /// categoria, per il dialog di conferma.
+  Future<CategoryMergeImpact> categoryMergeImpact(int categoryId);
+
+  /// Quante righe verrebbero spostate unendo [subCategoryId] in un'altra
+  /// sottocategoria, per il dialog di conferma.
+  Future<CategoryMergeImpact> subCategoryMergeImpact(int subCategoryId);
+
+  /// Sposta transazioni/regole/budget/ricorrenze di [sourceId] su
+  /// [targetId], poi elimina (soft delete) la categoria [sourceId].
+  /// Fallisce se [sourceId] ha ancora sottocategorie attive con dati
+  /// collegati (v. [categoryHasBlockingSubCategories]).
+  Future<void> mergeCategory({required int sourceId, required int targetId});
+
+  /// Sposta transazioni/regole/ricorrenze di [sourceId] su [targetId], poi
+  /// elimina (soft delete) la sottocategoria [sourceId].
+  Future<void> mergeSubCategory({required int sourceId, required int targetId});
 }

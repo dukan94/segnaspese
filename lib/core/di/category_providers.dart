@@ -9,6 +9,8 @@ import '../../domain/usecases/category/add_category.dart';
 import '../../domain/usecases/category/add_subcategory.dart';
 import '../../domain/usecases/category/delete_category.dart';
 import '../../domain/usecases/category/delete_subcategory.dart';
+import '../../domain/usecases/category/merge_category.dart';
+import '../../domain/usecases/category/merge_subcategory.dart';
 import '../../domain/usecases/category/reorder_categories.dart';
 import '../../domain/usecases/category/reorder_subcategories.dart';
 import '../../domain/usecases/category/update_category.dart';
@@ -83,4 +85,12 @@ final reorderCategoriesProvider = Provider<ReorderCategories>((ref) {
 
 final reorderSubCategoriesProvider = Provider<ReorderSubCategories>((ref) {
   return ReorderSubCategories(ref.watch(categoryRepositoryProvider));
+});
+
+final mergeCategoryProvider = Provider<MergeCategory>((ref) {
+  return MergeCategory(ref.watch(categoryRepositoryProvider));
+});
+
+final mergeSubCategoryProvider = Provider<MergeSubCategory>((ref) {
+  return MergeSubCategory(ref.watch(categoryRepositoryProvider));
 });
