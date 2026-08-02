@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/category_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../data/local/database/app_database.dart';
+import '../../data/local/database/daos/category_dao.dart' show SubCategoryWithCategory;
+import '../../data/local/database/tables/categories_table.dart' show TransactionKind;
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
@@ -191,6 +193,11 @@ class _CategoryTile extends ConsumerWidget {
                   showCategoryEditor(context, ref, existing: category),
             ),
             IconButton(
+              icon: const Icon(Icons.merge_type, size: 20),
+              tooltip: 'Unisci con un\'altra categoria',
+              onPressed: () => _mergeCategory(context, ref, category),
+            ),
+            IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),
               tooltip: 'Elimina categoria',
               onPressed: () => _confirmDeleteCategory(context, ref, category),
@@ -198,7 +205,7 @@ class _CategoryTile extends ConsumerWidget {
           ],
         ),
         children: [
-          _SubCategoryList(categoryId: category.id),
+          _SubCategoryList(categoryId: category.id, type: category.type),
         ],
       ),
     );
@@ -208,9 +215,10 @@ class _CategoryTile extends ConsumerWidget {
 /// Lista sottocategorie di una categoria, anch'essa riordinabile via drag &
 /// drop, annidata dentro l'`ExpansionTile` della categoria padre.
 class _SubCategoryList extends ConsumerStatefulWidget {
-  const _SubCategoryList({required this.categoryId});
+  const _SubCategoryList({required this.categoryId, required this.type});
 
   final int categoryId;
+  final TransactionKind type;
 
   @override
   ConsumerState<_SubCategoryList> createState() => _SubCategoryListState();
@@ -290,6 +298,12 @@ class _SubCategoryListState extends ConsumerState<_SubCategoryList> {
                             categoryId: widget.categoryId,
                             existing: sub,
                           ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.merge_type, size: 18),
+                          tooltip: 'Unisci con un\'altra sottocategoria',
+                          onPressed: () =>
+                              _mergeSubCategory(context, ref, sub, widget.type),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete_outline, size: 18),
@@ -373,6 +387,153 @@ Future<void> _confirmDeleteSubCategory(
   }
 }
 
+/// Unisce [category] in un'altra categoria dello stesso tipo, spostando
+/// transazioni/regole/budget/ricorrenze collegate e poi eliminandola.
+/// Risolve doppioni come Casa/Salute/Viaggio (v. CLAUDE.md, sezione Sync)
+/// dall'app invece che con uno script una tantum sul DB.
+Future<void> _mergeCategory(
+  BuildContext context,
+  WidgetRef ref,
+  Category category,
+) async {
+  final repository = ref.read(categoryRepositoryProvider);
+
+  final hasBlocking = await repository.categoryHasBlockingSubCategories(category.id);
+  if (!context.mounted) return;
+  if (hasBlocking) {
+    showErrorSnackBar(
+      context,
+      'Questa categoria ha ancora sottocategorie con transazioni o regole '
+      'collegate: unisci o elimina prima quelle.',
+    );
+    return;
+  }
+
+  final candidates = (await ref.read(categoriesByTypeProvider(category.type).future))
+      .where((c) => c.id != category.id)
+      .toList();
+  if (!context.mounted) return;
+  if (candidates.isEmpty) {
+    showErrorSnackBar(context, 'Nessun\'altra categoria a cui unire questa.');
+    return;
+  }
+
+  final target = await showDialog<Category>(
+    context: context,
+    builder: (_) => SimpleDialog(
+      title: const Text('Unisci in quale categoria?'),
+      children: [
+        for (final c in candidates)
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(c),
+            child: Row(
+              children: [
+                Text(c.icon, style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Text(c.name),
+              ],
+            ),
+          ),
+      ],
+    ),
+  );
+  if (target == null || !context.mounted) return;
+
+  final impact = await repository.categoryMergeImpact(category.id);
+  if (!context.mounted) return;
+
+  final confirmed = await _confirmDialog(
+    context,
+    title: 'Unire "${category.name}" in "${target.name}"?',
+    message: _mergeImpactMessage(impact, category.name, target.name),
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  try {
+    await ref.read(mergeCategoryProvider).call(sourceId: category.id, targetId: target.id);
+    if (context.mounted) showSuccessSnackBar(context, 'Categoria unita');
+  } catch (e) {
+    if (context.mounted) showErrorSnackBar(context, 'Errore: $e');
+  }
+}
+
+/// Unisce [subCategory] in un'altra sottocategoria dello stesso tipo, anche
+/// di una categoria padre diversa (serve proprio per questo, v. incidente
+/// Salute in CLAUDE.md: sottocategorie equivalenti su alberi diversi).
+Future<void> _mergeSubCategory(
+  BuildContext context,
+  WidgetRef ref,
+  SubCategory subCategory,
+  TransactionKind type,
+) async {
+  final repository = ref.read(categoryRepositoryProvider);
+
+  final candidates = (await ref.read(subCategoriesForTypeProvider(type).future))
+      .where((s) => s.subCategory.id != subCategory.id)
+      .toList();
+  if (!context.mounted) return;
+  if (candidates.isEmpty) {
+    showErrorSnackBar(context, 'Nessun\'altra sottocategoria a cui unire questa.');
+    return;
+  }
+
+  final target = await showDialog<SubCategoryWithCategory>(
+    context: context,
+    builder: (_) => SimpleDialog(
+      title: const Text('Unisci in quale sottocategoria?'),
+      children: [
+        for (final s in candidates)
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(s),
+            child: Text('${s.subCategory.name} (${s.category.name})'),
+          ),
+      ],
+    ),
+  );
+  if (target == null || !context.mounted) return;
+
+  final impact = await repository.subCategoryMergeImpact(subCategory.id);
+  if (!context.mounted) return;
+
+  final confirmed = await _confirmDialog(
+    context,
+    title: 'Unire "${subCategory.name}" in "${target.subCategory.name}"?',
+    message: _mergeImpactMessage(
+      impact,
+      subCategory.name,
+      '${target.subCategory.name} (${target.category.name})',
+    ),
+  );
+  if (confirmed != true || !context.mounted) return;
+
+  try {
+    await ref
+        .read(mergeSubCategoryProvider)
+        .call(sourceId: subCategory.id, targetId: target.subCategory.id);
+    if (context.mounted) showSuccessSnackBar(context, 'Sottocategoria unita');
+  } catch (e) {
+    if (context.mounted) showErrorSnackBar(context, 'Errore: $e');
+  }
+}
+
+String _mergeImpactMessage(
+  CategoryMergeImpact impact,
+  String sourceName,
+  String targetName,
+) {
+  if (impact.total == 0) {
+    return 'Nessuna transazione o regola collegata: "$sourceName" verrà solo eliminata.';
+  }
+  final parts = <String>[
+    if (impact.transactions > 0) '${impact.transactions} transazioni',
+    if (impact.merchantRules > 0) '${impact.merchantRules} regole di categorizzazione',
+    if (impact.budgets > 0) '${impact.budgets} budget',
+    if (impact.recurringTransactions > 0) '${impact.recurringTransactions} ricorrenze',
+  ];
+  return 'Verranno spostate su "$targetName": ${parts.join(', ')}. '
+      '"$sourceName" verrà poi eliminata.';
+}
+
 Future<bool?> _confirmDialog(
   BuildContext context, {
   required String title,
@@ -430,6 +591,7 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
       TextEditingController(text: widget.existing?.icon ?? '');
   late int _color = widget.existing?.color ?? _colorPalette.first;
   bool _saving = false;
+  String? _nameError;
 
   bool get _isEditing => widget.existing != null;
 
@@ -440,10 +602,35 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
     super.dispose();
   }
 
+  /// Vero se [name] combacia (case-insensitive, spazi ai bordi ignorati) con
+  /// una categoria già esistente dello stesso tipo, diversa da quella in
+  /// modifica. Evita di ricreare a mano doppioni come Casa/Salute/Viaggio
+  /// (v. CLAUDE.md, sezione Sync — pulizia doppioni categoria default vs
+  /// personalizzata), gap lasciato aperto finora.
+  Future<bool> _isDuplicateName(String name) async {
+    final kind = widget.existing?.type ?? widget.type!.toDrift();
+    final categories = await ref.read(categoriesByTypeProvider(kind).future);
+    final normalized = name.toLowerCase();
+    return categories.any((c) =>
+        c.id != widget.existing?.id && c.name.trim().toLowerCase() == normalized);
+  }
+
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _nameError = null;
+    });
+
+    if (await _isDuplicateName(name)) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _nameError = 'Esiste già una categoria con questo nome';
+      });
+      return;
+    }
 
     final entity = CategoryEntity(
       id: widget.existing?.id,
@@ -481,7 +668,13 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
             TextField(
               controller: _nameController,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Nome'),
+              decoration: InputDecoration(
+                labelText: 'Nome',
+                errorText: _nameError,
+              ),
+              onChanged: (_) {
+                if (_nameError != null) setState(() => _nameError = null);
+              },
             ),
             const SizedBox(height: 12),
             TextField(
@@ -570,6 +763,7 @@ class _SubCategoryEditorDialogState
   late final _iconController =
       TextEditingController(text: widget.existing?.icon ?? '');
   bool _saving = false;
+  String? _nameError;
 
   bool get _isEditing => widget.existing != null;
 
@@ -580,10 +774,32 @@ class _SubCategoryEditorDialogState
     super.dispose();
   }
 
+  /// Stesso controllo di [_CategoryEditorDialogState._isDuplicateName], ma
+  /// limitato alle sottocategorie della stessa categoria padre.
+  Future<bool> _isDuplicateName(String name) async {
+    final subCategories =
+        await ref.read(subCategoriesProvider(widget.categoryId).future);
+    final normalized = name.toLowerCase();
+    return subCategories.any((s) =>
+        s.id != widget.existing?.id && s.name.trim().toLowerCase() == normalized);
+  }
+
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
-    setState(() => _saving = true);
+    setState(() {
+      _saving = true;
+      _nameError = null;
+    });
+
+    if (await _isDuplicateName(name)) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _nameError = 'Esiste già una sottocategoria con questo nome';
+      });
+      return;
+    }
 
     final entity = SubCategoryEntity(
       id: widget.existing?.id,
@@ -618,7 +834,13 @@ class _SubCategoryEditorDialogState
           TextField(
             controller: _nameController,
             autofocus: true,
-            decoration: const InputDecoration(labelText: 'Nome'),
+            decoration: InputDecoration(
+              labelText: 'Nome',
+              errorText: _nameError,
+            ),
+            onChanged: (_) {
+              if (_nameError != null) setState(() => _nameError = null);
+            },
           ),
           const SizedBox(height: 12),
           TextField(

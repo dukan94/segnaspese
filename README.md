@@ -15,7 +15,10 @@ desktop Windows** grazie a Flutter.
   classificazione automatica (con apprendimento) per assegnare la categoria
   giusta al negozio.
 - **Categorizzazione** — categorie e sottocategorie personalizzabili (con
-  riordino drag & drop), regole per merchant.
+  riordino drag & drop), regole per merchant. Nomi duplicati bloccati in UI;
+  un'azione "Unisci con..." permette di consolidare due categorie/
+  sottocategorie doppione spostando transazioni/regole/budget/ricorrenze
+  sulla destinazione prima di eliminare la sorgente.
 - **Inserimento manuale** — schermata "Nuova Operazione" con tastierino rapido
   per aggiungere spese a mano; al salvataggio controlla sul database se
   esiste già una spesa con stessa data, categoria e importo (probabile

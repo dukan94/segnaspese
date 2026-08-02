@@ -1,7 +1,10 @@
 import 'package:async/async.dart';
+import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:finance_app/data/local/database/app_database.dart';
+import 'package:finance_app/data/local/database/tables/budgets_table.dart';
 import 'package:finance_app/data/local/database/tables/categories_table.dart';
+import 'package:finance_app/data/local/database/tables/recurring_table.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -173,6 +176,192 @@ void main() {
           ['Casa/Affitto', 'Casa/Bollette']);
 
       await queue.cancel();
+    });
+  });
+
+  group('unione categorie/sottocategorie (risolve doppioni senza script sul DB)', () {
+    Future<int> insertSubCategory(int categoryId, String name) {
+      return db.into(db.subCategories).insert(
+            SubCategoriesCompanion.insert(categoryId: categoryId, name: name),
+          );
+    }
+
+    Future<int> insertTransaction({
+      required int categoryId,
+      int? subCategoryId,
+    }) {
+      return db.into(db.transactions).insert(
+            TransactionsCompanion.insert(
+              date: DateTime(2026, 1, 1),
+              amount: 10,
+              type: TransactionKind.expense,
+              categoryId: categoryId,
+              subCategoryId: Value(subCategoryId),
+            ),
+          );
+    }
+
+    Future<int> insertMerchantRule({
+      required int categoryId,
+      int? subCategoryId,
+    }) {
+      return db.into(db.merchantRules).insert(
+            MerchantRulesCompanion.insert(
+              pattern: 'ESSELUNGA.*',
+              categoryId: categoryId,
+              subCategoryId: Value(subCategoryId),
+            ),
+          );
+    }
+
+    Future<int> insertBudget(int categoryId) {
+      return db.into(db.budgets).insert(
+            BudgetsCompanion.insert(
+              period: BudgetPeriod.monthly,
+              amount: 100,
+              startDate: DateTime(2026, 1, 1),
+              categoryId: Value(categoryId),
+            ),
+          );
+    }
+
+    Future<int> insertRecurring({
+      required int categoryId,
+      int? subCategoryId,
+    }) {
+      return db.into(db.recurringTransactions).insert(
+            RecurringTransactionsCompanion.insert(
+              description: 'Netflix',
+              amount: 12.99,
+              type: TransactionKind.expense,
+              categoryId: categoryId,
+              subCategoryId: Value(subCategoryId),
+              frequency: RecurringFrequency.monthly,
+              nextOccurrence: DateTime(2026, 2, 1),
+            ),
+          );
+    }
+
+    test('mergeCategoryInto sposta transazioni/regole/budget/ricorrenze e cancella la sorgente', () async {
+      final casa = await insertCategory('Casa');
+      final casaBis = await insertCategory('Casa (doppione)');
+      final txId = await insertTransaction(categoryId: casaBis);
+      final ruleId = await insertMerchantRule(categoryId: casaBis);
+      final budgetId = await insertBudget(casaBis);
+      final recurringId = await insertRecurring(categoryId: casaBis);
+
+      await db.categoryDao.mergeCategoryInto(sourceId: casaBis, targetId: casa);
+
+      final tx = await (db.select(db.transactions)..where((t) => t.id.equals(txId))).getSingle();
+      expect(tx.categoryId, casa);
+      final rule = await (db.select(db.merchantRules)..where((r) => r.id.equals(ruleId))).getSingle();
+      expect(rule.categoryId, casa);
+      final budget = await (db.select(db.budgets)..where((b) => b.id.equals(budgetId))).getSingle();
+      expect(budget.categoryId, casa);
+      final recurring =
+          await (db.select(db.recurringTransactions)..where((r) => r.id.equals(recurringId))).getSingle();
+      expect(recurring.categoryId, casa);
+
+      final source = await (db.select(db.categories)..where((c) => c.id.equals(casaBis))).getSingle();
+      expect(source.isDeleted, isTrue);
+    });
+
+    test('mergeCategoryInto rifiuta se una sottocategoria attiva ha ancora transazioni collegate', () async {
+      final casa = await insertCategory('Casa');
+      final casaBis = await insertCategory('Casa (doppione)');
+      final bollette = await insertSubCategory(casaBis, 'Bollette');
+      await insertTransaction(categoryId: casaBis, subCategoryId: bollette);
+
+      expect(
+        () => db.categoryDao.mergeCategoryInto(sourceId: casaBis, targetId: casa),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('mergeCategoryInto procede se le sottocategorie della sorgente sono vuote (vengono cancellate a cascata)', () async {
+      final casa = await insertCategory('Casa');
+      final casaBis = await insertCategory('Casa (doppione)');
+      final vuota = await insertSubCategory(casaBis, 'Sottocategoria vuota');
+
+      await db.categoryDao.mergeCategoryInto(sourceId: casaBis, targetId: casa);
+
+      final subCategory = await (db.select(db.subCategories)..where((s) => s.id.equals(vuota))).getSingle();
+      expect(subCategory.isDeleted, isTrue);
+    });
+
+    test('mergeSubCategoryInto sposta transazioni/regole/ricorrenze anche verso una categoria padre diversa', () async {
+      final salute = await insertCategory('Salute');
+      final saluteBis = await insertCategory('Salute (doppione)');
+      final farmacia = await insertSubCategory(salute, 'Farmacia');
+      final medicoFarmaci = await insertSubCategory(saluteBis, 'Medico / Farmaci');
+      final txId = await insertTransaction(categoryId: saluteBis, subCategoryId: medicoFarmaci);
+      final ruleId = await insertMerchantRule(categoryId: saluteBis, subCategoryId: medicoFarmaci);
+      final recurringId = await insertRecurring(categoryId: saluteBis, subCategoryId: medicoFarmaci);
+
+      await db.categoryDao.mergeSubCategoryInto(sourceId: medicoFarmaci, targetId: farmacia);
+
+      final tx = await (db.select(db.transactions)..where((t) => t.id.equals(txId))).getSingle();
+      expect(tx.categoryId, salute);
+      expect(tx.subCategoryId, farmacia);
+      final rule = await (db.select(db.merchantRules)..where((r) => r.id.equals(ruleId))).getSingle();
+      expect(rule.categoryId, salute);
+      expect(rule.subCategoryId, farmacia);
+      final recurring =
+          await (db.select(db.recurringTransactions)..where((r) => r.id.equals(recurringId))).getSingle();
+      expect(recurring.categoryId, salute);
+      expect(recurring.subCategoryId, farmacia);
+
+      final source = await (db.select(db.subCategories)..where((s) => s.id.equals(medicoFarmaci))).getSingle();
+      expect(source.isDeleted, isTrue);
+    });
+
+    test('categoryMergeImpact/subCategoryMergeImpact contano solo le righe non cancellate', () async {
+      final casa = await insertCategory('Casa');
+      final casaBis = await insertCategory('Casa (doppione)');
+      await insertTransaction(categoryId: casaBis);
+      final txCancellataId = await insertTransaction(categoryId: casaBis);
+      await db.transactionDao.softDelete(txCancellataId);
+      await insertMerchantRule(categoryId: casaBis);
+      await insertBudget(casaBis);
+
+      final impact = await db.categoryDao.categoryMergeImpact(casaBis);
+      expect(impact.transactions, 1);
+      expect(impact.merchantRules, 1);
+      expect(impact.budgets, 1);
+      expect(impact.recurringTransactions, 0);
+      expect(impact.total, 3);
+
+      final bollette = await insertSubCategory(casa, 'Bollette');
+      await insertTransaction(categoryId: casa, subCategoryId: bollette);
+
+      final subImpact = await db.categoryDao.subCategoryMergeImpact(bollette);
+      expect(subImpact.transactions, 1);
+      expect(subImpact.budgets, 0);
+    });
+
+    test('categoryHasBlockingSubCategories distingue sottocategorie vuote da quelle con dati', () async {
+      final casa = await insertCategory('Casa');
+      expect(await db.categoryDao.categoryHasBlockingSubCategories(casa), isFalse);
+
+      final vuota = await insertSubCategory(casa, 'Vuota');
+      expect(await db.categoryDao.categoryHasBlockingSubCategories(casa), isFalse);
+
+      await insertTransaction(categoryId: casa, subCategoryId: vuota);
+      expect(await db.categoryDao.categoryHasBlockingSubCategories(casa), isTrue);
+    });
+
+    test('unire una categoria/sottocategoria con se stessa lancia un errore', () async {
+      final casa = await insertCategory('Casa');
+      final bollette = await insertSubCategory(casa, 'Bollette');
+
+      expect(
+        () => db.categoryDao.mergeCategoryInto(sourceId: casa, targetId: casa),
+        throwsA(isA<ArgumentError>()),
+      );
+      expect(
+        () => db.categoryDao.mergeSubCategoryInto(sourceId: bollette, targetId: bollette),
+        throwsA(isA<ArgumentError>()),
+      );
     });
   });
 }
