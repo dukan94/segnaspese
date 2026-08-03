@@ -1825,6 +1825,20 @@ class $RecurringTransactionsTable extends RecurringTransactions
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('CHECK ("active" IN (0, 1))'),
       defaultValue: const Constant(true));
+  static const VerificationMeta _totalOccurrencesMeta =
+      const VerificationMeta('totalOccurrences');
+  @override
+  late final GeneratedColumn<int> totalOccurrences = GeneratedColumn<int>(
+      'total_occurrences', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _occurrencesGeneratedMeta =
+      const VerificationMeta('occurrencesGenerated');
+  @override
+  late final GeneratedColumn<int> occurrencesGenerated = GeneratedColumn<int>(
+      'occurrences_generated', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _updatedAtMeta =
       const VerificationMeta('updatedAt');
   @override
@@ -1860,6 +1874,8 @@ class $RecurringTransactionsTable extends RecurringTransactions
         dayOfMonth,
         nextOccurrence,
         active,
+        totalOccurrences,
+        occurrencesGenerated,
         updatedAt,
         isDeleted,
         syncId
@@ -1924,6 +1940,18 @@ class $RecurringTransactionsTable extends RecurringTransactions
       context.handle(_activeMeta,
           active.isAcceptableOrUnknown(data['active']!, _activeMeta));
     }
+    if (data.containsKey('total_occurrences')) {
+      context.handle(
+          _totalOccurrencesMeta,
+          totalOccurrences.isAcceptableOrUnknown(
+              data['total_occurrences']!, _totalOccurrencesMeta));
+    }
+    if (data.containsKey('occurrences_generated')) {
+      context.handle(
+          _occurrencesGeneratedMeta,
+          occurrencesGenerated.isAcceptableOrUnknown(
+              data['occurrences_generated']!, _occurrencesGeneratedMeta));
+    }
     if (data.containsKey('updated_at')) {
       context.handle(_updatedAtMeta,
           updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
@@ -1967,6 +1995,10 @@ class $RecurringTransactionsTable extends RecurringTransactions
           DriftSqlType.dateTime, data['${effectivePrefix}next_occurrence'])!,
       active: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}active'])!,
+      totalOccurrences: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}total_occurrences']),
+      occurrencesGenerated: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}occurrences_generated'])!,
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
       isDeleted: attachedDatabase.typeMapping
@@ -2001,6 +2033,15 @@ class RecurringTransaction extends DataClass
   final int? dayOfMonth;
   final DateTime nextOccurrence;
   final bool active;
+
+  /// Numero totale di occorrenze da generare, poi la ricorrenza si mette in
+  /// pausa da sola (v. RecurringDao.generateDue). Null = a tempo
+  /// indeterminato (comportamento originale, invariato).
+  final int? totalOccurrences;
+
+  /// Quante occorrenze sono già state generate finora (indipendente da
+  /// eventuali transazioni generate poi eliminate dall'utente).
+  final int occurrencesGenerated;
   final DateTime updatedAt;
   final bool isDeleted;
 
@@ -2019,6 +2060,8 @@ class RecurringTransaction extends DataClass
       this.dayOfMonth,
       required this.nextOccurrence,
       required this.active,
+      this.totalOccurrences,
+      required this.occurrencesGenerated,
       required this.updatedAt,
       required this.isDeleted,
       this.syncId});
@@ -2045,6 +2088,10 @@ class RecurringTransaction extends DataClass
     }
     map['next_occurrence'] = Variable<DateTime>(nextOccurrence);
     map['active'] = Variable<bool>(active);
+    if (!nullToAbsent || totalOccurrences != null) {
+      map['total_occurrences'] = Variable<int>(totalOccurrences);
+    }
+    map['occurrences_generated'] = Variable<int>(occurrencesGenerated);
     map['updated_at'] = Variable<DateTime>(updatedAt);
     map['is_deleted'] = Variable<bool>(isDeleted);
     if (!nullToAbsent || syncId != null) {
@@ -2069,6 +2116,10 @@ class RecurringTransaction extends DataClass
           : Value(dayOfMonth),
       nextOccurrence: Value(nextOccurrence),
       active: Value(active),
+      totalOccurrences: totalOccurrences == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totalOccurrences),
+      occurrencesGenerated: Value(occurrencesGenerated),
       updatedAt: Value(updatedAt),
       isDeleted: Value(isDeleted),
       syncId:
@@ -2092,6 +2143,9 @@ class RecurringTransaction extends DataClass
       dayOfMonth: serializer.fromJson<int?>(json['dayOfMonth']),
       nextOccurrence: serializer.fromJson<DateTime>(json['nextOccurrence']),
       active: serializer.fromJson<bool>(json['active']),
+      totalOccurrences: serializer.fromJson<int?>(json['totalOccurrences']),
+      occurrencesGenerated:
+          serializer.fromJson<int>(json['occurrencesGenerated']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
       isDeleted: serializer.fromJson<bool>(json['isDeleted']),
       syncId: serializer.fromJson<String?>(json['syncId']),
@@ -2113,6 +2167,8 @@ class RecurringTransaction extends DataClass
       'dayOfMonth': serializer.toJson<int?>(dayOfMonth),
       'nextOccurrence': serializer.toJson<DateTime>(nextOccurrence),
       'active': serializer.toJson<bool>(active),
+      'totalOccurrences': serializer.toJson<int?>(totalOccurrences),
+      'occurrencesGenerated': serializer.toJson<int>(occurrencesGenerated),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
       'isDeleted': serializer.toJson<bool>(isDeleted),
       'syncId': serializer.toJson<String?>(syncId),
@@ -2130,6 +2186,8 @@ class RecurringTransaction extends DataClass
           Value<int?> dayOfMonth = const Value.absent(),
           DateTime? nextOccurrence,
           bool? active,
+          Value<int?> totalOccurrences = const Value.absent(),
+          int? occurrencesGenerated,
           DateTime? updatedAt,
           bool? isDeleted,
           Value<String?> syncId = const Value.absent()}) =>
@@ -2145,6 +2203,10 @@ class RecurringTransaction extends DataClass
         dayOfMonth: dayOfMonth.present ? dayOfMonth.value : this.dayOfMonth,
         nextOccurrence: nextOccurrence ?? this.nextOccurrence,
         active: active ?? this.active,
+        totalOccurrences: totalOccurrences.present
+            ? totalOccurrences.value
+            : this.totalOccurrences,
+        occurrencesGenerated: occurrencesGenerated ?? this.occurrencesGenerated,
         updatedAt: updatedAt ?? this.updatedAt,
         isDeleted: isDeleted ?? this.isDeleted,
         syncId: syncId.present ? syncId.value : this.syncId,
@@ -2168,6 +2230,12 @@ class RecurringTransaction extends DataClass
           ? data.nextOccurrence.value
           : this.nextOccurrence,
       active: data.active.present ? data.active.value : this.active,
+      totalOccurrences: data.totalOccurrences.present
+          ? data.totalOccurrences.value
+          : this.totalOccurrences,
+      occurrencesGenerated: data.occurrencesGenerated.present
+          ? data.occurrencesGenerated.value
+          : this.occurrencesGenerated,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
       syncId: data.syncId.present ? data.syncId.value : this.syncId,
@@ -2187,6 +2255,8 @@ class RecurringTransaction extends DataClass
           ..write('dayOfMonth: $dayOfMonth, ')
           ..write('nextOccurrence: $nextOccurrence, ')
           ..write('active: $active, ')
+          ..write('totalOccurrences: $totalOccurrences, ')
+          ..write('occurrencesGenerated: $occurrencesGenerated, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('syncId: $syncId')
@@ -2206,6 +2276,8 @@ class RecurringTransaction extends DataClass
       dayOfMonth,
       nextOccurrence,
       active,
+      totalOccurrences,
+      occurrencesGenerated,
       updatedAt,
       isDeleted,
       syncId);
@@ -2223,6 +2295,8 @@ class RecurringTransaction extends DataClass
           other.dayOfMonth == this.dayOfMonth &&
           other.nextOccurrence == this.nextOccurrence &&
           other.active == this.active &&
+          other.totalOccurrences == this.totalOccurrences &&
+          other.occurrencesGenerated == this.occurrencesGenerated &&
           other.updatedAt == this.updatedAt &&
           other.isDeleted == this.isDeleted &&
           other.syncId == this.syncId);
@@ -2240,6 +2314,8 @@ class RecurringTransactionsCompanion
   final Value<int?> dayOfMonth;
   final Value<DateTime> nextOccurrence;
   final Value<bool> active;
+  final Value<int?> totalOccurrences;
+  final Value<int> occurrencesGenerated;
   final Value<DateTime> updatedAt;
   final Value<bool> isDeleted;
   final Value<String?> syncId;
@@ -2254,6 +2330,8 @@ class RecurringTransactionsCompanion
     this.dayOfMonth = const Value.absent(),
     this.nextOccurrence = const Value.absent(),
     this.active = const Value.absent(),
+    this.totalOccurrences = const Value.absent(),
+    this.occurrencesGenerated = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.syncId = const Value.absent(),
@@ -2269,6 +2347,8 @@ class RecurringTransactionsCompanion
     this.dayOfMonth = const Value.absent(),
     required DateTime nextOccurrence,
     this.active = const Value.absent(),
+    this.totalOccurrences = const Value.absent(),
+    this.occurrencesGenerated = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.isDeleted = const Value.absent(),
     this.syncId = const Value.absent(),
@@ -2289,6 +2369,8 @@ class RecurringTransactionsCompanion
     Expression<int>? dayOfMonth,
     Expression<DateTime>? nextOccurrence,
     Expression<bool>? active,
+    Expression<int>? totalOccurrences,
+    Expression<int>? occurrencesGenerated,
     Expression<DateTime>? updatedAt,
     Expression<bool>? isDeleted,
     Expression<String>? syncId,
@@ -2304,6 +2386,9 @@ class RecurringTransactionsCompanion
       if (dayOfMonth != null) 'day_of_month': dayOfMonth,
       if (nextOccurrence != null) 'next_occurrence': nextOccurrence,
       if (active != null) 'active': active,
+      if (totalOccurrences != null) 'total_occurrences': totalOccurrences,
+      if (occurrencesGenerated != null)
+        'occurrences_generated': occurrencesGenerated,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (isDeleted != null) 'is_deleted': isDeleted,
       if (syncId != null) 'sync_id': syncId,
@@ -2321,6 +2406,8 @@ class RecurringTransactionsCompanion
       Value<int?>? dayOfMonth,
       Value<DateTime>? nextOccurrence,
       Value<bool>? active,
+      Value<int?>? totalOccurrences,
+      Value<int>? occurrencesGenerated,
       Value<DateTime>? updatedAt,
       Value<bool>? isDeleted,
       Value<String?>? syncId}) {
@@ -2335,6 +2422,8 @@ class RecurringTransactionsCompanion
       dayOfMonth: dayOfMonth ?? this.dayOfMonth,
       nextOccurrence: nextOccurrence ?? this.nextOccurrence,
       active: active ?? this.active,
+      totalOccurrences: totalOccurrences ?? this.totalOccurrences,
+      occurrencesGenerated: occurrencesGenerated ?? this.occurrencesGenerated,
       updatedAt: updatedAt ?? this.updatedAt,
       isDeleted: isDeleted ?? this.isDeleted,
       syncId: syncId ?? this.syncId,
@@ -2377,6 +2466,12 @@ class RecurringTransactionsCompanion
     if (active.present) {
       map['active'] = Variable<bool>(active.value);
     }
+    if (totalOccurrences.present) {
+      map['total_occurrences'] = Variable<int>(totalOccurrences.value);
+    }
+    if (occurrencesGenerated.present) {
+      map['occurrences_generated'] = Variable<int>(occurrencesGenerated.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -2402,6 +2497,8 @@ class RecurringTransactionsCompanion
           ..write('dayOfMonth: $dayOfMonth, ')
           ..write('nextOccurrence: $nextOccurrence, ')
           ..write('active: $active, ')
+          ..write('totalOccurrences: $totalOccurrences, ')
+          ..write('occurrencesGenerated: $occurrencesGenerated, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('isDeleted: $isDeleted, ')
           ..write('syncId: $syncId')
@@ -6128,6 +6225,8 @@ typedef $$RecurringTransactionsTableCreateCompanionBuilder
   Value<int?> dayOfMonth,
   required DateTime nextOccurrence,
   Value<bool> active,
+  Value<int?> totalOccurrences,
+  Value<int> occurrencesGenerated,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
   Value<String?> syncId,
@@ -6144,6 +6243,8 @@ typedef $$RecurringTransactionsTableUpdateCompanionBuilder
   Value<int?> dayOfMonth,
   Value<DateTime> nextOccurrence,
   Value<bool> active,
+  Value<int?> totalOccurrences,
+  Value<int> occurrencesGenerated,
   Value<DateTime> updatedAt,
   Value<bool> isDeleted,
   Value<String?> syncId,
@@ -6237,6 +6338,14 @@ class $$RecurringTransactionsTableFilterComposer
 
   ColumnFilters<bool> get active => $composableBuilder(
       column: $table.active, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get totalOccurrences => $composableBuilder(
+      column: $table.totalOccurrences,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get occurrencesGenerated => $composableBuilder(
+      column: $table.occurrencesGenerated,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
@@ -6343,6 +6452,14 @@ class $$RecurringTransactionsTableOrderingComposer
   ColumnOrderings<bool> get active => $composableBuilder(
       column: $table.active, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get totalOccurrences => $composableBuilder(
+      column: $table.totalOccurrences,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get occurrencesGenerated => $composableBuilder(
+      column: $table.occurrencesGenerated,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 
@@ -6425,6 +6542,12 @@ class $$RecurringTransactionsTableAnnotationComposer
 
   GeneratedColumn<bool> get active =>
       $composableBuilder(column: $table.active, builder: (column) => column);
+
+  GeneratedColumn<int> get totalOccurrences => $composableBuilder(
+      column: $table.totalOccurrences, builder: (column) => column);
+
+  GeneratedColumn<int> get occurrencesGenerated => $composableBuilder(
+      column: $table.occurrencesGenerated, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -6535,6 +6658,8 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             Value<int?> dayOfMonth = const Value.absent(),
             Value<DateTime> nextOccurrence = const Value.absent(),
             Value<bool> active = const Value.absent(),
+            Value<int?> totalOccurrences = const Value.absent(),
+            Value<int> occurrencesGenerated = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
             Value<String?> syncId = const Value.absent(),
@@ -6550,6 +6675,8 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             dayOfMonth: dayOfMonth,
             nextOccurrence: nextOccurrence,
             active: active,
+            totalOccurrences: totalOccurrences,
+            occurrencesGenerated: occurrencesGenerated,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
             syncId: syncId,
@@ -6565,6 +6692,8 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             Value<int?> dayOfMonth = const Value.absent(),
             required DateTime nextOccurrence,
             Value<bool> active = const Value.absent(),
+            Value<int?> totalOccurrences = const Value.absent(),
+            Value<int> occurrencesGenerated = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<bool> isDeleted = const Value.absent(),
             Value<String?> syncId = const Value.absent(),
@@ -6580,6 +6709,8 @@ class $$RecurringTransactionsTableTableManager extends RootTableManager<
             dayOfMonth: dayOfMonth,
             nextOccurrence: nextOccurrence,
             active: active,
+            totalOccurrences: totalOccurrences,
+            occurrencesGenerated: occurrencesGenerated,
             updatedAt: updatedAt,
             isDeleted: isDeleted,
             syncId: syncId,

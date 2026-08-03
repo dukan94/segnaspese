@@ -266,7 +266,8 @@ class TursoSyncService implements SyncService {
           sync_id TEXT PRIMARY KEY, description TEXT NOT NULL, amount REAL NOT NULL,
           type INTEGER NOT NULL, category_sync_id TEXT NOT NULL, sub_category_sync_id TEXT,
           frequency INTEGER NOT NULL, day_of_month INTEGER, next_occurrence INTEGER NOT NULL,
-          active INTEGER NOT NULL, updated_at INTEGER NOT NULL, is_deleted INTEGER NOT NULL
+          active INTEGER NOT NULL, total_occurrences INTEGER, occurrences_generated INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL, is_deleted INTEGER NOT NULL
         )
       '''),
       TursoStatement('''
@@ -751,19 +752,23 @@ class TursoSyncService implements SyncService {
         '''
         INSERT INTO sync_recurring
           (sync_id, description, amount, type, category_sync_id, sub_category_sync_id, frequency,
-           day_of_month, next_occurrence, active, updated_at, is_deleted)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           day_of_month, next_occurrence, active, total_occurrences, occurrences_generated,
+           updated_at, is_deleted)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(sync_id) DO UPDATE SET
           description=excluded.description, amount=excluded.amount, type=excluded.type,
           category_sync_id=excluded.category_sync_id, sub_category_sync_id=excluded.sub_category_sync_id,
           frequency=excluded.frequency, day_of_month=excluded.day_of_month,
           next_occurrence=excluded.next_occurrence, active=excluded.active,
+          total_occurrences=excluded.total_occurrences,
+          occurrences_generated=excluded.occurrences_generated,
           updated_at=excluded.updated_at, is_deleted=excluded.is_deleted
         WHERE excluded.updated_at > sync_recurring.updated_at
         ''',
         [
           r.syncId, r.description, r.amount, r.type.index, categorySyncId, subCategorySyncId,
           r.frequency.index, r.dayOfMonth, _epoch(r.nextOccurrence), _boolToInt(r.active),
+          r.totalOccurrences, r.occurrencesGenerated,
           _epoch(r.updatedAt), _boolToInt(r.isDeleted),
         ],
       ));
@@ -781,7 +786,8 @@ class TursoSyncService implements SyncService {
     final result = await _client!.execute([
       TursoStatement(
         'SELECT sync_id, description, amount, type, category_sync_id, sub_category_sync_id, '
-        'frequency, day_of_month, next_occurrence, active, updated_at, is_deleted '
+        'frequency, day_of_month, next_occurrence, active, total_occurrences, '
+        'occurrences_generated, updated_at, is_deleted '
         'FROM sync_recurring WHERE updated_at > ?',
         [_epoch(since)],
       ),
@@ -813,6 +819,8 @@ class TursoSyncService implements SyncService {
         dayOfMonth: Value(row['day_of_month'] as int?),
         nextOccurrence: Value(_fromEpoch(row['next_occurrence'])),
         active: Value(_intToBool(row['active'])),
+        totalOccurrences: Value(row['total_occurrences'] as int?),
+        occurrencesGenerated: Value(row['occurrences_generated'] as int),
         updatedAt: Value(updatedAt),
         isDeleted: Value(_intToBool(row['is_deleted'])),
         syncId: Value(syncId),

@@ -24,6 +24,8 @@ extension RecurringDataMapper on RecurringTransaction {
       dayOfMonth: dayOfMonth,
       nextOccurrence: nextOccurrence,
       active: active,
+      totalOccurrences: totalOccurrences,
+      occurrencesGenerated: occurrencesGenerated,
     );
   }
 }
@@ -41,6 +43,8 @@ extension RecurringEntityMapper on RecurringEntity {
       dayOfMonth: Value(dayOfMonth),
       nextOccurrence: nextOccurrence,
       active: Value(active),
+      totalOccurrences: Value(totalOccurrences),
+      occurrencesGenerated: Value(occurrencesGenerated),
       updatedAt: Value(DateTime.now()),
       syncId: Value(const Uuid().v4()),
     );
@@ -60,6 +64,8 @@ extension RecurringEntityMapper on RecurringEntity {
       dayOfMonth: Value(dayOfMonth),
       nextOccurrence: Value(nextOccurrence),
       active: Value(active),
+      totalOccurrences: Value(totalOccurrences),
+      occurrencesGenerated: Value(occurrencesGenerated),
       updatedAt: Value(DateTime.now()),
     );
   }

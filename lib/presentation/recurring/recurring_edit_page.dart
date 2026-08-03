@@ -27,6 +27,7 @@ class _RecurringEditPageState extends ConsumerState<RecurringEditPage> {
   final _descriptionController = TextEditingController();
   final _amountController = TextEditingController();
   final _dayOfMonthController = TextEditingController();
+  final _totalOccurrencesController = TextEditingController();
 
   TransactionType _type = TransactionType.expense;
   SubCategorySelection? _selection;
@@ -34,6 +35,8 @@ class _RecurringEditPageState extends ConsumerState<RecurringEditPage> {
   DateTime _nextOccurrence = DateTime.now();
   bool _active = true;
   bool _saving = false;
+  int _occurrencesGenerated = 0;
+  String? _totalOccurrencesError;
 
   bool get _isEditing => widget.existing != null;
 
@@ -46,10 +49,14 @@ class _RecurringEditPageState extends ConsumerState<RecurringEditPage> {
       _frequency = e.frequency;
       _nextOccurrence = e.nextOccurrence;
       _active = e.active;
+      _occurrencesGenerated = e.occurrencesGenerated;
       _descriptionController.text = e.description;
       _amountController.text = _formatAmountForEditing(e.amount);
       if (e.dayOfMonth != null) {
         _dayOfMonthController.text = '${e.dayOfMonth}';
+      }
+      if (e.totalOccurrences != null) {
+        _totalOccurrencesController.text = '${e.totalOccurrences}';
       }
       if (e.subCategoryId != null) {
         _selection = SubCategorySelection(
@@ -65,6 +72,7 @@ class _RecurringEditPageState extends ConsumerState<RecurringEditPage> {
     _descriptionController.dispose();
     _amountController.dispose();
     _dayOfMonthController.dispose();
+    _totalOccurrencesController.dispose();
     super.dispose();
   }
 
@@ -111,7 +119,26 @@ class _RecurringEditPageState extends ConsumerState<RecurringEditPage> {
     final selection = _selection;
     if (amount == null || amount <= 0 || selection == null) return;
 
-    setState(() => _saving = true);
+    int? totalOccurrences;
+    final totalRaw = _totalOccurrencesController.text.trim();
+    if (totalRaw.isNotEmpty) {
+      final parsed = int.tryParse(totalRaw);
+      if (parsed == null || parsed < 1) {
+        setState(() => _totalOccurrencesError = 'Numero non valido');
+        return;
+      }
+      if (parsed < _occurrencesGenerated) {
+        setState(() => _totalOccurrencesError =
+            'Non può essere inferiore alle $_occurrencesGenerated già generate');
+        return;
+      }
+      totalOccurrences = parsed;
+    }
+
+    setState(() {
+      _saving = true;
+      _totalOccurrencesError = null;
+    });
 
     int? dayOfMonth;
     if (_frequency == RecurringFrequencyType.monthly) {
@@ -139,6 +166,8 @@ class _RecurringEditPageState extends ConsumerState<RecurringEditPage> {
       dayOfMonth: dayOfMonth,
       nextOccurrence: next,
       active: _active,
+      totalOccurrences: totalOccurrences,
+      occurrencesGenerated: _occurrencesGenerated,
     );
 
     try {
@@ -272,6 +301,30 @@ class _RecurringEditPageState extends ConsumerState<RecurringEditPage> {
             ),
             const SizedBox(height: 16),
           ],
+
+          // Numero di occorrenze (opzionale): vuoto = a tempo indeterminato.
+          TextField(
+            controller: _totalOccurrencesController,
+            decoration: InputDecoration(
+              labelText: 'Numero di occorrenze (opzionale)',
+              hintText: 'Vuoto = a tempo indeterminato',
+              errorText: _totalOccurrencesError,
+              helperText: _occurrencesGenerated > 0
+                  ? 'Generate finora: $_occurrencesGenerated'
+                  : null,
+            ),
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(4),
+            ],
+            onChanged: (_) {
+              if (_totalOccurrencesError != null) {
+                setState(() => _totalOccurrencesError = null);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
 
           // Prossima occorrenza
           InkWell(
