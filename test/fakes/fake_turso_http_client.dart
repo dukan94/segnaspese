@@ -13,9 +13,19 @@ class FakeTursoHttpClient extends TursoHttpClient {
   /// Tabella remota -> chiave primaria (sync_id o key) -> riga.
   final Map<String, Map<String, Map<String, Object?>>> tables = {};
 
-  /// Se impostato, ogni statement (tranne le CREATE TABLE, che devono
-  /// sempre riuscire — v. `_ensureRemoteSchema`) che menziona questa tabella
-  /// lancia un'eccezione: per testare l'isolamento degli errori tra tabelle.
+  /// Tabella remota -> insieme delle sue colonne, per simulare `CREATE TABLE
+  /// IF NOT EXISTS` (non tocca una tabella "già esistente", stesso
+  /// comportamento del vero Turso) e `PRAGMA table_info`/`ALTER TABLE ADD
+  /// COLUMN` usati da `_ensureRemoteSchema` per aggiungere colonne a una
+  /// tabella remota creata da una versione precedente dello schema. Un test
+  /// può pre-seminare qui uno schema "vecchio" (senza le colonne più recenti)
+  /// per riprodurre quel bug prima del fix.
+  final Map<String, Set<String>> tableColumns = {};
+
+  /// Se impostato, ogni statement (tranne quelli di `_ensureRemoteSchema` —
+  /// CREATE TABLE, PRAGMA, ALTER TABLE — che devono sempre riuscire) che
+  /// menziona questa tabella lancia un'eccezione: per testare l'isolamento
+  /// degli errori tra tabelle.
   String? failTableContaining;
 
   int executeCallCount = 0;
@@ -35,11 +45,31 @@ class FakeTursoHttpClient extends TursoHttpClient {
     final out = <TursoResult>[];
     for (final stmt in statements) {
       final sql = stmt.sql.trim();
-      final isCreateTable = sql.toUpperCase().startsWith('CREATE TABLE');
-      if (!isCreateTable && failTableContaining != null && sql.contains(failTableContaining!)) {
+      final upper = sql.toUpperCase();
+      final isSchemaStatement = upper.startsWith('CREATE TABLE') ||
+          upper.startsWith('PRAGMA') ||
+          upper.startsWith('ALTER TABLE');
+      if (!isSchemaStatement && failTableContaining != null && sql.contains(failTableContaining!)) {
         throw TursoApiException('Errore simulato su $failTableContaining');
       }
-      if (isCreateTable) {
+      if (upper.startsWith('CREATE TABLE')) {
+        final table = RegExp(r'CREATE TABLE IF NOT EXISTS\s+(\w+)', caseSensitive: false)
+            .firstMatch(sql)!
+            .group(1)!;
+        // putIfAbsent, non un assegnamento diretto: come il vero `IF NOT
+        // EXISTS`, non deve sovrascrivere uno schema "vecchio" già seminato
+        // da un test per simulare una tabella remota preesistente.
+        tableColumns.putIfAbsent(table, () => _parseColumnNames(sql));
+        out.add(const TursoResult([], []));
+      } else if (upper.startsWith('PRAGMA TABLE_INFO')) {
+        final table =
+            RegExp(r'PRAGMA\s+table_info\((\w+)\)', caseSensitive: false).firstMatch(sql)!.group(1)!;
+        final columns = tableColumns[table] ?? const <String>{};
+        out.add(TursoResult(['name'], [for (final c in columns) [c]]));
+      } else if (upper.startsWith('ALTER TABLE')) {
+        final m = RegExp(r'ALTER TABLE\s+(\w+)\s+ADD COLUMN\s+(\w+)', caseSensitive: false)
+            .firstMatch(sql)!;
+        tableColumns.putIfAbsent(m.group(1)!, () => {}).add(m.group(2)!);
         out.add(const TursoResult([], []));
       } else if (sql.toUpperCase().startsWith('INSERT INTO')) {
         out.add(_handleInsert(sql, stmt.args));
@@ -65,6 +95,7 @@ class FakeTursoHttpClient extends TursoHttpClient {
         .split(',')
         .map((c) => c.trim())
         .toList();
+    _checkColumnsExist(table, columns);
     final row = <String, Object?>{
       for (var i = 0; i < columns.length; i++) columns[i]: args[i],
     };
@@ -85,6 +116,7 @@ class FakeTursoHttpClient extends TursoHttpClient {
     final m = RegExp(r'SELECT\s+(.+?)\s+FROM\s+(\w+)\s+WHERE\s+updated_at\s*>\s*\?').firstMatch(sql)!;
     final columns = m.group(1)!.split(',').map((c) => c.trim()).toList();
     final table = m.group(2)!;
+    _checkColumnsExist(table, columns);
     final threshold = args[0] as int;
 
     final store = tables[table] ?? const {};
@@ -102,6 +134,7 @@ class FakeTursoHttpClient extends TursoHttpClient {
     final m = RegExp(r'SELECT\s+(.+?)\s+FROM\s+(\w+)\s+WHERE\s+sync_id\s*=\s*\?').firstMatch(sql)!;
     final columns = m.group(1)!.split(',').map((c) => c.trim()).toList();
     final table = m.group(2)!;
+    _checkColumnsExist(table, columns);
     final syncId = args[0].toString();
 
     final row = tables[table]?[syncId];
@@ -125,5 +158,36 @@ class FakeTursoHttpClient extends TursoHttpClient {
       row['updated_at'] = newUpdatedAt;
     }
     return const TursoResult([], []);
+  }
+
+  /// Riproduce l'errore reale di Turso ("no such column"/"has no column
+  /// named") quando uno statement referenzia una colonna assente dallo
+  /// schema tracciato — SOLO se lo schema di [table] è tracciato (una
+  /// tabella scritta a mano da un test via `tables[...] =` senza mai
+  /// passare da `CREATE TABLE`/`tableColumns` non viene verificata: qui non
+  /// serve simulare lo schema per quei test, solo per quelli su
+  /// `_ensureRemoteSchema`).
+  void _checkColumnsExist(String table, Iterable<String> columns) {
+    final known = tableColumns[table];
+    if (known == null) return;
+    for (final c in columns) {
+      if (!known.contains(c)) {
+        throw TursoApiException('SQLite error: table $table has no column named $c, code: SQLITE_UNKNOWN');
+      }
+    }
+  }
+
+  /// Estrae i nomi colonna dal corpo di un `CREATE TABLE (...)`: primo
+  /// token di ogni definizione separata da virgola (basta per lo scopo qui,
+  /// nessuna delle definizioni prodotte da `_ensureRemoteSchema` ha virgole
+  /// annidate in parentesi).
+  Set<String> _parseColumnNames(String createTableSql) {
+    final start = createTableSql.indexOf('(');
+    final end = createTableSql.lastIndexOf(')');
+    final body = createTableSql.substring(start + 1, end);
+    return body
+        .split(',')
+        .map((part) => part.trim().split(RegExp(r'\s+')).first)
+        .toSet();
   }
 }
