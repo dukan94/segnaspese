@@ -90,8 +90,15 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
           r.nextOccurrence.day,
         );
         var created = false;
+        var occurrencesGenerated = r.occurrencesGenerated;
 
         while (!next.isAfter(today)) {
+          // Numero di occorrenze finito già raggiunto: si ferma qui, anche
+          // se ci sarebbero altre occorrenze arretrate da recuperare.
+          if (r.totalOccurrences != null &&
+              occurrencesGenerated >= r.totalOccurrences!) {
+            break;
+          }
           await into(transactions).insert(
             TransactionsCompanion.insert(
               date: next,
@@ -110,14 +117,25 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
           );
           generated++;
           created = true;
+          occurrencesGenerated++;
           next = _advance(next, r.frequency, r.dayOfMonth);
         }
 
-        if (created) {
+        // Vero sia se il break sopra è scattato con arretrati ancora da
+        // recuperare, sia se il tetto è stato raggiunto esattamente
+        // dall'ultima occorrenza generata (nessun arretrato residuo): in
+        // entrambi i casi la ricorrenza va messa in pausa da sola, altrimenti
+        // resterebbe "attiva" per sempre senza mai più generare nulla.
+        final exhausted = r.totalOccurrences != null &&
+            occurrencesGenerated >= r.totalOccurrences!;
+
+        if (created || exhausted) {
           await (update(recurringTransactions)..where((t) => t.id.equals(r.id)))
               .write(
             RecurringTransactionsCompanion(
               nextOccurrence: Value(next),
+              occurrencesGenerated: Value(occurrencesGenerated),
+              active: exhausted ? const Value(false) : const Value.absent(),
               updatedAt: Value(DateTime.now()),
             ),
           );

@@ -100,7 +100,10 @@ class _RecurringTile extends ConsumerWidget {
     final subtitle = [
       if (categoryLabel.isNotEmpty) categoryLabel,
       frequencyLabel,
-      'prossima: ${AppFormatters.shortDate(item.nextOccurrence)}',
+      if (item.totalOccurrences != null)
+        'occorrenza ${item.occurrencesGenerated}/${item.totalOccurrences}'
+      else
+        'prossima: ${AppFormatters.shortDate(item.nextOccurrence)}',
     ].join(' · ');
 
     return FadeInItem(

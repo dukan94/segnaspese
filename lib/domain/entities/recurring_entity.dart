@@ -30,6 +30,13 @@ class RecurringEntity {
   /// Se false, la ricorrenza è in pausa: non genera nuove transazioni.
   final bool active;
 
+  /// Numero totale di occorrenze da generare, poi si mette in pausa da sola.
+  /// Null = a tempo indeterminato (comportamento originale).
+  final int? totalOccurrences;
+
+  /// Quante occorrenze sono già state generate finora.
+  final int occurrencesGenerated;
+
   const RecurringEntity({
     this.id,
     required this.description,
@@ -41,6 +48,8 @@ class RecurringEntity {
     this.dayOfMonth,
     required this.nextOccurrence,
     this.active = true,
+    this.totalOccurrences,
+    this.occurrencesGenerated = 0,
   });
 
   RecurringEntity copyWith({
@@ -54,6 +63,8 @@ class RecurringEntity {
     int? dayOfMonth,
     DateTime? nextOccurrence,
     bool? active,
+    int? totalOccurrences,
+    int? occurrencesGenerated,
   }) {
     return RecurringEntity(
       id: id ?? this.id,
@@ -66,6 +77,8 @@ class RecurringEntity {
       dayOfMonth: dayOfMonth ?? this.dayOfMonth,
       nextOccurrence: nextOccurrence ?? this.nextOccurrence,
       active: active ?? this.active,
+      totalOccurrences: totalOccurrences ?? this.totalOccurrences,
+      occurrencesGenerated: occurrencesGenerated ?? this.occurrencesGenerated,
     );
   }
 }

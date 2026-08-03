@@ -54,7 +54,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -105,6 +105,17 @@ class AppDatabase extends _$AppDatabase {
               'UPDATE settings SET updated_at = ? WHERE updated_at IS NULL',
               [DateTime.now().millisecondsSinceEpoch],
             );
+          }
+          // v7: "totalOccurrences"/"occurrencesGenerated" sulle ricorrenze,
+          // per un numero finito di ripetizioni (null = a tempo
+          // indeterminato, comportamento invariato per le ricorrenze già
+          // esistenti). Entrambe le colonne hanno un default costante
+          // (rispettivamente assente/0), quindi addColumn basta da solo.
+          if (from < 7) {
+            await m.addColumn(
+                recurringTransactions, recurringTransactions.totalOccurrences);
+            await m.addColumn(recurringTransactions,
+                recurringTransactions.occurrencesGenerated);
           }
         },
         // NOTA: l'ordine manuale (drag & drop) di categorie/sottocategorie

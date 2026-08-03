@@ -28,7 +28,7 @@ multi-dispositivo via API HTTP) · `csv`+`file_picker` (import/export) ·
 `googleapis`/`googleapis_auth` (bridge temporaneo Google Sheets, v. sotto) ·
 `flutter_secure_storage` (credenziali) · `intl`/`uuid`/`collection`.
 
-SDK Dart `>=3.4.0 <4.0.0`. Versione app `0.1.0`. Schema DB Drift: **v6**.
+SDK Dart `>=3.4.0 <4.0.0`. Versione app `0.1.0`. Schema DB Drift: **v7**.
 
 ## Architettura — Clean Architecture a 3 livelli
 
@@ -216,6 +216,41 @@ macchina. Non reintrodurre `libsql_dart`.
        senza sottocategorie non compare mai nel picker di "Nuova Operazione"
        (che sceglie solo la sottocategoria, mai la categoria da sola) —
        comportamento esistente indipendente da questa feature.
+
+## Ricorrenze — numero di occorrenze finito
+
+Oltre alle ricorrenze a tempo indeterminato (comportamento originale), da
+schema v7 `RecurringTransactions` ha due colonne opzionali:
+`totalOccurrences` (null = indeterminato, come prima) e
+`occurrencesGenerated` (contatore, parte da 0). Nel form
+(`recurring_edit_page.dart`) un campo "Numero di occorrenze (opzionale)"
+imposta `totalOccurrences`; se lasciato vuoto la ricorrenza si comporta
+come sempre.
+
+- `RecurringDao.generateDue` si ferma da sola non appena
+  `occurrencesGenerated` raggiunge `totalOccurrences` — anche se stava
+  recuperando più occorrenze arretrate insieme (app rimasta chiusa a
+  lungo): niente sforamento del tetto impostato. Al raggiungimento, imposta
+  `active = false`, riusando lo switch "Attiva/Pausa" già esistente invece
+  di un nuovo stato — se non lo facesse, la riga resterebbe "attiva" per
+  sempre pur non generando più nulla (nessun indizio in UI del perché si è
+  fermata).
+- **Validazione** (`recurring_edit_page.dart`, stesso stile del controllo
+  nomi duplicati delle categorie): abbassare il numero sotto le occorrenze
+  già generate è bloccato con errore inline sul campo, non silenzioso.
+- **Nessuna riattivazione automatica**: se alzi il tetto su una ricorrenza
+  già esaurita (messa in pausa da sola), resta in pausa finché non la
+  riattivi tu manualmente con lo switch — scelta deliberata per non far
+  cambiare stato allo switch senza un'azione diretta dell'utente.
+- Lista (`recurring_list_page.dart`): se `totalOccurrences` è impostato,
+  mostra "occorrenza N/M" al posto della sola data prossima occorrenza.
+- Sync Turso: due colonne aggiunte a `sync_recurring`
+  (`total_occurrences`, `occurrences_generated`), stesso pattern di
+  push/pull delle altre colonne (`turso_sync_service.dart`).
+- Test in `test/recurring_dao_test.dart` (gruppo "numero di occorrenze
+  finito"): comportamento indeterminato invariato senza il campo, stop
+  esatto al tetto, recupero arretrati che non sfora il tetto, ripresa dopo
+  aver alzato il tetto e riattivato a mano.
 
 ## Icona app e splash screen
 

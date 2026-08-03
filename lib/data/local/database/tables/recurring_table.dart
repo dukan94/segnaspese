@@ -27,6 +27,16 @@ class RecurringTransactions extends Table {
 
   BoolColumn get active => boolean().withDefault(const Constant(true))();
 
+  /// Numero totale di occorrenze da generare, poi la ricorrenza si mette in
+  /// pausa da sola (v. RecurringDao.generateDue). Null = a tempo
+  /// indeterminato (comportamento originale, invariato).
+  IntColumn get totalOccurrences => integer().nullable()();
+
+  /// Quante occorrenze sono già state generate finora (indipendente da
+  /// eventuali transazioni generate poi eliminate dall'utente).
+  IntColumn get occurrencesGenerated =>
+      integer().withDefault(const Constant(0))();
+
   DateTimeColumn get updatedAt =>
       dateTime().withDefault(currentDateAndTime)();
   BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();

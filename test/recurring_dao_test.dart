@@ -29,6 +29,8 @@ void main() {
     int? dayOfMonth,
     bool active = true,
     bool isDeleted = false,
+    int? totalOccurrences,
+    int occurrencesGenerated = 0,
   }) {
     return db.recurringDao.insertRecurring(
       RecurringTransactionsCompanion.insert(
@@ -41,6 +43,8 @@ void main() {
         nextOccurrence: nextOccurrence,
         active: Value(active),
         isDeleted: Value(isDeleted),
+        totalOccurrences: Value(totalOccurrences),
+        occurrencesGenerated: Value(occurrencesGenerated),
       ),
     );
   }
@@ -126,5 +130,87 @@ void main() {
     expect(generated, 0);
     final updated = await db.recurringDao.getById(id);
     expect(updated!.nextOccurrence, future);
+  });
+
+  group('numero di occorrenze finito', () {
+    test('senza totalOccurrences (null) il comportamento resta indeterminato come prima', () async {
+      final today = DateTime(2025, 6, 10);
+      final id = await insertRecurring(nextOccurrence: today);
+
+      await db.recurringDao.generateDue(today);
+
+      final updated = await db.recurringDao.getById(id);
+      expect(updated!.active, isTrue);
+      expect(updated.occurrencesGenerated, 1);
+    });
+
+    test('genera fino al numero impostato, poi si mette in pausa da sola', () async {
+      final today = DateTime(2025, 6, 10);
+      final id = await insertRecurring(nextOccurrence: today, totalOccurrences: 2);
+
+      final firstRun = await db.recurringDao.generateDue(today);
+      expect(firstRun, 1);
+      var updated = await db.recurringDao.getById(id);
+      expect(updated!.active, isTrue);
+      expect(updated.occurrencesGenerated, 1);
+
+      final secondRun = await db.recurringDao.generateDue(today.add(const Duration(days: 7)));
+      expect(secondRun, 1);
+      updated = await db.recurringDao.getById(id);
+      expect(updated!.active, isFalse, reason: 'raggiunte le 2 occorrenze impostate, deve fermarsi da sola');
+      expect(updated.occurrencesGenerated, 2);
+
+      // Un'ulteriore chiamata non deve generare altro: la ricorrenza è già
+      // in pausa (active=false), quindi non viene nemmeno selezionata.
+      final thirdRun = await db.recurringDao.generateDue(today.add(const Duration(days: 14)));
+      expect(thirdRun, 0);
+    });
+
+    test('il recupero di più occorrenze arretrate non supera il numero massimo impostato', () async {
+      final today = DateTime(2025, 6, 10);
+      // 3 periodi settimanali di ritardo: senza il tetto genererebbe 4 occorrenze.
+      final id = await insertRecurring(
+        nextOccurrence: today.subtract(const Duration(days: 21)),
+        totalOccurrences: 2,
+      );
+
+      final generated = await db.recurringDao.generateDue(today);
+
+      expect(generated, 2, reason: 'si ferma al tetto anche recuperando più arretrati insieme');
+      final updated = await db.recurringDao.getById(id);
+      expect(updated!.occurrencesGenerated, 2);
+      expect(updated.active, isFalse);
+
+      final createdTransactions = await (db.select(db.transactions)
+            ..where((t) => t.recurringId.equals(id)))
+          .get();
+      expect(createdTransactions, hasLength(2));
+    });
+
+    test('riprende da dove era rimasta se il tetto viene alzato e riattivata a mano', () async {
+      final today = DateTime(2025, 6, 10);
+      final id = await insertRecurring(
+        nextOccurrence: today,
+        totalOccurrences: 1,
+      );
+      await db.recurringDao.generateDue(today);
+      var updated = await db.recurringDao.getById(id);
+      expect(updated!.active, isFalse);
+
+      // L'utente alza il tetto e riattiva manualmente (v. RecurringEditPage).
+      // .write() invece di updateRecurring/.replace(): qui serve un update
+      // parziale, non una sostituzione completa della riga.
+      await (db.update(db.recurringTransactions)..where((r) => r.id.equals(id)))
+          .write(const RecurringTransactionsCompanion(
+        totalOccurrences: Value(3),
+        active: Value(true),
+      ));
+
+      final generated = await db.recurringDao.generateDue(today.add(const Duration(days: 7)));
+      expect(generated, 1);
+      updated = await db.recurringDao.getById(id);
+      expect(updated!.occurrencesGenerated, 2);
+      expect(updated.active, isTrue);
+    });
   });
 }

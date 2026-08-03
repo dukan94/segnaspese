@@ -30,6 +30,8 @@ desktop Windows** grazie a Flutter.
   categorie.
 - **Movimenti ricorrenti** — gestione di spese/entrate che si ripetono, con
   generazione automatica delle occorrenze dovute all'avvio dell'app.
+  Opzionalmente a numero di occorrenze finito (es. "12 rate"): raggiunto il
+  numero impostato si mette in pausa da sola.
 - **Rimborsi collegati** — un rimborso può essere agganciato alla spesa
   originale (dallo Storico o dal form di modifica).
 - **Ricerca e import/export CSV** — ricerca full-text sui movimenti,
