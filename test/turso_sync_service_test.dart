@@ -4,6 +4,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:drift/native.dart';
 import 'package:finance_app/data/local/database/app_database.dart';
 import 'package:finance_app/data/local/database/tables/categories_table.dart';
+import 'package:finance_app/data/local/database/tables/recurring_table.dart';
 import 'package:finance_app/data/services/turso_sync_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -211,6 +212,49 @@ void main() {
               'non essersi accontentata del giro già in corso');
     },
   );
+
+  group('migrazione schema remoto (colonne aggiunte dopo il primo rilascio)', () {
+    test(
+      'una colonna aggiunta dopo che la tabella remota esisteva già viene comunque aggiunta con ALTER TABLE',
+      () async {
+        // Simula un database Turso già in uso PRIMA che
+        // total_occurrences/occurrences_generated esistessero: senza il fix,
+        // CREATE TABLE IF NOT EXISTS non l'avrebbe mai aggiornato (bug
+        // reale, 3 ago 2026 — "table sync_recurring has no column named
+        // total_occurrences").
+        fakeClient.tableColumns['sync_recurring'] = {
+          'sync_id', 'description', 'amount', 'type', 'category_sync_id',
+          'sub_category_sync_id', 'frequency', 'day_of_month', 'next_occurrence',
+          'active', 'updated_at', 'is_deleted',
+        };
+
+        await db.into(db.recurringTransactions).insert(
+              RecurringTransactionsCompanion.insert(
+                description: 'Netflix',
+                amount: 12.99,
+                type: TransactionKind.expense,
+                categoryId: categoryId,
+                frequency: RecurringFrequency.monthly,
+                nextOccurrence: DateTime(2026, 8, 1),
+                totalOccurrences: const Value(6),
+                occurrencesGenerated: const Value(2),
+                syncId: const Value('recurring-1'),
+              ),
+            );
+
+        await sync.syncNow();
+
+        expect(
+          fakeClient.tableColumns['sync_recurring'],
+          containsAll(['total_occurrences', 'occurrences_generated']),
+        );
+        final remoteRow = fakeClient.tables['sync_recurring']?['recurring-1'];
+        expect(remoteRow, isNotNull);
+        expect(remoteRow!['total_occurrences'], 6);
+        expect(remoteRow['occurrences_generated'], 2);
+      },
+    );
+  });
 
   group('isTransactionDeletionConfirmedRemotely', () {
     test('true se Turso non è configurato (client iniettato ma senza credenziali reali non è il caso qui: verifichiamo il caso "mai sincronizzata")', () async {

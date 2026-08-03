@@ -285,6 +285,32 @@ class TursoSyncService implements SyncService {
         )
       '''),
     ]);
+
+    // `CREATE TABLE IF NOT EXISTS` sopra crea lo schema completo per un
+    // database remoto nuovo, ma NON aggiunge colonne a una tabella già
+    // esistente da prima di una modifica di schema locale (bug reale, 3 ago
+    // 2026: aggiunta `total_occurrences`/`occurrences_generated` a
+    // RecurringTransactions in locale, ma su un database Turso già in uso
+    // `sync_recurring` restava con lo schema vecchio — push/pull su quella
+    // tabella fallivano con "no such column"). Ogni futura colonna aggiunta
+    // a una tabella già sincronizzata da qualcuno richiede la stessa
+    // migrazione esplicita qui, non basta cambiare il testo del CREATE TABLE
+    // sopra (che tocca solo installazioni nuove).
+    await _addColumnIfMissing('sync_recurring', 'total_occurrences', 'INTEGER');
+    await _addColumnIfMissing(
+        'sync_recurring', 'occurrences_generated', 'INTEGER NOT NULL DEFAULT 0');
+  }
+
+  /// Aggiunge `column` a `table` sul database remoto se non c'è già
+  /// (`PRAGMA table_info` legge le colonne effettive prima di agire), così
+  /// resta idempotente eseguito a ogni sync come le CREATE TABLE sopra,
+  /// invece di fallire su una colonna già aggiunta in un giro precedente.
+  Future<void> _addColumnIfMissing(String table, String column, String definition) async {
+    final result = await _client!.execute([TursoStatement('PRAGMA table_info($table)')]);
+    final existingColumns =
+        result.first.asMaps().map((row) => row['name'] as String).toSet();
+    if (existingColumns.contains(column)) return;
+    await _client!.execute([TursoStatement('ALTER TABLE $table ADD COLUMN $column $definition')]);
   }
 
   // --- Helpers di conversione ---

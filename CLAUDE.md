@@ -100,6 +100,26 @@ macchina. Non reintrodurre `libsql_dart`.
 - Ogni tabella sincronizzata ha campi `updatedAt`, `isDeleted` (soft delete) e
   `syncId` (UUID stabile tra dispositivi). Le FK intere locali diventano
   colonne testuali `*_sync_id` lato remoto.
+- **Insidia**: `_ensureRemoteSchema()` (`turso_sync_service.dart`) crea le
+  tabelle remote con `CREATE TABLE IF NOT EXISTS`, che **non altera** una
+  tabella remota già esistente. Aggiungere una colonna a una tabella locale
+  già sincronizzata (bug reale, 3 ago 2026: `totalOccurrences`/
+  `occurrencesGenerated` su `RecurringTransactions` per le ricorrenze a
+  numero finito) non basta a farla arrivare sul remoto — su un database
+  Turso già in uso da prima, `sync_recurring` restava con lo schema vecchio
+  e push/pull su quella tabella fallivano con "no such column" per
+  chiunque avesse già sincronizzato almeno una volta. Fix: `_ensureRemoteSchema`
+  chiama anche `_addColumnIfMissing(tabella, colonna, definizione)` per ogni
+  colonna aggiunta dopo il primo rilascio della sync — legge `PRAGMA
+  table_info` e fa `ALTER TABLE ... ADD COLUMN` solo se manca, idempotente
+  come le `CREATE TABLE IF NOT EXISTS` sopra. **Se aggiungi una colonna a
+  una tabella che ha già un `sync_<tabella>` corrispondente, aggiorna anche
+  il testo del `CREATE TABLE` (per le installazioni nuove) E aggiungi una
+  chiamata a `_addColumnIfMissing`** (per chi ha già sincronizzato prima
+  della modifica) — l'una non sostituisce l'altra. Test di regressione in
+  `test/turso_sync_service_test.dart` (gruppo "migrazione schema remoto"),
+  che pre-semina uno schema remoto "vecchio" nel `FakeTursoHttpClient` per
+  riprodurre il bug prima del fix.
 - Conflict resolution: **last-write-wins** su `updatedAt` (nessuna protezione
   clock-skew, accettato per uso personale).
 - Ogni push/pull di tabella è isolato: un errore su una tabella non blocca le
@@ -246,7 +266,14 @@ come sempre.
   mostra "occorrenza N/M" al posto della sola data prossima occorrenza.
 - Sync Turso: due colonne aggiunte a `sync_recurring`
   (`total_occurrences`, `occurrences_generated`), stesso pattern di
-  push/pull delle altre colonne (`turso_sync_service.dart`).
+  push/pull delle altre colonne (`turso_sync_service.dart`). **Bug reale
+  scoperto da Mario appena rilasciato** (3 ago 2026): sul suo database
+  Turso già in uso, `sync_recurring` esisteva da prima e non prendeva le
+  due colonne nuove solo aggiornando il testo del `CREATE TABLE`
+  — push/pull fallivano con "no such column". V. voce dedicata in "Sync
+  (Turso) — dettaglio critico" per il fix (`_addColumnIfMissing`) e per la
+  regola generale da seguire per ogni futura colonna aggiunta a una
+  tabella già sincronizzata.
 - Test in `test/recurring_dao_test.dart` (gruppo "numero di occorrenze
   finito"): comportamento indeterminato invariato senza il campo, stop
   esatto al tetto, recupero arretrati che non sfora il tetto, ripresa dopo
