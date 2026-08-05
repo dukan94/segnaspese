@@ -64,7 +64,12 @@ jobs:
 
       - run: flutter build apk --debug
 
+      # retention-days basso: interessa solo l'ultimo APK per sideload sul
+      # telefono, nessun motivo di tenere gli artifact per i 90 giorni di
+      # default (con lo storage Actions gratuito di 0.5GB si satura in
+      # fretta, v. avviso GitHub del 5 ago 2026).
       - uses: actions/upload-artifact@v4
         with:
           name: segnaspese-debug-apk
           path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 3
