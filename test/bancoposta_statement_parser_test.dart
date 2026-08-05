@@ -46,9 +46,9 @@ void main() {
   test('riga PAGAMENTO POS → uscita, importo e descrizione corretti', () {
     final bytes = _buildWorkbook(dataRows: [
       [
-        DateCellValue(year: 2026, month: 8, day: 3),
-        DateCellValue(year: 2026, month: 8, day: 3),
-        DoubleCellValue(8.0),
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DoubleCellValue(8.0),
         null,
         TextCellValue(
             'PAGAMENTO POS SAPORI DI PUGLIA DI PO 03/08/2026 13.11 DESIO         Op.650492 carta ****3082'),
@@ -68,10 +68,10 @@ void main() {
   test('riga BONIFICO in accredito → entrata', () {
     final bytes = _buildWorkbook(dataRows: [
       [
-        DateCellValue(year: 2026, month: 8, day: 5),
-        DateCellValue(year: 2026, month: 8, day: 5),
+        const DateCellValue(year: 2026, month: 8, day: 5),
+        const DateCellValue(year: 2026, month: 8, day: 5),
         null,
-        DoubleCellValue(50.0),
+        const DoubleCellValue(50.0),
         TextCellValue('BONIFICO SEPA ISTANTANEO TRN ... DA COSTA ALFONSO PER Regalo'),
       ],
     ]);
@@ -84,8 +84,8 @@ void main() {
   test('arrotonda a 2 decimali un importo con errore di rappresentazione binaria', () {
     final bytes = _buildWorkbook(dataRows: [
       [
-        DateCellValue(year: 2026, month: 5, day: 1),
-        DateCellValue(year: 2026, month: 5, day: 1),
+        const DateCellValue(year: 2026, month: 5, day: 1),
+        const DateCellValue(year: 2026, month: 5, day: 1),
         // Stesso valore osservato nel file reale: 40.799999999999997.
         const DoubleCellValue(40.799999999999997),
         null,
@@ -99,17 +99,17 @@ void main() {
   test('si ferma alla prima riga vuota dopo i dati (niente righe fantasma)', () {
     final bytes = _buildWorkbook(dataRows: [
       [
-        DateCellValue(year: 2026, month: 8, day: 3),
-        DateCellValue(year: 2026, month: 8, day: 3),
-        DoubleCellValue(1.26),
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DoubleCellValue(1.26),
         null,
         TextCellValue('PAGAMENTO POS MD LISSONE'),
       ],
       [null, null, null, null, null],
       [
-        DateCellValue(year: 2026, month: 8, day: 4),
-        DateCellValue(year: 2026, month: 8, day: 4),
-        DoubleCellValue(2.0),
+        const DateCellValue(year: 2026, month: 8, day: 4),
+        const DateCellValue(year: 2026, month: 8, day: 4),
+        const DoubleCellValue(2.0),
         null,
         TextCellValue('Riga dopo il vuoto, non deve comparire'),
       ],
@@ -123,9 +123,9 @@ void main() {
       blankRowsBeforeHeader: 3,
       dataRows: [
         [
-          DateCellValue(year: 2026, month: 8, day: 3),
-          DateCellValue(year: 2026, month: 8, day: 3),
-          DoubleCellValue(2.9),
+          const DateCellValue(year: 2026, month: 8, day: 3),
+          const DateCellValue(year: 2026, month: 8, day: 3),
+          const DoubleCellValue(2.9),
           null,
           TextCellValue('IMPOSTA DI BOLLO'),
         ],

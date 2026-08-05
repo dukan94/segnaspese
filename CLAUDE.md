@@ -67,6 +67,15 @@ richiede di rilanciare `build_runner`, altrimenti `analyze`/`test` falliscono
 su codice generato disallineato. I file `*.g.dart` sono generati: non
 modificarli a mano.
 
+**`flutter analyze` fallisce (exit code 1) su QUALSIASI issue, anche solo
+`info`** (es. `prefer_const_constructors`), non solo su `error`/`warning` —
+la CI (`.github/workflows/ci.yml`) tratta quindi un `info` come un fallimento
+a tutti gli effetti. Bug reale (5 ago 2026): un nuovo file di test con 17
+`info` di questo tipo è stato scambiato per "innocuo" perché nell'output non
+comparivano `error`, senza controllare l'exit code — la CI è comunque
+fallita. Dopo `flutter analyze`, controllare sempre l'exit code (`echo $?`
+o equivalente), non fermarsi a leggere se compaiono `error` nell'output.
+
 ## Stream Drift che dipendono da un'altra tabella (insidia)
 
 `Stream.watch()` di Drift invalida in base alle SOLE tabelle referenziate
