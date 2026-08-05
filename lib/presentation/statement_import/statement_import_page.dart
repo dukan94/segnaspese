@@ -12,6 +12,7 @@ import '../../core/utils/formatters.dart';
 import '../../domain/entities/parsed_statement_row.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/services/bank_statement_parser.dart';
+import '../transaction/add_transaction_page.dart';
 import '../transaction/widgets/category_picker.dart';
 
 /// Import di un estratto conto bancario (Excel), un parser per banca (v.
@@ -33,12 +34,27 @@ class _ReviewRow {
     required this.row,
     required this.isPossibleDuplicate,
     this.selection,
-  }) : include = !isPossibleDuplicate;
+  })  : include = !isPossibleDuplicate,
+        date = row.date,
+        amount = row.amount,
+        type = row.type,
+        note = row.description;
 
+  /// Riga così come l'ha letta il parser — non più modificata dopo la
+  /// modifica utente: serve solo come riferimento (il badge "possibile
+  /// doppione" resta quello calcolato all'analisi del file).
   final ParsedStatementRow row;
+
   final bool isPossibleDuplicate;
   bool include;
   SubCategorySelection? selection;
+
+  // Campi modificabili dall'utente (partono dai valori letti dal file, v.
+  // "Modifica" per riga — riusa la stessa schermata di "Nuova Operazione").
+  DateTime date;
+  double amount;
+  TransactionType type;
+  String note;
 }
 
 class _StatementImportPageState extends ConsumerState<StatementImportPage> {
@@ -136,6 +152,34 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
     }
   }
 
+  /// Apre la stessa schermata di modifica di "Nuova Operazione", precompilata
+  /// coi valori correnti della riga (già editati in precedenza, se il caso).
+  /// Non scrive sul database: `onDraftSaved` riporta l'operazione compilata
+  /// indietro su questa riga, l'import vero avviene solo alla conferma finale.
+  Future<void> _editRow(_ReviewRow review) async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => AddTransactionPage(
+        draftDate: review.date,
+        draftAmount: review.amount,
+        draftType: review.type,
+        draftNote: review.note,
+        draftSelection: review.selection,
+        onDraftSaved: (entity) {
+          setState(() {
+            review.date = entity.date;
+            review.amount = entity.amount;
+            review.type = entity.type;
+            review.note = entity.note ?? '';
+            review.selection = SubCategorySelection(
+              categoryId: entity.categoryId,
+              subCategoryId: entity.subCategoryId!,
+            );
+          });
+        },
+      ),
+    ));
+  }
+
   Future<void> _confirm() async {
     final toImport =
         _rows.where((r) => r.include && r.selection != null).toList();
@@ -149,12 +193,12 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
       await repo.addAll(toImport.map((r) {
         final sel = r.selection!;
         return TransactionEntity(
-          date: r.row.date,
-          amount: r.row.amount,
-          type: r.row.type,
+          date: r.date,
+          amount: r.amount,
+          type: r.type,
           categoryId: sel.categoryId,
           subCategoryId: sel.subCategoryId,
-          note: r.row.description,
+          note: r.note.isEmpty ? null : r.note,
         );
       }).toList());
       if (!mounted) return;
@@ -218,6 +262,7 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
                       itemBuilder: (context, i) => _RowCard(
                         review: _rows[i],
                         onChanged: () => setState(() {}),
+                        onEdit: () => _editRow(_rows[i]),
                       ),
                     ),
             ),
@@ -259,16 +304,20 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
 }
 
 class _RowCard extends StatelessWidget {
-  const _RowCard({required this.review, required this.onChanged});
+  const _RowCard({
+    required this.review,
+    required this.onChanged,
+    required this.onEdit,
+  });
 
   final _ReviewRow review;
   final VoidCallback onChanged;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final row = review.row;
-    final isExpense = row.type == TransactionType.expense;
+    final isExpense = review.type == TransactionType.expense;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -291,9 +340,9 @@ class _RowCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(AppFormatters.shortDate(row.date),
+                      Text(AppFormatters.shortDate(review.date),
                           style: theme.textTheme.labelMedium),
-                      Text(row.description,
+                      Text(review.note,
                           style: theme.textTheme.bodyMedium,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis),
@@ -301,12 +350,17 @@ class _RowCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${isExpense ? '-' : '+'}${AppFormatters.currency(row.amount)}',
+                  '${isExpense ? '-' : '+'}${AppFormatters.currency(review.amount)}',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color:
                         isExpense ? theme.colorScheme.error : Colors.green.shade700,
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  tooltip: 'Modifica operazione',
+                  onPressed: onEdit,
                 ),
               ],
             ),
@@ -326,7 +380,7 @@ class _RowCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 8, left: 40),
               child: SubCategoryPicker(
-                type: row.type,
+                type: review.type,
                 selection: review.selection,
                 onChanged: (s) {
                   review.selection = s;
