@@ -36,6 +36,13 @@ desktop Windows** grazie a Flutter.
   originale (dallo Storico o dal form di modifica).
 - **Ricerca e import/export CSV** — ricerca full-text sui movimenti,
   import/export CSV round-trip (compatibile con Excel).
+- **Import estratto conto bancario** — importa i movimenti da un file Excel
+  esportato dalla banca (Impostazioni, un parser per banca, primo supporto
+  per Poste Italiane/BancoPosta). Ogni riga arriva con una categoria già
+  proposta dalle stesse regole di classificazione usate per gli scontrini
+  (modificabile), ed è segnalata se sembra un doppione di una transazione già
+  presente in locale (esclusa di default dalla selezione, ma modificabile) —
+  revisione riga per riga prima di confermare il salvataggio.
 - **Sync multi-dispositivo** — sincronizzazione offline-first tra dispositivi
   via Turso (HTTP), con alert visibile in Home se non configurata o in
   errore, oltre alla build desktop dedicata. Pensata per più dispositivi
@@ -112,7 +119,9 @@ l'hardening post-M7, sono completate. Integrazione continua attiva
 Post-M8 (non milestone, strumenti/rifiniture interne): pannello Admin
 (import CSV, bridge Google Sheets temporaneo, eliminazione definitiva/pulizia
 transazioni); icona app e splash screen Android/Windows con il logo Tally
-(carrello + "T", v. `CLAUDE.md` sezione dedicata per come rigenerarli).
+(carrello + "T", v. `CLAUDE.md` sezione dedicata per come rigenerarli); import
+estratto conto bancario (Impostazioni, primo parser BancoPosta) — a differenza
+degli strumenti Admin, questa è una feature utente vera, non un tool interno.
 
 ## Struttura del database
 

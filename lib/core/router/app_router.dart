@@ -16,6 +16,7 @@ import '../../presentation/settings/categories_manage_page.dart';
 import '../../presentation/settings/merchant_rules_page.dart';
 import '../../presentation/settings/import_page.dart';
 import '../../presentation/settings/export_page.dart';
+import '../../presentation/statement_import/statement_import_page.dart';
 import '../../presentation/settings/sync_page.dart';
 import '../../presentation/settings/theme_page.dart';
 import '../../presentation/settings/gemini_page.dart';
@@ -129,6 +130,10 @@ final appRouter = GoRouter(
         GoRoute(
           path: 'import',
           builder: (context, state) => const ImportPage(),
+        ),
+        GoRoute(
+          path: 'statement-import',
+          builder: (context, state) => const StatementImportPage(),
         ),
         GoRoute(
           path: 'export',
