@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/utils/formatters.dart';
+
 /// Andamento degli ultimi 12 mesi: uscite (linea piena) con il budget
 /// effettivo sovrapposto come linea tratteggiata. Asse X = mesi.
 class MonthlyTrendChart extends StatelessWidget {
@@ -85,6 +87,20 @@ class MonthlyTrendChart extends StatelessWidget {
                   dotData: const FlDotData(show: false),
                 ),
               ],
+              lineTouchData: LineTouchData(
+                touchTooltipData: LineTouchTooltipData(
+                  getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
+                    final label = spot.barIndex == 0 ? 'Uscite' : 'Budget';
+                    return LineTooltipItem(
+                      '$label\n${AppFormatters.currency(spot.y)}',
+                      TextStyle(
+                        color: spot.bar.color ?? Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,

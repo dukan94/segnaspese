@@ -134,12 +134,23 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
             ),
           ),
         // L'andamento è una vista annuale: ha senso solo in modalità "Anno".
+        // Segue la stessa categoria selezionata nella torta (come il
+        // dettaglio sottocategorie sotto), non il totale: quando cambi
+        // fetta selezionata cambia anche questo grafico.
         if (_month == null)
           _SectionCard(
-            title: 'Andamento 12 mesi',
+            title: selectedSlice == null
+                ? 'Andamento 12 mesi'
+                : 'Andamento 12 mesi · ${selectedSlice.name}',
             child: MonthlyTrendChart(
-              monthlyExpense: data.monthlyExpense,
-              monthlyBudget: data.monthlyBudget,
+              monthlyExpense: selectedId == null
+                  ? data.monthlyExpense
+                  : (data.monthlyExpenseByCategory[selectedId] ??
+                      List.filled(12, 0)),
+              monthlyBudget: selectedId == null
+                  ? data.monthlyBudget
+                  : (data.monthlyBudgetByCategory[selectedId] ??
+                      List.filled(12, 0)),
             ),
           ),
       ],
