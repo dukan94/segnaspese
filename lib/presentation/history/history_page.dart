@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
+import '../../data/local/database/tables/categories_table.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
 import '../shared_widgets/empty_state.dart';
@@ -38,6 +39,20 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     final txAsync = ref.watch(allTransactionsProvider);
     final categories = ref.watch(allCategoriesProvider).valueOrNull ?? const [];
     final catById = {for (final c in categories) c.id: c};
+    // Sottocategorie di entrambi i tipi, solo per il nome nella ricerca (non
+    // serve la categoria padre qui, quella è già in catById).
+    final expenseSubs = ref
+            .watch(subCategoriesForTypeProvider(TransactionKind.expense))
+            .valueOrNull ??
+        const [];
+    final incomeSubs = ref
+            .watch(subCategoriesForTypeProvider(TransactionKind.income))
+            .valueOrNull ??
+        const [];
+    final subNameById = {
+      for (final s in [...expenseSubs, ...incomeSubs])
+        s.subCategory.id: s.subCategory.name,
+    };
 
     return Scaffold(
       appBar: AppBar(title: const Text('Storico')),
@@ -48,7 +63,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Cerca per negozio, categoria, importo, data...',
+                hintText:
+                    'Cerca per negozio, categoria, sottocategoria, importo, data...',
                 prefixIcon: const Icon(Icons.search),
                 suffixIcon: _query.isEmpty
                     ? null
@@ -69,7 +85,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           Expanded(
             child: txAsync.when(
               data: (all) {
-                final filtered = _filter(all, catById);
+                final filtered = _filter(all, catById, subNameById);
                 // Lookup id → transazione, per risolvere la spesa collegata a
                 // un rimborso (refundOfId).
                 final byId = {
@@ -126,13 +142,19 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   }
 
   List<TransactionEntity> _filter(
-      List<TransactionEntity> all, Map<int, Category> catById) {
+    List<TransactionEntity> all,
+    Map<int, Category> catById,
+    Map<int, String> subNameById,
+  ) {
     if (_query.isEmpty) return all;
     return all.where((t) {
       final cat = catById[t.categoryId]?.name ?? '';
+      final subCat =
+          t.subCategoryId != null ? (subNameById[t.subCategoryId] ?? '') : '';
       final haystack = [
         t.note ?? '',
         cat,
+        subCat,
         AppFormatters.shortDate(t.date),
         t.amount.toStringAsFixed(2),
         t.amount.toStringAsFixed(2).replaceAll('.', ','),
