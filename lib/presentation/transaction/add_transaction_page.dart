@@ -20,7 +20,17 @@ import 'widgets/category_picker.dart';
 /// (Milestone M3/M6): per ora l'utente può comunque annotare il negozio nel
 /// campo Note.
 class AddTransactionPage extends ConsumerStatefulWidget {
-  const AddTransactionPage({super.key, this.existing, this.refundOf});
+  const AddTransactionPage({
+    super.key,
+    this.existing,
+    this.refundOf,
+    this.draftDate,
+    this.draftAmount,
+    this.draftType,
+    this.draftNote,
+    this.draftSelection,
+    this.onDraftSaved,
+  });
 
   /// Se valorizzata, la schermata modifica questa operazione invece di crearne
   /// una nuova.
@@ -30,6 +40,24 @@ class AddTransactionPage extends ConsumerStatefulWidget {
   /// eredita categoria, sottocategoria e data (modificabili); l'utente inserisce
   /// solo l'importo. Usato dall'azione "Rimborsa" nello Storico.
   final TransactionEntity? refundOf;
+
+  // --- Modifica "in bozza" (v. import estratto conto) ---
+  //
+  // Precompilano il form come [existing], ma senza semantica di
+  // aggiornamento DB: non c'è un id, la riga non è ancora stata salvata.
+  // Usati solo se [onDraftSaved] è valorizzato.
+  final DateTime? draftDate;
+  final double? draftAmount;
+  final TransactionType? draftType;
+  final String? draftNote;
+  final SubCategorySelection? draftSelection;
+
+  /// Se valorizzato, il pulsante Salva richiama questa callback con
+  /// l'operazione compilata invece di scrivere sul database (e salta il
+  /// controllo doppioni, già gestito a monte dalla schermata chiamante).
+  /// Usato dall'import estratto conto per modificare una riga prima di
+  /// confermare l'intero import.
+  final ValueChanged<TransactionEntity>? onDraftSaved;
 
   @override
   ConsumerState<AddTransactionPage> createState() => _AddTransactionPageState();
@@ -53,6 +81,7 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
   TransactionEntity? _linkedExpense;
 
   bool get _isEditing => widget.existing != null;
+  bool get _isDraft => widget.onDraftSaved != null;
 
   @override
   void initState() {
@@ -73,6 +102,12 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
           subCategoryId: e.subCategoryId!,
         );
       }
+    } else if (_isDraft) {
+      if (widget.draftType != null) _type = widget.draftType!;
+      if (widget.draftAmount != null) _amount = widget.draftAmount!;
+      if (widget.draftDate != null) _date = widget.draftDate!;
+      _noteController.text = widget.draftNote ?? '';
+      _selection = widget.draftSelection;
     } else if (r != null) {
       // Rimborso avviato da una spesa esistente: eredita categoria, data e
       // sottocategoria; l'importo lo inserisce l'utente.
@@ -238,9 +273,10 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
     if (!_canSave) return;
 
     // Solo per operazioni nuove: in modifica l'utente sta correggendo un
-    // movimento già esistente, e un rimborso è già esplicitamente collegato
-    // a una spesa scelta dall'utente, quindi non è un doppione.
-    if (!_isEditing && !_isRefund) {
+    // movimento già esistente, un rimborso è già esplicitamente collegato a
+    // una spesa scelta dall'utente (quindi non è un doppione), e una bozza di
+    // import ha già il suo controllo doppioni nella schermata chiamante.
+    if (!_isEditing && !_isRefund && !_isDraft) {
       final duplicate = await _findPossibleDuplicate();
       if (!mounted) return;
       if (duplicate != null) {
@@ -270,6 +306,13 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
       receiptImagePath: widget.existing?.receiptImagePath,
       recurringId: widget.existing?.recurringId,
     );
+
+    if (_isDraft) {
+      widget.onDraftSaved!(entity);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      return;
+    }
 
     try {
       if (_isEditing) {
@@ -311,8 +354,9 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title:
-            Text(_isEditing ? 'Modifica operazione' : 'Aggiungi Transazione'),
+        title: Text(_isEditing || _isDraft
+            ? 'Modifica operazione'
+            : 'Aggiungi Transazione'),
         actions: [
           IconButton(
             icon: _saving
@@ -331,7 +375,7 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
         child: Column(
           children: [
             AmountKeypad(
-              initialAmount: widget.existing?.amount,
+              initialAmount: widget.existing?.amount ?? widget.draftAmount,
               onChanged: (value) => setState(() => _amount = value),
             ),
             const SizedBox(height: 20),

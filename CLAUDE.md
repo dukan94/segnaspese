@@ -321,6 +321,22 @@ che esporta xlsx da "Lista movimenti" nell'home banking.
   revisione (`SubCategoryPicker`, lo stesso widget di "Nuova Operazione");
   una riga inclusa ma senza sottocategoria non blocca le altre, semplicemente
   non viene importata (conteggio "incluse senza categoria" mostrato a parte).
+- **Modifica riga per riga** (aggiunto lo stesso giorno, richiesto da Mario
+  dopo la prima verifica: scegliere solo la categoria non bastava, a volte
+  serve correggere data/importo/tipo/nota della riga letta dal file):
+  l'icona matita su ogni riga apre `AddTransactionPage` (la stessa schermata
+  di "Nuova Operazione"/modifica storico) in modalità "bozza" — nuovi
+  parametri `draftDate`/`draftAmount`/`draftType`/`draftNote`/
+  `draftSelection` + `onDraftSaved` sul widget esistente. A differenza della
+  modifica di una transazione già salvata (`existing`), qui `onDraftSaved`
+  intercetta il salvataggio: niente scrittura sul database, l'operazione
+  compilata torna alla riga di revisione (che aggiorna i suoi campi
+  modificabili) e l'import vero resta rimandato alla conferma finale in
+  fondo alla lista. Salta anche il controllo doppioni di
+  `AddTransactionPage` (già coperto dal badge della riga). Verificato a
+  runtime: editing di importo/tipo/data/nota/categoria di una riga BONIFICO,
+  round-trip corretto (contatori "incluse senza categoria"/"Importa N
+  operazioni" aggiornati subito dopo il salvataggio della bozza).
 - **Doppioni — tolleranza diversa dalla sync**: `domain/services/
   statement_duplicate_matcher.dart` (`StatementDuplicateMatcher`) è
   volutamente più permissivo di `transaction_duplicate_finder.dart` (quello
