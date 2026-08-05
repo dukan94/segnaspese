@@ -399,6 +399,31 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
     la stessa transazione DOPO quel punto, non c'è modo di riconoscerla come
     duplicata — irrilevante finché quel dispositivo resta non risincronizzato.
 
+## CI — build Android APK, quota storage Artifacts
+
+`.github/workflows/android-build.yml` builda un APK **debug** a ogni push su
+`main` e lo carica come artifact scaricabile (v. commento nel file per il
+perché del keystore committato). Lo storage Artifacts di GitHub Actions sul
+piano gratuito è **0.5GB totali per il repo**, condiviso con eventuali altri
+workflow — si satura in fretta se gli artifact restano con la retention di
+default (90 giorni).
+
+- **Bug reale (5 ago 2026)**: build fallita in fase `actions/upload-artifact`
+  con `Artifact storage quota has been hit`. Il job Flutter (`flutter build
+  apk --debug`) era andato a buon fine: il fallimento è solo storage, non
+  codice — non cercare la causa in un cambiamento di schema/provider/CI se
+  l'errore nei log è questo.
+- **Retention già abbassata** a `retention-days: 3` (commit `27df76e`) per
+  evitare che si riaccumuli, ma questo vale solo per gli artifact **futuri**:
+  non libera subito quelli già esistenti, e GitHub ricalcola l'uso storage
+  ogni 6-12 ore (non istantaneo dopo una cancellazione manuale). Se una run
+  fallisce con questo errore appena dopo aver cancellato gli artifact vecchi
+  a mano, non è un segno che la cancellazione non ha funzionato: va solo
+  aspettato il ricalcolo prima di rilanciare.
+- Se l'errore si ripresenta nonostante `retention-days: 3`: cancellare a
+  mano gli artifact vecchi dalla tab Actions del repo (o "Manage artifacts"
+  nella singola run), aspettare il ricalcolo, poi rilanciare.
+
 ## Stato attuale (lug 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
