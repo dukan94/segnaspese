@@ -24,7 +24,8 @@ Flutter/Dart · **Drift** (SQLite locale, codice generato) · **Riverpod**
 (state + DI) · **go_router** · **Material 3** (tema chiaro/scuro) ·
 **fl_chart** (grafici) · **Google Gemini** (lettura scontrini via cloud, key
 personale) con fallback **Google ML Kit** OCR offline · **Turso** (sync cloud
-multi-dispositivo via API HTTP) · `csv`+`file_picker` (import/export) ·
+multi-dispositivo via API HTTP) · `csv`+`excel`+`file_picker` (import/export,
+`excel` per gli estratti conto bancari in xlsx, v. sotto) ·
 `googleapis`/`googleapis_auth` (bridge temporaneo Google Sheets, v. sotto) ·
 `flutter_secure_storage` (credenziali) · `intl`/`uuid`/`collection`.
 
@@ -279,6 +280,66 @@ come sempre.
   esatto al tetto, recupero arretrati che non sfora il tetto, ripresa dopo
   aver alzato il tetto e riattivato a mano.
 
+## Import estratto conto bancario
+
+Feature utente vera (non un tool interno come l'import CSV di Admin), voce
+propria in Impostazioni (`presentation/statement_import/
+statement_import_page.dart`, route `/settings/statement-import`). Un parser
+per banca, aggiunto il 5 ago 2026 partendo da Poste Italiane (BancoPosta),
+che esporta xlsx da "Lista movimenti" nell'home banking.
+
+- **Un parser per banca**: interfaccia `domain/services/
+  bank_statement_parser.dart` (`BankStatementParser.parse(bytes) →
+  List<ParsedStatementRow>`), pura Dart, nessuna dipendenza da Drift/Flutter
+  — stesso principio di `CsvTransactionParser`. Aggiungere una nuova banca
+  significa implementare l'interfaccia e aggiungerla alla lista in
+  `core/di/statement_import_providers.dart` (`bankStatementParsersProvider`),
+  senza toccare UI/dedup/categorizzazione. Prima implementazione:
+  `bancoposta_statement_parser.dart`.
+- **Formato BancoPosta** (osservato sul file reale del 5 ago 2026): righe
+  iniziali vuote in numero variabile (spazio per il logo), poi intestazione
+  con le colonne `Data Contabile | Data Valuta | Addebiti (euro) | Accrediti
+  (euro) | Descrizione operazioni`, poi i movimenti senza un footer da
+  scartare. Il parser cerca la riga con "Data Contabile" invece di assumere
+  un numero fisso di righe vuote, e si ferma alla prima riga senza data o
+  senza addebito/accredito valorizzato (fine dati). Le date sono seriali
+  Excel con stile numerico data (`numFmtId` 14): il pacchetto `excel` le
+  decodifica già come `DateCellValue`; c'è comunque un fallback che
+  interpreta un seriale grezzo (giorni dal 30/12/1899) per file dove la
+  cella non porta uno stile data esplicito.
+- **Arrotondamento importi**: alcuni valori arrivano dal file come double con
+  errore di rappresentazione binaria (es. `40.799999999999997` invece di
+  `40.8`, osservato nel file reale) — il parser arrotonda sempre a 2
+  decimali. Lo stesso vale per il confronto doppioni sotto: mai `==` diretto
+  su double letti da Excel.
+- **Categorizzazione**: nessun motore nuovo, riuso diretto di
+  `RuleMatcherService` sulla causale/descrizione grezza (stesse regole usate
+  per gli scontrini) — funziona bene anche senza estrarre il nome
+  commerciante dal testo (es. "PAGAMENTO POS IPER MONZA...") perché il
+  matching è già una regex su tutto il testo. Righe senza match restano
+  "da assegnare": l'utente sceglie la sottocategoria riga per riga in
+  revisione (`SubCategoryPicker`, lo stesso widget di "Nuova Operazione");
+  una riga inclusa ma senza sottocategoria non blocca le altre, semplicemente
+  non viene importata (conteggio "incluse senza categoria" mostrato a parte).
+- **Doppioni — tolleranza diversa dalla sync**: `domain/services/
+  statement_duplicate_matcher.dart` (`StatementDuplicateMatcher`) è
+  volutamente più permissivo di `transaction_duplicate_finder.dart` (quello
+  usato dalla sync Turso, match esatto su tutti i campi). Qui una
+  transazione già inserita a mano ha quasi certamente nota/categoria diverse
+  da quelle dedotte dall'estratto conto: l'unico segnale affidabile è
+  **importo uguale (arrotondato al centesimo) + tipo uguale + data entro
+  ±3 giorni** (di default) dalla data contabile, che spesso non coincide col
+  giorno reale della spesa (v. `PAGAMENTO POS` nel formato BancoPosta, dove
+  la data reale è nella descrizione). Le righe segnalate sono escluse di
+  default dalla selezione ma restano modificabili, mai bloccate del tutto:
+  la decisione finale resta a chi importa.
+- **Dati reali di test**: `ListaMovimenti.xlsx` nella root del repo (export
+  vero di Mario, dati finanziari reali) è in `.gitignore` — non versionarlo
+  mai. I test (`test/bancoposta_statement_parser_test.dart`,
+  `test/statement_duplicate_matcher_test.dart`) usano fixture xlsx
+  sintetiche costruite a runtime col pacchetto `excel` stesso (dati finti
+  che ricalcano la struttura reale), mai il file vero.
+
 ## Icona app e splash screen
 
 Sorgente in `assets/icon/`: `tally_icon.png` (carrello ambra/arancio con "T",
@@ -437,20 +498,24 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
   rename utente a "Tally", **CI attiva** — `.github/workflows/ci.yml`:
   `flutter analyze` + `flutter test` su ogni push/PR con rigenerazione del
   codice — copertura test estesa al motore di sync e ai DAO con logica reale).
-- Test in `test/` (16 file): parser CSV, receipt parser, rule matcher,
+- Test in `test/` (18 file): parser CSV, receipt parser, rule matcher,
   duplicate finder, sync Turso (incluso **rientranza syncNow()** e verifica
   remota puntuale), repair sottocategorie orfane, widget animati, DAO
   ricorrenze/categorie/budget/transazioni (date-math, riordino, upsert,
   filtri ricerca, hard delete/purge, **unione categorie/sottocategorie**),
   formatter e servizio Google Sheets (header matching),
   **SafeTransactionDeletionService** (con `FakeTursoHttpClient` + test
-  double ufficiale di `FlutterSecureStorage`) + 1 smoke widget test.
+  double ufficiale di `FlutterSecureStorage`), **parser estratto conto
+  BancoPosta e duplicate matcher** (fixture xlsx sintetiche) + 1 smoke
+  widget test.
 - **Post-M8**: Admin (Impostazioni > Admin) con import CSV spostato lì,
   bridge temporaneo verso il foglio Google "Copia di Spese" e strumenti di
   eliminazione definitiva/pulizia (v. sezione dedicata sopra) — non è una
   milestone, sono strumenti interni, il bridge Sheets va rimosso a fine
   progetto. Icona app e splash screen Android/Windows finalizzati (v.
-  sezione dedicata sopra): non più il placeholder di Flutter.
+  sezione dedicata sopra): non più il placeholder di Flutter. Import
+  estratto conto bancario (v. sezione dedicata sopra), primo parser
+  BancoPosta: feature utente vera, non un tool interno.
 
 ## Convenzioni
 

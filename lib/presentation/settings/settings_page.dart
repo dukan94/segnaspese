@@ -32,6 +32,12 @@ class SettingsPage extends StatelessWidget {
             onTap: () => context.push('/settings/export'),
           ),
           ListTile(
+            leading: const Icon(Icons.account_balance_outlined),
+            title: const Text('Importa estratto conto bancario'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/statement-import'),
+          ),
+          ListTile(
             leading: const Icon(Icons.sync_outlined),
             title: const Text('Sync multi-dispositivo (Turso)'),
             trailing: const Icon(Icons.chevron_right),

@@ -49,3 +49,4 @@ app.*.map.json
 
 # Dati personali (export spese, mai da versionare)
 /spese*.csv
+/ListaMovimenti*.xlsx
