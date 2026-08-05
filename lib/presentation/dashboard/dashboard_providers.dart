@@ -47,6 +47,8 @@ class DashboardData {
     required this.subByCategory,
     required this.monthlyExpense,
     required this.monthlyBudget,
+    required this.monthlyExpenseByCategory,
+    required this.monthlyBudgetByCategory,
   });
 
   final int year;
@@ -69,6 +71,16 @@ class DashboardData {
 
   /// Budget effettivo di ciascun mese (indici 0..11).
   final List<double> monthlyBudget;
+
+  /// Come [monthlyExpense], ma per singola categoria (categoryId → 12
+  /// valori) — usato da "Andamento 12 mesi" quando l'utente ha selezionato
+  /// una fetta nella torta, stessa categoria del dettaglio sottocategorie.
+  final Map<int, List<double>> monthlyExpenseByCategory;
+
+  /// Come [monthlyBudget], ma solo il budget impostato specificamente per
+  /// quella categoria (nessun fallback al budget totale mensile: un budget
+  /// "totale" non è per definizione di una categoria).
+  final Map<int, List<double>> monthlyBudgetByCategory;
 
   double get savings => totalIncome - totalExpense;
   bool get isOverBudget => totalBudget > 0 && totalExpense > totalBudget;
@@ -96,6 +108,7 @@ final dashboardDataProvider =
     final expenseByCategory = <int, double>{};
     final expenseBySubcat = <int, double>{};
     final monthlyExpense = List<double>.filled(12, 0);
+    final monthlyExpenseByCategory = <int, List<double>>{};
 
     for (final t in txns) {
       // Escludi le straordinarie se il toggle è disattivato.
@@ -107,6 +120,8 @@ final dashboardDataProvider =
         if (inPeriod) totalIncome += t.amount;
       } else {
         monthlyExpense[t.date.month - 1] += t.netExpense;
+        (monthlyExpenseByCategory[t.categoryId] ??= List.filled(12, 0))[
+            t.date.month - 1] += t.netExpense;
         if (inPeriod) {
           totalExpense += t.netExpense;
           expenseByCategory[t.categoryId] =
@@ -122,12 +137,15 @@ final dashboardDataProvider =
     // Budget effettivo mensile.
     final totalByMonth = <int, double>{};
     final catSumByMonth = <int, double>{};
+    final monthlyBudgetByCategory = <int, List<double>>{};
     for (final b in budgetList) {
       final m = b.startDate.month;
       if (b.categoryId == null) {
         totalByMonth[m] = b.amount;
       } else {
         catSumByMonth[m] = (catSumByMonth[m] ?? 0) + b.amount;
+        (monthlyBudgetByCategory[b.categoryId!] ??= List.filled(12, 0))[
+            m - 1] += b.amount;
       }
     }
     final monthlyBudget = [
@@ -187,6 +205,8 @@ final dashboardDataProvider =
       subByCategory: subByCategory,
       monthlyExpense: monthlyExpense,
       monthlyBudget: monthlyBudget,
+      monthlyExpenseByCategory: monthlyExpenseByCategory,
+      monthlyBudgetByCategory: monthlyBudgetByCategory,
     );
   });
 });
