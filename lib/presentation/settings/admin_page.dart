@@ -8,6 +8,7 @@ import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
+import '../../data/local/database/tables/categories_table.dart';
 import '../../data/services/google_sheets_service.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
@@ -179,13 +180,17 @@ class _AdminPageState extends ConsumerState<AdminPage> {
   List<TransactionEntity> _filterForDelete(
     List<TransactionEntity> all,
     Map<int, Category> catById,
+    Map<int, String> subNameById,
   ) {
     if (_deleteQuery.isEmpty) return const [];
     return all.where((t) {
       final cat = catById[t.categoryId]?.name ?? '';
+      final subCat =
+          t.subCategoryId != null ? (subNameById[t.subCategoryId] ?? '') : '';
       final haystack = [
         t.note ?? '',
         cat,
+        subCat,
         AppFormatters.shortDate(t.date),
         t.amount.toStringAsFixed(2),
         t.amount.toStringAsFixed(2).replaceAll('.', ','),
@@ -426,7 +431,8 @@ class _AdminPageState extends ConsumerState<AdminPage> {
           TextField(
             controller: _deleteSearchController,
             decoration: InputDecoration(
-              hintText: 'Cerca per nota, categoria, importo, data...',
+              hintText:
+                  'Cerca per nota, categoria, sottocategoria, importo, data...',
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _deleteQuery.isEmpty
                   ? null
@@ -450,9 +456,22 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                 final categories =
                     ref.watch(allCategoriesProvider).valueOrNull ?? const [];
                 final catById = {for (final c in categories) c.id: c};
+                final expenseSubs = ref
+                        .watch(subCategoriesForTypeProvider(TransactionKind.expense))
+                        .valueOrNull ??
+                    const [];
+                final incomeSubs = ref
+                        .watch(subCategoriesForTypeProvider(TransactionKind.income))
+                        .valueOrNull ??
+                    const [];
+                final subNameById = {
+                  for (final s in [...expenseSubs, ...incomeSubs])
+                    s.subCategory.id: s.subCategory.name,
+                };
                 return txAsync.when(
                   data: (all) {
-                    final results = _filterForDelete(all, catById);
+                    final results =
+                        _filterForDelete(all, catById, subNameById);
                     if (results.isEmpty) {
                       return const Padding(
                         padding: EdgeInsets.only(top: 12),
