@@ -703,17 +703,30 @@ in un messaggio d'errore**
   call-site di `deleteTransactionProvider` trovato in `lib/` oltre questi
   due. `flutter analyze` + `flutter test` (120/120) invariati.
 
-**M20 — 🔧 Proposta — Verifica tag `+eol` su `sqlite3_flutter_libs`**
+**M20 — ✅ Completata — Verifica tag `+eol` su `sqlite3_flutter_libs`**
 *(emersa da audit dipendenze, 16 ago 2026)*
 - Problema: `flutter pub outdated` segnala `sqlite3_flutter_libs` 0.5.42 (in
   uso) → `0.6.0+eol` disponibile. Il significato esatto di quel tag non è
   stato verificabile senza accesso affidabile a internet durante l'audit;
   essendo il pacchetto che fornisce i binari SQLite nativi (DB locale core),
   merita un controllo prima di ignorarlo.
-- Approccio proposto: controllare changelog/issue tracker su pub.dev, capire
-  se riguarda la versione in uso o solo quella più recente, decidere se e
-  quando aggiornare (major bump — da testare con build reale Windows +
-  Android dopo l'update, non solo `flutter test`).
+- **Fatto (investigazione, nessun codice toccato)**: confermato via pub.dev
+  + changelog Drift + issue tracker che `0.6.0+eol` è deliberatamente
+  svuotato — dalla versione 3.x del pacchetto `sqlite3`, la gestione dei
+  binari nativi non richiede più `sqlite3_flutter_libs`, quella release
+  serve solo a segnalarlo. **Non è però un aggiornamento banale**: Drift
+  vincola `sqlite3` a `^2.4.6` fino alla 2.31.x compresa; il supporto a
+  `sqlite3` 3.x arriva solo da **Drift 2.32.0** ("potentially breaking
+  change" dichiarato nel changelog Drift), e questo progetto è fermo a
+  `drift`/`drift_dev` 2.28.x (2.34.x disponibile). Serve quindi prima
+  aggiornare Drift a ≥2.32, poi rimuovere/aggiornare
+  `sqlite3_flutter_libs` seguendo la guida ufficiale
+  `UPGRADING_TO_V3.md` di `sqlite3.dart` — non un'operazione isolata.
+  L'upgrade vero e proprio è spostato dentro **M24** (aggiornamento
+  dipendenze), dove va comunque fatto un pacchetto alla volta con build
+  reale: qui tocca il layer DB core, quindi va trattato come il passo più
+  delicato di quella milestone, con una build Windows reale avviata e
+  verificata dopo, non solo `flutter test`.
 
 **M21 — 🔧 Proposta — Timeout sulle chiamate Google Sheets (bridge Admin)**
 *(emersa da audit gestione errori, 16 ago 2026)*
@@ -760,12 +773,16 @@ in un messaggio d'errore**
 - Problema: `file_picker` (4 major indietro), `go_router` (3),
   `csv`/`flutter_secure_storage` (2 ciascuno) hanno accumulato breaking
   change; restare troppo indietro rende ogni futuro aggiornamento più
-  rischioso e può far perdere fix di sicurezza a monte.
+  rischioso e può far perdere fix di sicurezza a monte. Include anche
+  l'upgrade `drift`/`drift_dev` a ≥2.32 + rimozione/aggiornamento di
+  `sqlite3_flutter_libs` (v. M20): il passo più delicato, tocca il DB
+  locale core.
 - Approccio proposto: un pacchetto alla volta (non tutti insieme), changelog
   di ogni major letto prima di aggiornare, `flutter analyze` + `flutter
-  test` + build reale Windows/Android dopo ciascuno — `go_router` in
-  particolare va isolato dagli altri (usato ovunque per la navigazione,
-  superficie di rischio più ampia).
+  test` + build reale Windows/Android dopo ciascuno — `go_router` (usato
+  ovunque per la navigazione) e `drift`/`sqlite3_flutter_libs` (DB reale
+  con dati finanziari veri) vanno isolati dagli altri e verificati con una
+  build reale avviata, non solo dai test automatici.
 
 > **Nota (non una milestone)**: l'audit ha anche confermato che le build
 > Android "release" sono firmate con la stessa `debug.keystore` di CI —

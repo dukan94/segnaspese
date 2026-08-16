@@ -564,7 +564,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M19 completate** (M20-M24 proposte da un audit best-practice, in
+- **M0–M20 completate** (M21-M24 proposte da un audit best-practice, in
   attesa di sviluppo — v. `progettazione_finance_app.md` sezione 6). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -579,8 +579,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   ricorrenze a numero di occorrenze finito (M14), import estratto conto
   bancario (M15), rifiniture ricerca/dashboard/CI (M16), migrazione schema
   locale idempotente (M17), fix sicurezza API key Gemini in messaggi
-  d'errore (M18), **gestione errori su cancellazione transazione
-  Home/Storico (M19)**. **CI attiva** — `.github/workflows/ci.yml`:
+  d'errore (M18), gestione errori su cancellazione transazione
+  Home/Storico (M19), **verifica tag `+eol` `sqlite3_flutter_libs`, upgrade
+  spostato in M24 (M20)**. **CI attiva** — `.github/workflows/ci.yml`:
   `flutter analyze` + `flutter test` su ogni push/PR con rigenerazione del
   codice.
 - Test in `test/` (20 file): parser CSV, receipt parser, rule matcher,
