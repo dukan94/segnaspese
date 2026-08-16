@@ -744,7 +744,7 @@ in un messaggio d'errore**
   testo fisso, mai un'interpolazione dell'eccezione di rete originale.
   `flutter analyze` + `flutter test` (120/120) invariati.
 
-**M22 — 🔧 Proposta — Isolamento errori nella sequenza di avvio
+**M22 — ✅ Completata — Isolamento errori nella sequenza di avvio
 (main.dart)**
 *(emersa da audit gestione errori, 16 ago 2026)*
 - Problema: `runSeed`/`dedupeDefaultTaxonomy`/`repairOrphanedSubCategories`/
@@ -752,12 +752,17 @@ in un messaggio d'errore**
   try/catch individuali — un'eccezione in uno qualsiasi impedisce
   `runApp()` (stessa classe di fragilità del bug M17, qui sugli altri 3
   step, non ancora protetti).
-- Approccio da discutere (non solo tecnico, serve una decisione di
-  prodotto): cosa deve succedere se uno di questi step fallisce? Es. se il
-  seed fallisce l'app non ha nemmeno le categorie di default — "continuare
-  comunque" potrebbe non essere sempre la scelta giusta per ogni step.
-  Probabilmente serve un trattamento diverso per step (alcuni possono
-  fallire silenziosamente e loggare, altri no) invece di una regola unica.
+- **Decisione presa**: stesso trattamento per tutti e 4 gli step — sono
+  tutti opportunistici/riparativi (seed, dedupe, riparazione
+  sottocategorie, generazione ricorrenze), saltarne uno per una volta non
+  perde dati, solo rimanda la riparazione/generazione al prossimo avvio;
+  nessuno merita quindi una regola diversa dagli altri. Nuovo helper
+  `_runStartupStep(label, step)` in `main.dart` avvolge ciascuno in
+  try/catch, logga con `debugPrint` (stesso pattern di `_logSyncError`) e
+  continua comunque — `runApp()` viene sempre chiamato, qualunque step
+  fallisca. Verificato anche con build reale Windows (finestra compare
+  regolarmente dopo il fix, non solo `flutter test`). `flutter analyze` +
+  `flutter test` (120/120) invariati.
 
 **M23 — 🔧 Proposta — Copertura test per logica critica priva di test**
 *(emersa da audit copertura test, 16 ago 2026)*
