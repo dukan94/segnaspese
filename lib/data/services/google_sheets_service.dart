@@ -1,7 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:googleapis_auth/auth_io.dart' as auth;
+
+/// Nessuna chiamata di rete verso Google (autenticazione, append, get) deve
+/// poter restare bloccata a tempo indefinito — stesso principio già in uso
+/// per Turso e Gemini (bug reale, audit 16 ago 2026: "Test connessione" in
+/// Admin poteva restare bloccato senza feedback se la rete non rispondeva).
+const _networkTimeout = Duration(seconds: 30);
 
 /// Scrittura di righe sul foglio Google Sheet "Copia di Spese" (bridge
 /// temporaneo, v. CLAUDE.md sezione Admin).
@@ -57,11 +64,18 @@ class GoogleSheetsService {
 
   Future<auth.AutoRefreshingAuthClient> _client(
     String serviceAccountJson,
-  ) {
+  ) async {
     final credentials = auth.ServiceAccountCredentials.fromJson(
       jsonDecode(serviceAccountJson) as Map<String, dynamic>,
     );
-    return auth.clientViaServiceAccount(credentials, _scopes);
+    try {
+      return await auth
+          .clientViaServiceAccount(credentials, _scopes)
+          .timeout(_networkTimeout);
+    } on TimeoutException {
+      throw Exception(
+          'Google non ha risposto entro ${_networkTimeout.inSeconds}s durante l\'autenticazione.');
+    }
   }
 
   /// Aggiunge [row] in fondo al tab [sheetName]. Alza eccezione in caso di
@@ -77,13 +91,18 @@ class GoogleSheetsService {
     final client = await _client(serviceAccountJson);
     try {
       final api = sheets.SheetsApi(client);
-      await api.spreadsheets.values.append(
-        sheets.ValueRange(values: [row]),
-        spreadsheetId,
-        _quotedSheetName(sheetName),
-        valueInputOption: 'USER_ENTERED',
-        insertDataOption: 'INSERT_ROWS',
-      );
+      await api.spreadsheets.values
+          .append(
+            sheets.ValueRange(values: [row]),
+            spreadsheetId,
+            _quotedSheetName(sheetName),
+            valueInputOption: 'USER_ENTERED',
+            insertDataOption: 'INSERT_ROWS',
+          )
+          .timeout(_networkTimeout);
+    } on TimeoutException {
+      throw Exception(
+          'Google Sheets non ha risposto entro ${_networkTimeout.inSeconds}s.');
     } finally {
       client.close();
     }
@@ -103,7 +122,15 @@ class GoogleSheetsService {
     final client = await _client(serviceAccountJson);
     try {
       final api = sheets.SheetsApi(client);
-      final spreadsheet = await api.spreadsheets.get(spreadsheetId);
+      sheets.Spreadsheet spreadsheet;
+      sheets.ValueRange headerRange;
+      try {
+        spreadsheet =
+            await api.spreadsheets.get(spreadsheetId).timeout(_networkTimeout);
+      } on TimeoutException {
+        throw Exception(
+            'Google Sheets non ha risposto entro ${_networkTimeout.inSeconds}s.');
+      }
       final exists =
           spreadsheet.sheets?.any((s) => s.properties?.title == sheetName) ??
               false;
@@ -111,10 +138,17 @@ class GoogleSheetsService {
         throw Exception('Nessun tab chiamato "$sheetName" in questo foglio');
       }
 
-      final headerRange = await api.spreadsheets.values.get(
-        spreadsheetId,
-        '${_quotedSheetName(sheetName)}!1:1',
-      );
+      try {
+        headerRange = await api.spreadsheets.values
+            .get(
+              spreadsheetId,
+              '${_quotedSheetName(sheetName)}!1:1',
+            )
+            .timeout(_networkTimeout);
+      } on TimeoutException {
+        throw Exception(
+            'Google Sheets non ha risposto entro ${_networkTimeout.inSeconds}s.');
+      }
       final actualHeader = (headerRange.values?.isNotEmpty == true
               ? headerRange.values!.first
               : const [])
