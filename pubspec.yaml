@@ -18,11 +18,16 @@ dependencies:
   flutter_riverpod: ^2.5.1
 
   # Routing
-  go_router: ^14.2.0
+  go_router: ^17.5.0
 
   # Database locale
-  drift: ^2.20.0
-  sqlite3_flutter_libs: ^0.5.24
+  # sqlite3_flutter_libs rimosso (M24): svuotato ("+eol") dalla versione
+  # 0.6.0, non serve più da quando sqlite3 3.x bundla i binari nativi da
+  # solo via i build hook di Dart (v. CLAUDE.md "Migrazioni schema locale"
+  # per il dettaglio) — dichiarato qui sqlite3 come dipendenza diretta
+  # (prima solo transitiva via drift) proprio per questo.
+  drift: ^2.34.0
+  sqlite3: ^3.0.0
   path_provider: ^2.1.3
   path: ^1.9.0
 
@@ -33,7 +38,7 @@ dependencies:
   # questa macchina per compilare codice nativo a ogni build). Vedi
   # data/services/turso_http_client.dart e turso_sync_service.dart.
   http: ^1.2.0
-  flutter_secure_storage: ^9.2.2
+  flutter_secure_storage: ^11.0.0
 
   # Bridge temporaneo verso Google Sheets (Admin > foglio "Copia di Spese",
   # v. CLAUDE.md): autenticazione service account, non OAuth interattivo
@@ -52,8 +57,8 @@ dependencies:
   fl_chart: ^0.68.0
 
   # Import/Export CSV
-  csv: ^6.0.0
-  file_picker: ^8.0.0
+  csv: ^8.0.0
+  file_picker: ^12.0.0
 
   # Utility
   intl: ^0.20.2
@@ -69,14 +74,14 @@ dev_dependencies:
   # test/safe_transaction_deletion_service_test.dart): già una dipendenza
   # transitiva di flutter_secure_storage, dichiarata qui perché importata
   # direttamente nei test.
-  flutter_secure_storage_platform_interface: ^1.1.2
+  flutter_secure_storage_platform_interface: ^2.0.1
   # StreamQueue (v. test/category_dao_test.dart): ordina in modo deterministico
   # le emissioni di uno stream nei test, senza `Future.delayed` a caso.
   async: ^2.11.0
 
   # Code generation
   build_runner: ^2.4.11
-  drift_dev: ^2.20.0
+  drift_dev: ^2.34.0
 
   # Icona app (Android + Windows) e splash screen nativo Android: strumenti
   # dev-only, eseguiti a mano (`dart run flutter_launcher_icons` / `dart run

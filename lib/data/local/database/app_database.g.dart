@@ -4078,8 +4078,7 @@ final class $$CategoriesTableReferences
   static MultiTypedResultKey<$SubCategoriesTable, List<SubCategory>>
       _subCategoriesRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.subCategories,
-              aliasName: $_aliasNameGenerator(
-                  db.categories.id, db.subCategories.categoryId));
+              aliasName: 'categories__id__sub_categories__category_id');
 
   $$SubCategoriesTableProcessedTableManager get subCategoriesRefs {
     final manager = $$SubCategoriesTableTableManager($_db, $_db.subCategories)
@@ -4093,8 +4092,7 @@ final class $$CategoriesTableReferences
   static MultiTypedResultKey<$MerchantsTable, List<Merchant>>
       _merchantsRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.merchants,
-              aliasName: $_aliasNameGenerator(
-                  db.categories.id, db.merchants.defaultCategoryId));
+              aliasName: 'categories__id__merchants__default_category_id');
 
   $$MerchantsTableProcessedTableManager get merchantsRefs {
     final manager = $$MerchantsTableTableManager($_db, $_db.merchants).filter(
@@ -4108,8 +4106,7 @@ final class $$CategoriesTableReferences
   static MultiTypedResultKey<$MerchantRulesTable, List<MerchantRule>>
       _merchantRulesRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.merchantRules,
-              aliasName: $_aliasNameGenerator(
-                  db.categories.id, db.merchantRules.categoryId));
+              aliasName: 'categories__id__merchant_rules__category_id');
 
   $$MerchantRulesTableProcessedTableManager get merchantRulesRefs {
     final manager = $$MerchantRulesTableTableManager($_db, $_db.merchantRules)
@@ -4124,8 +4121,7 @@ final class $$CategoriesTableReferences
       List<RecurringTransaction>> _recurringTransactionsRefsTable(
           _$AppDatabase db) =>
       MultiTypedResultKey.fromTable(db.recurringTransactions,
-          aliasName: $_aliasNameGenerator(
-              db.categories.id, db.recurringTransactions.categoryId));
+          aliasName: 'categories__id__recurring_transactions__category_id');
 
   $$RecurringTransactionsTableProcessedTableManager
       get recurringTransactionsRefs {
@@ -4142,8 +4138,7 @@ final class $$CategoriesTableReferences
   static MultiTypedResultKey<$TransactionsTable, List<Transaction>>
       _transactionsRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.transactions,
-              aliasName: $_aliasNameGenerator(
-                  db.categories.id, db.transactions.categoryId));
+              aliasName: 'categories__id__transactions__category_id');
 
   $$TransactionsTableProcessedTableManager get transactionsRefs {
     final manager = $$TransactionsTableTableManager($_db, $_db.transactions)
@@ -4157,8 +4152,7 @@ final class $$CategoriesTableReferences
   static MultiTypedResultKey<$BudgetsTable, List<Budget>> _budgetsRefsTable(
           _$AppDatabase db) =>
       MultiTypedResultKey.fromTable(db.budgets,
-          aliasName:
-              $_aliasNameGenerator(db.categories.id, db.budgets.categoryId));
+          aliasName: 'categories__id__budgets__category_id');
 
   $$BudgetsTableProcessedTableManager get budgetsRefs {
     final manager = $$BudgetsTableTableManager($_db, $_db.budgets)
@@ -4767,8 +4761,7 @@ final class $$SubCategoriesTableReferences
       super.$_db, super.$_table, super.$_typedResult);
 
   static $CategoriesTable _categoryIdTable(_$AppDatabase db) =>
-      db.categories.createAlias(
-          $_aliasNameGenerator(db.subCategories.categoryId, db.categories.id));
+      db.categories.createAlias('sub_categories__category_id__categories__id');
 
   $$CategoriesTableProcessedTableManager get categoryId {
     final $_column = $_itemColumn<int>('category_id')!;
@@ -4782,10 +4775,9 @@ final class $$SubCategoriesTableReferences
   }
 
   static MultiTypedResultKey<$MerchantsTable, List<Merchant>>
-      _merchantsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.merchants,
-              aliasName: $_aliasNameGenerator(
-                  db.subCategories.id, db.merchants.defaultSubCategoryId));
+      _merchantsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.merchants,
+          aliasName: 'sub_categories__id__merchants__default_sub_category_id');
 
   $$MerchantsTableProcessedTableManager get merchantsRefs {
     final manager = $$MerchantsTableTableManager($_db, $_db.merchants).filter(
@@ -4799,8 +4791,7 @@ final class $$SubCategoriesTableReferences
   static MultiTypedResultKey<$MerchantRulesTable, List<MerchantRule>>
       _merchantRulesRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.merchantRules,
-              aliasName: $_aliasNameGenerator(
-                  db.subCategories.id, db.merchantRules.subCategoryId));
+              aliasName: 'sub_categories__id__merchant_rules__sub_category_id');
 
   $$MerchantRulesTableProcessedTableManager get merchantRulesRefs {
     final manager = $$MerchantRulesTableTableManager($_db, $_db.merchantRules)
@@ -4815,8 +4806,8 @@ final class $$SubCategoriesTableReferences
       List<RecurringTransaction>> _recurringTransactionsRefsTable(
           _$AppDatabase db) =>
       MultiTypedResultKey.fromTable(db.recurringTransactions,
-          aliasName: $_aliasNameGenerator(
-              db.subCategories.id, db.recurringTransactions.subCategoryId));
+          aliasName:
+              'sub_categories__id__recurring_transactions__sub_category_id');
 
   $$RecurringTransactionsTableProcessedTableManager
       get recurringTransactionsRefs {
@@ -4833,8 +4824,7 @@ final class $$SubCategoriesTableReferences
   static MultiTypedResultKey<$TransactionsTable, List<Transaction>>
       _transactionsRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.transactions,
-              aliasName: $_aliasNameGenerator(
-                  db.subCategories.id, db.transactions.subCategoryId));
+              aliasName: 'sub_categories__id__transactions__sub_category_id');
 
   $$TransactionsTableProcessedTableManager get transactionsRefs {
     final manager = $$TransactionsTableTableManager($_db, $_db.transactions)
@@ -5373,8 +5363,8 @@ final class $$MerchantsTableReferences
   $$MerchantsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $CategoriesTable _defaultCategoryIdTable(_$AppDatabase db) =>
-      db.categories.createAlias($_aliasNameGenerator(
-          db.merchants.defaultCategoryId, db.categories.id));
+      db.categories
+          .createAlias('merchants__default_category_id__categories__id');
 
   $$CategoriesTableProcessedTableManager? get defaultCategoryId {
     final $_column = $_itemColumn<int>('default_category_id');
@@ -5387,9 +5377,9 @@ final class $$MerchantsTableReferences
         manager.$state.copyWith(prefetchedData: [item]));
   }
 
-  static $SubCategoriesTable _defaultSubCategoryIdTable(_$AppDatabase db) =>
-      db.subCategories.createAlias($_aliasNameGenerator(
-          db.merchants.defaultSubCategoryId, db.subCategories.id));
+  static $SubCategoriesTable _defaultSubCategoryIdTable(_$AppDatabase db) => db
+      .subCategories
+      .createAlias('merchants__default_sub_category_id__sub_categories__id');
 
   $$SubCategoriesTableProcessedTableManager? get defaultSubCategoryId {
     final $_column = $_itemColumn<int>('default_sub_category_id');
@@ -5406,8 +5396,7 @@ final class $$MerchantsTableReferences
   static MultiTypedResultKey<$TransactionsTable, List<Transaction>>
       _transactionsRefsTable(_$AppDatabase db) =>
           MultiTypedResultKey.fromTable(db.transactions,
-              aliasName: $_aliasNameGenerator(
-                  db.merchants.id, db.transactions.merchantId));
+              aliasName: 'merchants__id__transactions__merchant_id');
 
   $$TransactionsTableProcessedTableManager get transactionsRefs {
     final manager = $$TransactionsTableTableManager($_db, $_db.transactions)
@@ -5836,8 +5825,7 @@ final class $$MerchantRulesTableReferences
       super.$_db, super.$_table, super.$_typedResult);
 
   static $CategoriesTable _categoryIdTable(_$AppDatabase db) =>
-      db.categories.createAlias(
-          $_aliasNameGenerator(db.merchantRules.categoryId, db.categories.id));
+      db.categories.createAlias('merchant_rules__category_id__categories__id');
 
   $$CategoriesTableProcessedTableManager get categoryId {
     final $_column = $_itemColumn<int>('category_id')!;
@@ -5851,8 +5839,8 @@ final class $$MerchantRulesTableReferences
   }
 
   static $SubCategoriesTable _subCategoryIdTable(_$AppDatabase db) =>
-      db.subCategories.createAlias($_aliasNameGenerator(
-          db.merchantRules.subCategoryId, db.subCategories.id));
+      db.subCategories
+          .createAlias('merchant_rules__sub_category_id__sub_categories__id');
 
   $$SubCategoriesTableProcessedTableManager? get subCategoryId {
     final $_column = $_itemColumn<int>('sub_category_id');
@@ -6255,9 +6243,8 @@ final class $$RecurringTransactionsTableReferences extends BaseReferences<
   $$RecurringTransactionsTableReferences(
       super.$_db, super.$_table, super.$_typedResult);
 
-  static $CategoriesTable _categoryIdTable(_$AppDatabase db) =>
-      db.categories.createAlias($_aliasNameGenerator(
-          db.recurringTransactions.categoryId, db.categories.id));
+  static $CategoriesTable _categoryIdTable(_$AppDatabase db) => db.categories
+      .createAlias('recurring_transactions__category_id__categories__id');
 
   $$CategoriesTableProcessedTableManager get categoryId {
     final $_column = $_itemColumn<int>('category_id')!;
@@ -6271,8 +6258,8 @@ final class $$RecurringTransactionsTableReferences extends BaseReferences<
   }
 
   static $SubCategoriesTable _subCategoryIdTable(_$AppDatabase db) =>
-      db.subCategories.createAlias($_aliasNameGenerator(
-          db.recurringTransactions.subCategoryId, db.subCategories.id));
+      db.subCategories.createAlias(
+          'recurring_transactions__sub_category_id__sub_categories__id');
 
   $$SubCategoriesTableProcessedTableManager? get subCategoryId {
     final $_column = $_itemColumn<int>('sub_category_id');
@@ -6286,10 +6273,9 @@ final class $$RecurringTransactionsTableReferences extends BaseReferences<
   }
 
   static MultiTypedResultKey<$TransactionsTable, List<Transaction>>
-      _transactionsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.transactions,
-              aliasName: $_aliasNameGenerator(
-                  db.recurringTransactions.id, db.transactions.recurringId));
+      _transactionsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+          db.transactions,
+          aliasName: 'recurring_transactions__id__transactions__recurring_id');
 
   $$TransactionsTableProcessedTableManager get transactionsRefs {
     final manager = $$TransactionsTableTableManager($_db, $_db.transactions)
@@ -6849,8 +6835,7 @@ final class $$TransactionsTableReferences
   $$TransactionsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $CategoriesTable _categoryIdTable(_$AppDatabase db) =>
-      db.categories.createAlias(
-          $_aliasNameGenerator(db.transactions.categoryId, db.categories.id));
+      db.categories.createAlias('transactions__category_id__categories__id');
 
   $$CategoriesTableProcessedTableManager get categoryId {
     final $_column = $_itemColumn<int>('category_id')!;
@@ -6864,8 +6849,8 @@ final class $$TransactionsTableReferences
   }
 
   static $SubCategoriesTable _subCategoryIdTable(_$AppDatabase db) =>
-      db.subCategories.createAlias($_aliasNameGenerator(
-          db.transactions.subCategoryId, db.subCategories.id));
+      db.subCategories
+          .createAlias('transactions__sub_category_id__sub_categories__id');
 
   $$SubCategoriesTableProcessedTableManager? get subCategoryId {
     final $_column = $_itemColumn<int>('sub_category_id');
@@ -6879,8 +6864,7 @@ final class $$TransactionsTableReferences
   }
 
   static $MerchantsTable _merchantIdTable(_$AppDatabase db) =>
-      db.merchants.createAlias(
-          $_aliasNameGenerator(db.transactions.merchantId, db.merchants.id));
+      db.merchants.createAlias('transactions__merchant_id__merchants__id');
 
   $$MerchantsTableProcessedTableManager? get merchantId {
     final $_column = $_itemColumn<int>('merchant_id');
@@ -6893,9 +6877,9 @@ final class $$TransactionsTableReferences
         manager.$state.copyWith(prefetchedData: [item]));
   }
 
-  static $RecurringTransactionsTable _recurringIdTable(_$AppDatabase db) =>
-      db.recurringTransactions.createAlias($_aliasNameGenerator(
-          db.transactions.recurringId, db.recurringTransactions.id));
+  static $RecurringTransactionsTable _recurringIdTable(_$AppDatabase db) => db
+      .recurringTransactions
+      .createAlias('transactions__recurring_id__recurring_transactions__id');
 
   $$RecurringTransactionsTableProcessedTableManager? get recurringId {
     final $_column = $_itemColumn<int>('recurring_id');
@@ -7529,8 +7513,7 @@ final class $$BudgetsTableReferences
   $$BudgetsTableReferences(super.$_db, super.$_table, super.$_typedResult);
 
   static $CategoriesTable _categoryIdTable(_$AppDatabase db) =>
-      db.categories.createAlias(
-          $_aliasNameGenerator(db.budgets.categoryId, db.categories.id));
+      db.categories.createAlias('budgets__category_id__categories__id');
 
   $$CategoriesTableProcessedTableManager? get categoryId {
     final $_column = $_itemColumn<int>('category_id');

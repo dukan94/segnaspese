@@ -55,8 +55,9 @@ class TransactionCsvExporter {
     }
 
     // Separatore ';' (default dei CSV italiani in Excel) e fine riga Windows.
-    return const ListToCsvConverter(fieldDelimiter: ';', eol: '\r\n')
-        .convert(rows);
+    // `ListToCsvConverter` rimosso in csv 8.x (M24): `Csv(...).encode(...)` è
+    // il sostituto diretto, `lineDelimiter` al posto di `eol`.
+    return Csv(fieldDelimiter: ';', lineDelimiter: '\r\n').encode(rows);
   }
 
   /// Importo in formato italiano senza simbolo né separatore delle migliaia

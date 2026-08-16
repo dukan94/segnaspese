@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -81,26 +79,22 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
     if (bank == null) return;
     setState(() => _busy = true);
     try {
-      final picked = await FilePicker.platform.pickFiles(
+      // file_picker 12.x (M24): v. commento analogo in import_page.dart.
+      final pickedFile = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
-        withData: true,
       );
-      if (picked == null) {
+      if (pickedFile == null) {
         setState(() => _busy = false);
         return;
       }
-      final bytes = picked.files.single.bytes;
-      if (bytes == null) {
-        setState(() => _busy = false);
-        return;
-      }
+      final bytes = await pickedFile.readAsBytes();
 
-      final parsedRows = bank.parse(Uint8List.fromList(bytes));
+      final parsedRows = bank.parse(bytes);
       if (parsedRows.isEmpty) {
         setState(() {
           _busy = false;
-          _fileName = picked.files.single.name;
+          _fileName = pickedFile.name;
           _rows = [];
         });
         return;
@@ -142,7 +136,7 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
 
       setState(() {
         _busy = false;
-        _fileName = picked.files.single.name;
+        _fileName = pickedFile.name;
         _rows = reviewRows;
       });
     } catch (e) {

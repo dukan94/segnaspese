@@ -804,21 +804,66 @@ in un messaggio d'errore**
     errori SQL/HTTP/rete.
   - `flutter analyze` pulito, **157/157 test** (120 + 37 nuovi).
 
-**M24 — 🔧 Proposta — Aggiornamento dipendenze con gap major ampio**
+**M24 — ✅ Completata — Aggiornamento dipendenze con gap major ampio**
 *(emersa da audit dipendenze, 16 ago 2026)*
 - Problema: `file_picker` (4 major indietro), `go_router` (3),
   `csv`/`flutter_secure_storage` (2 ciascuno) hanno accumulato breaking
   change; restare troppo indietro rende ogni futuro aggiornamento più
   rischioso e può far perdere fix di sicurezza a monte. Include anche
-  l'upgrade `drift`/`drift_dev` a ≥2.32 + rimozione/aggiornamento di
+  l'upgrade `drift`/`drift_dev` a ≥2.32 + rimozione di
   `sqlite3_flutter_libs` (v. M20): il passo più delicato, tocca il DB
   locale core.
-- Approccio proposto: un pacchetto alla volta (non tutti insieme), changelog
-  di ogni major letto prima di aggiornare, `flutter analyze` + `flutter
-  test` + build reale Windows/Android dopo ciascuno — `go_router` (usato
-  ovunque per la navigazione) e `drift`/`sqlite3_flutter_libs` (DB reale
-  con dati finanziari veri) vanno isolati dagli altri e verificati con una
-  build reale avviata, non solo dai test automatici.
+- **Fatto**, un pacchetto alla volta, changelog letto prima di ogni bump:
+  - **`csv` 6→8**: `ListToCsvConverter` rimosso, sostituito da
+    `Csv(fieldDelimiter:, lineDelimiter:).encode(...)` in
+    `transaction_export_service.dart` (unico punto d'uso nel codice). Nuovo
+    test di regressione (`transaction_export_service_test.dart`, non
+    esisteva prima): formato invariato (intestazione, separatore `;`, CRLF,
+    segno del rimborso).
+  - **`flutter_secure_storage` 9→11** (in due tappe, 9→10→11, per
+    sicurezza): nessuna firma cambiata per l'uso di questo progetto (solo
+    `read`/`write`/`delete` di base, nessuna opzione platform-specific
+    usata). Rischio investigato e scartato: il cambio di backend Windows
+    (Credential Manager → file cifrato) era già avvenuto in una versione
+    precedente non correlata (`flutter_secure_storage_windows` già a 3.1.2
+    prima di questo aggiornamento) — il salto 9→11 non attraversa quella
+    transizione.
+  - **`file_picker` 8→12** (bump forzato insieme a `flutter_secure_storage`
+    11, che richiede `win32 ^6.0.1` incompatibile con `file_picker ^8.x`):
+    `FilePicker.platform` rimosso (metodi statici diretti),
+    `pickFiles()`/`saveFile()` con tipi di ritorno cambiati
+    (`FilePickerResult?`→`List<PlatformFile>`, `String?`→`Uri?`),
+    `PlatformFile.bytes` rimosso a favore di `readAsBytes()` lazy. Migrati
+    i 3 punti d'uso (`import_page.dart`, `statement_import_page.dart` verso
+    `pickFile()` singolare invece di `pickFiles(allowMultiple: false)`
+    deprecato; `export_page.dart` verso `uri.toFilePath()`).
+  - **`go_router` 14→17**: zero modifiche di codice necessarie — nessun
+    uso di `GoRouteData` (solo `GoRoute`/`builder` semplici) né percorsi
+    con maiuscole, le due breaking change principali (case-sensitivity,
+    firma `onExit`) non toccano questo progetto.
+  - **`drift`/`drift_dev` 2.28→2.34 + rimozione `sqlite3_flutter_libs`**
+    (passo più delicato, trattato con cura extra): `sqlite3` risolto
+    automaticamente a 3.x da Drift 2.32+; `sqlite3_flutter_libs` rimosso
+    dal pubspec (svuotato/eol, v. M20), `sqlite3` dichiarato come
+    dipendenza diretta — il bundling dei binari nativi ora passa dai
+    build hook di Dart (`native_toolchain_c`, nessuna configurazione
+    manuale necessaria per l'uso senza cifratura di questo progetto).
+    Zero codice applicativo toccato (nessun uso di `open.overrideFor` o
+    import diretto di `sqlite3_flutter_libs` da rimuovere). **Verificato
+    con build Windows reale pulita** (`flutter clean` prima, per escludere
+    artefatti residui) **contro il database vero di Mario** (backup
+    preventivo `finance_app.sqlite.backup-2026-08-16-pre-drift234-sqlite3`):
+    `sqlite3.dll` ricostruito, nessun residuo del plugin rimosso,
+    `PRAGMA integrity_check` → `ok`, `user_version` → 7, tutte le tabelle
+    lette correttamente coi conteggi reali (655 transazioni, 42 categorie,
+    ecc.) tramite uno script Dart di sola lettura, poi rimosso.
+  - `flutter analyze` pulito, **159/159 test** (157 + 2 nuovi per l'export
+    CSV) dopo ogni singolo bump, non solo alla fine.
+- **Non fatto in questo giro** (gap minori, rischio/beneficio basso —
+  restano per un futuro aggiornamento di routine): `fl_chart` 0.68→1.2,
+  `google_mlkit_text_recognition`/`camera` (pre-1.0), `flutter_lints`
+  4→6. `camera` risultava peraltro una dipendenza morta (mai importata,
+  v. audit) — rimovibile a parte, non necessita di un bump.
 
 > **Nota (non una milestone)**: l'audit ha anche confermato che le build
 > Android "release" sono firmate con la stessa `debug.keystore` di CI —
@@ -867,17 +912,19 @@ sempre questi passi, in ordine:
 
 ---
 
-**Stato attuale (16 ago 2026):** tutte le milestone **M0-M23 completate**
-(M9-M23: v. sezione 6 per il dettaglio di ciascuna — Admin e manutenzione
+**Stato attuale (16 ago 2026):** tutte le milestone **M0-M24 completate**
+(M9-M24: v. sezione 6 per il dettaglio di ciascuna — Admin e manutenzione
 dati, icona/splash "Tally", robustezza doppioni transazioni, build Android
 release, blocco doppioni categoria + strumento "Unisci con...", ricorrenze a
 numero di occorrenze finito, import estratto conto bancario, rifiniture
 ricerca/dashboard/CI, migrazione schema locale idempotente, fix sicurezza
 API key Gemini, gestione errori cancellazione transazione, verifica
 `sqlite3_flutter_libs`, timeout Google Sheets, isolamento errori avvio,
-copertura test logica critica). Schema DB Drift alla **versione 7**. **CI
+copertura test logica critica, aggiornamento dipendenze). Schema DB Drift
+alla **versione 7**, ora su **`sqlite3` 3.x nativo** (M24: `sqlite3_flutter_
+libs` rimosso, v. sezione dedicata in CLAUDE.md — non reintrodurlo). **CI
 attiva** (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test`
-su ogni push e PR (con rigenerazione del codice). Test: **23 file, 157
+su ogni push e PR (con rigenerazione del codice). Test: **24 file, 159
 test** in `test/` (parser CSV, receipt parser, rule matcher, duplicate
 finder, motore di sync Turso (incluso rientranza `syncNow()`, verifica
 remota puntuale e migrazione schema remoto), repair sottocategorie orfane,
@@ -886,14 +933,14 @@ delete/purge, riemissione live del riordino, unione categorie/
 sottocategorie, numero di occorrenze finito), formatter e servizio Google
 Sheets (header matching), `SafeTransactionDeletionService`, parser estratto
 conto BancoPosta e duplicate matcher, migrazione locale idempotente (M17),
-**servizio Gemini incluso il regression test di sicurezza M18, seed
+servizio Gemini incluso il regression test di sicurezza M18, seed
 runner, dedupe tassonomia, client HTTP Turso con encoding/decoding reale
-(M23)** + 1 smoke widget test). Repository impl e usecase restano senza
-test dedicati: delega pura, nessuna logica propria. M24 (aggiornamento
-dipendenze) resta proposta, in attesa di sviluppo. Da qui in avanti, ogni
-nuova modifica non banale segue il processo descritto in fondo alla sezione
-6 (categorizza → documenta come milestone qui, in attesa di ok → sviluppa →
-propaga lo stato a README/CLAUDE.md).
+(M23), **export CSV (M24, non esisteva prima dell'upgrade di `csv`)** + 1
+smoke widget test). Repository impl e usecase restano senza test dedicati:
+delega pura, nessuna logica propria. Da qui in avanti, ogni nuova modifica
+non banale segue il processo descritto in fondo alla sezione 6 (categorizza
+→ documenta come milestone qui, in attesa di ok → sviluppa → propaga lo
+stato a README/CLAUDE.md).
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per

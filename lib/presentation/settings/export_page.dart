@@ -62,7 +62,8 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       // UTF-8 con BOM: così Excel apre il CSV con le lettere accentate corrette.
       final bytes = <int>[0xEF, 0xBB, 0xBF, ...utf8.encode(csv)];
 
-      final path = await FilePicker.platform.saveFile(
+      // file_picker 12.x (M24): saveFile() torna un Uri? (non più String?).
+      final uri = await FilePicker.saveFile(
         dialogTitle: 'Salva export operazioni $_year',
         fileName: 'operazioni_$_year.csv',
         type: FileType.custom,
@@ -71,7 +72,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       );
 
       if (!mounted) return;
-      if (path == null) {
+      if (uri == null) {
         setState(() => _busy = false); // annullato dall'utente
         return;
       }
@@ -79,7 +80,7 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       // Su desktop saveFile restituisce solo il percorso: scriviamo noi il
       // file. Su mobile il plugin lo salva già usando i bytes passati.
       if (!Platform.isAndroid && !Platform.isIOS) {
-        await File(path).writeAsBytes(bytes, flush: true);
+        await File(uri.toFilePath()).writeAsBytes(bytes, flush: true);
       }
 
       if (!mounted) return;
