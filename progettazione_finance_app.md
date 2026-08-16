@@ -1031,6 +1031,21 @@ in un messaggio d'errore**
     usato da entrambe le tile solo quando `isWideWindow(context)` — sotto
     la soglia (lista) il testo resta invariato, ha senso lì perché la riga
     è a piena larghezza.
+  - **Secondo bug reale, stesso giorno**: nome mese/categoria e importi
+    "speso/allocato" si sovrapponevano nella griglia — affiancati sulla
+    stessa riga (`Expanded(nome) + Text(importi)`), non c'è spazio per
+    entrambi in una colonna di griglia larga solo ~1/4 del contenuto,
+    a differenza della riga a piena larghezza in modalità lista dove
+    conviveva senza problemi. Stesso rischio anche per "Restano/Sforato" +
+    "Da suddividere" (affiancati con uno `Spacer`). Segnalato da Mario dopo
+    aver visto l'app reale (il mockup usava nomi/importi brevi che non
+    mostravano il problema). Fix: nuovi widget `_GridMonthHeader`/
+    `_GridRemainingStatus` (`budget_page.dart`) e `_GridHeader`
+    (`budget_month_page.dart`) — nome e importi impilati su righe separate
+    invece che affiancati, solo in modalità griglia; `mainAxisExtent`
+    delle griglie alzato da 128 a 144 per il contenuto in più.
+    Modalità lista (sotto la soglia) invariata: lì c'è spazio a sufficienza
+    per la riga singola originale.
 
 **M30 — 🔧 Proposta (da progettare) — Storico adattivo**
 - Non ancora progettata nel dettaglio. Possibile pattern master-detail

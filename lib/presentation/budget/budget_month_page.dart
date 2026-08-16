@@ -123,7 +123,7 @@ class _CategoryGrid extends StatelessWidget {
         crossAxisCount: 4,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        mainAxisExtent: 128,
+        mainAxisExtent: 144,
       ),
       itemBuilder: (context, index) => tiles[index],
     );
@@ -274,6 +274,65 @@ class _AllocationSummary extends StatelessWidget {
   }
 }
 
+/// Intestazione della tile in modalità griglia (M29, fix 16 ago 2026): nome
+/// e importi impilati su righe separate invece che affiancati — l'unica
+/// combinazione robusta a nomi categoria e importi di lunghezza qualsiasi in
+/// una colonna stretta (~1/4 della larghezza), a differenza della singola
+/// riga usata in modalità lista dove c'è molto più spazio orizzontale.
+class _GridHeader extends StatelessWidget {
+  const _GridHeader({required this.line, required this.readOnly});
+
+  final CategoryBudgetLine line;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final category = line.category;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: Color(category.color).withValues(alpha: 0.2),
+              child: Text(category.icon, style: const TextStyle(fontSize: 14)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                category.name,
+                style: theme.textTheme.titleSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (!line.hasAllocation && !readOnly) const AddIcon(),
+          ],
+        ),
+        const SizedBox(height: 3),
+        if (line.hasAllocation)
+          Text(
+            '${AppFormatters.currency(line.spent)} / ${AppFormatters.currency(line.allocation!)}',
+            style: theme.textTheme.bodySmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        else if (readOnly)
+          Text(
+            'Nessun budget',
+            style: TextStyle(
+              color: theme.colorScheme.outline,
+              fontSize: 12,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _CategoryBudgetTile extends StatelessWidget {
   const _CategoryBudgetTile({
     required this.line,
@@ -313,43 +372,47 @@ class _CategoryBudgetTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: Color(category.color).withValues(alpha: 0.2),
-                    child: Text(category.icon, style: const TextStyle(fontSize: 16)),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      category.name,
-                      style: Theme.of(context).textTheme.titleSmall,
+              if (isWideWindow(context))
+                // Griglia (M29, fix 16 ago 2026): nome e importi impilati
+                // invece che affiancati sulla stessa riga — in una colonna
+                // di griglia (~1/4 della larghezza) non c'è spazio per
+                // entrambi senza sovrapporsi, a differenza della lista a
+                // piena larghezza sotto la soglia.
+                _GridHeader(line: line, readOnly: readOnly)
+              else
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Color(category.color).withValues(alpha: 0.2),
+                      child: Text(category.icon, style: const TextStyle(fontSize: 16)),
                     ),
-                  ),
-                  if (line.hasAllocation)
-                    Text(
-                      '${AppFormatters.currency(line.spent)} / ${AppFormatters.currency(line.allocation!)}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    )
-                  else if (readOnly)
-                    // Mese passato: niente invito ad aggiungere un budget.
-                    Text('Nessun budget',
-                        style: TextStyle(color: colorScheme.outline))
-                  else if (isWideWindow(context))
-                    // Griglia (M29): stesso trattamento di _MonthTile in
-                    // budget_page.dart, v. AddIcon.
-                    const AddIcon()
-                  else
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Aggiungi', style: TextStyle(color: colorScheme.primary)),
-                        Icon(Icons.add, color: colorScheme.primary, size: 18),
-                      ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        category.name,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
                     ),
-                ],
-              ),
+                    if (line.hasAllocation)
+                      Text(
+                        '${AppFormatters.currency(line.spent)} / ${AppFormatters.currency(line.allocation!)}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      )
+                    else if (readOnly)
+                      // Mese passato: niente invito ad aggiungere un budget.
+                      Text('Nessun budget',
+                          style: TextStyle(color: colorScheme.outline))
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Aggiungi', style: TextStyle(color: colorScheme.primary)),
+                          Icon(Icons.add, color: colorScheme.primary, size: 18),
+                        ],
+                      ),
+                  ],
+                ),
               if (line.hasAllocation) ...[
                 const SizedBox(height: 8),
                 ClipRRect(
@@ -367,9 +430,13 @@ class _CategoryBudgetTile extends StatelessWidget {
                     children: [
                       Icon(Icons.warning_amber_rounded, size: 15, color: colorScheme.error),
                       const SizedBox(width: 4),
-                      Text(
-                        'Sforato di ${AppFormatters.currency(-line.remaining)}',
-                        style: TextStyle(color: colorScheme.error, fontSize: 12),
+                      Expanded(
+                        child: Text(
+                          'Sforato di ${AppFormatters.currency(-line.remaining)}',
+                          style: TextStyle(color: colorScheme.error, fontSize: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   )
@@ -377,12 +444,16 @@ class _CategoryBudgetTile extends StatelessWidget {
                   Text(
                     'Restano ${AppFormatters.currency(line.remaining)}',
                     style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
               ] else if (line.spent > 0) ...[
                 const SizedBox(height: 4),
                 Text(
                   'Speso ${AppFormatters.currency(line.spent)} (nessun budget)',
                   style: Theme.of(context).textTheme.bodySmall,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ],
