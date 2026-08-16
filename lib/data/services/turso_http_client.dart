@@ -85,24 +85,7 @@ class TursoHttpClient {
 
     final http.Response response;
     try {
-      response = await http
-          .post(
-            Uri.parse('$_baseUrl/v2/pipeline'),
-            headers: {
-              'Authorization': 'Bearer $_authToken',
-              'Content-Type': 'application/json',
-            },
-            body: body,
-          )
-          // Senza timeout, una connessione che resta aperta senza rispondere
-          // blocca syncNow() indefinitamente: dato che le chiamate
-          // concorrenti a syncNow() ora ASPETTANO quella in corso invece di
-          // ritornare subito (v. TursoSyncService.syncNow, fix del 29 lug
-          // 2026), una singola richiesta bloccata farebbe accodare
-          // indefinitamente anche ogni sync successiva (avvio, timer,
-          // lifecycle, hard delete da Admin) fino allo scadere di questo
-          // timeout.
-          .timeout(const Duration(seconds: 30));
+      response = await sendRequest(Uri.parse('$_baseUrl/v2/pipeline'), body);
     } on TimeoutException {
       throw TursoApiException('Turso non ha risposto entro 30s.');
     } catch (e) {
@@ -134,6 +117,34 @@ class TursoHttpClient {
       out.add(TursoResult(cols, rows));
     }
     return out;
+  }
+
+  /// Esegue la chiamata HTTP vera verso Turso. Isolata in un metodo proprio
+  /// (`execute` costruisce/decodifica il payload Hrana, mai la rete
+  /// direttamente) per poterla sostituire nei test con un fake — a
+  /// differenza di `FakeTursoHttpClient` (che sovrascrive `execute` per
+  /// intero, bypassando l'encoding/decoding reale), un fake che sovrascrive
+  /// solo questo metodo esercita `_encodeArg`/`_decodeCell`/la struttura
+  /// JSON reale (v. `test/turso_http_client_test.dart`).
+  ///
+  /// Senza timeout, una connessione che resta aperta senza rispondere blocca
+  /// syncNow() indefinitamente: dato che le chiamate concorrenti a syncNow()
+  /// ora ASPETTANO quella in corso invece di ritornare subito (v.
+  /// TursoSyncService.syncNow, fix del 29 lug 2026), una singola richiesta
+  /// bloccata farebbe accodare indefinitamente anche ogni sync successiva
+  /// (avvio, timer, lifecycle, hard delete da Admin) fino allo scadere di
+  /// questo timeout.
+  Future<http.Response> sendRequest(Uri uri, String body) {
+    return http
+        .post(
+          uri,
+          headers: {
+            'Authorization': 'Bearer $_authToken',
+            'Content-Type': 'application/json',
+          },
+          body: body,
+        )
+        .timeout(const Duration(seconds: 30));
   }
 
   /// Argomenti tipizzati secondo il protocollo Hrana: gli interi sono
