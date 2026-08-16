@@ -564,8 +564,8 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M22 completate** (M23-M24 proposte da un audit best-practice, in
-  attesa di sviluppo — v. `progettazione_finance_app.md` sezione 6). M0-M8:
+- **M0–M23 completate** (M24 proposta da un audit best-practice, in attesa
+  di sviluppo — v. `progettazione_finance_app.md` sezione 6). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
@@ -582,22 +582,28 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   d'errore (M18), gestione errori su cancellazione transazione
   Home/Storico (M19), verifica tag `+eol` `sqlite3_flutter_libs` (upgrade
   spostato in M24, M20), timeout su chiamate Google Sheets (M21),
-  **isolamento errori nell'avvio, `_runStartupStep` in main.dart (M22)**.
-  **CI attiva** — `.github/workflows/ci.yml`: `flutter analyze` +
-  `flutter test` su ogni push/PR con rigenerazione del codice.
-- Test in `test/` (20 file): parser CSV, receipt parser, rule matcher,
-  duplicate finder, sync Turso (incluso **rientranza syncNow()**, verifica
-  remota puntuale e migrazione schema remoto), repair sottocategorie
-  orfane, widget animati, DAO ricorrenze/categorie/budget/transazioni
-  (date-math, riordino, upsert, filtri ricerca, hard delete/purge, unione
-  categorie/sottocategorie, numero di occorrenze finito), formatter e
-  servizio Google Sheets (header matching), SafeTransactionDeletionService
-  (con `FakeTursoHttpClient` + test double ufficiale di
-  `FlutterSecureStorage`), parser estratto conto BancoPosta e duplicate
-  matcher (fixture xlsx sintetiche), **migrazione locale idempotente
-  (`app_database_migration_test.dart`, M17)** + 1 smoke widget test.
-  `gemini_vision_service.dart` (M18) resta senza test dedicato — rimandato
-  a M23, che copre proprio questo gap.
+  isolamento errori nell'avvio, `_runStartupStep` in main.dart (M22),
+  **copertura test per Gemini/seed/dedupe/client HTTP Turso (M23)**. **CI
+  attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
+  su ogni push/PR con rigenerazione del codice.
+- Test in `test/` (23 file, 157 test): parser CSV, receipt parser, rule
+  matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
+  verifica remota puntuale e migrazione schema remoto), repair
+  sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
+  transazioni (date-math, riordino, upsert, filtri ricerca, hard
+  delete/purge, unione categorie/sottocategorie, numero di occorrenze
+  finito), formatter e servizio Google Sheets (header matching),
+  SafeTransactionDeletionService (con `FakeTursoHttpClient` + test double
+  ufficiale di `FlutterSecureStorage`), parser estratto conto BancoPosta e
+  duplicate matcher (fixture xlsx sintetiche), migrazione locale
+  idempotente (`app_database_migration_test.dart`, M17), **servizio
+  Gemini incluso il regression test di sicurezza M18
+  (`gemini_vision_service_test.dart`), seed runner
+  (`seed_runner_test.dart`), dedupe tassonomia
+  (`dedupe_default_taxonomy_test.dart`), client HTTP Turso con
+  encoding/decoding reale — non solo `FakeTursoHttpClient`
+  (`turso_http_client_test.dart`) — tutti e 4 aggiunti in M23** + 1 smoke
+  widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)
 

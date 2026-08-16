@@ -42,6 +42,21 @@ un oggetto JSON (nessun testo aggiuntivo), con esattamente queste chiavi:
 Se un dato non è leggibile con certezza, usa null per quel campo invece di
 indovinare.''';
 
+  /// Esegue la chiamata HTTP vera verso Gemini. Isolata in un metodo proprio
+  /// (non inline in `analyzeReceipt`) per poterla sostituire nei test con un
+  /// fake — stesso principio già in uso per `TursoHttpClient.execute`/
+  /// `FakeTursoHttpClient` — invece di mockare `package:http` o fare
+  /// chiamate di rete vere nei test (v. `test/gemini_vision_service_test.dart`).
+  Future<http.Response> sendRequest(Uri uri, String jsonBody) {
+    return http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonBody,
+        )
+        .timeout(const Duration(seconds: 30));
+  }
+
   /// Inferenza sull'immagine [image]. [apiKey] e [model] arrivano dalle
   /// impostazioni (v. `gemini_providers.dart`). Timeout di 30s.
   Future<AiReceiptResult> analyzeReceipt(
@@ -59,28 +74,25 @@ indovinare.''';
 
     final http.Response response;
     try {
-      response = await http
-          .post(
-            uri,
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'contents': [
+      response = await sendRequest(
+        uri,
+        jsonEncode({
+          'contents': [
+            {
+              'parts': [
+                {'text': _promptTemplate},
                 {
-                  'parts': [
-                    {'text': _promptTemplate},
-                    {
-                      'inline_data': {
-                        'mime_type': 'image/jpeg',
-                        'data': base64Image,
-                      },
-                    },
-                  ],
+                  'inline_data': {
+                    'mime_type': 'image/jpeg',
+                    'data': base64Image,
+                  },
                 },
               ],
-              'generationConfig': {'response_mime_type': 'application/json'},
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
+            },
+          ],
+          'generationConfig': {'response_mime_type': 'application/json'},
+        }),
+      );
     } on TimeoutException {
       throw GeminiApiException('Gemini non ha risposto entro 30s.');
     } on SocketException {

@@ -764,7 +764,7 @@ in un messaggio d'errore**
   regolarmente dopo il fix, non solo `flutter test`). `flutter analyze` +
   `flutter test` (120/120) invariati.
 
-**M23 — 🔧 Proposta — Copertura test per logica critica priva di test**
+**M23 — ✅ Completata — Copertura test per logica critica priva di test**
 *(emersa da audit copertura test, 16 ago 2026)*
 - Problema: `gemini_vision_service.dart` (parsing/validazione output AI
   scontrini), `seed_runner.dart` (reset distruttivo condizionale),
@@ -773,10 +773,36 @@ in un messaggio d'errore**
   esercitato solo tramite `FakeTursoHttpClient` nei test di sync) non hanno
   nessun test dedicato, pur contenendo logica non banale con impatto
   diretto su dati reali.
-- Approccio proposto: un file di test per ciascuno, stesso stile già in uso
-  nel progetto (fixture sintetiche/mock di `http.Client` per Gemini, DB
-  Drift in-memory per seed/dedupe, stesso pattern di
-  `turso_sync_service_test.dart` per l'encoding Hrana).
+- **Fatto**: 4 nuovi file di test (37 test in totale), stesso principio di
+  `FakeTursoHttpClient` (test di produzione reale con solo il trasporto di
+  rete sostituito):
+  - `test/gemini_vision_service_test.dart` (13 test): estratto un metodo
+    `sendRequest` sovrascrivibile da `GeminiVisionService.analyzeReceipt`
+    (prima la chiamata `http.post` era inline), copre parsing (JSON
+    pulito, virgola decimale, fence markdown, campi vuoti), tutti gli
+    status HTTP (400/403/429/altro), candidates vuoti, JSON non valido —
+    **e il regression test per M18**: verifica che nessun messaggio
+    d'errore contenga mai la API key, nemmeno quando l'eccezione originale
+    la includerebbe (URL con la key confermato presente, messaggio
+    verificato pulito).
+  - `test/seed_runner_test.dart` (4 test): primo avvio, versione già
+    allineata (dati utente non toccati), reset pulito con versione seed
+    cambiata (transazioni/ordinamenti svuotati, tassonomia vecchia
+    rimossa), versione cambiata ma nessuna categoria presente (reset
+    saltato).
+  - `test/dedupe_default_taxonomy_test.dart` (8 test): dedupe
+    categorie/sottocategorie/regole/budget con repointing corretto,
+    categorie non-default e regole utente mai toccate, righe senza syncId
+    ignorate, nessun doppione → no-op.
+  - `test/turso_http_client_test.dart` (12 test): stesso principio di
+    `sendRequest` sovrascrivibile applicato a `TursoHttpClient.execute`
+    (diverso da `FakeTursoHttpClient`, che sovrascrive `execute` per
+    intero bypassando l'encoding/decoding reale) — copre
+    `_normalizeBaseUrl`, `_encodeArg` per ogni tipo (int/double/bool/null/
+    String), `_decodeCell` per ogni tipo (incluso un intero a 64 bit per
+    verificare che la precisione non si perda), batch multi-statement,
+    errori SQL/HTTP/rete.
+  - `flutter analyze` pulito, **157/157 test** (120 + 37 nuovi).
 
 **M24 — 🔧 Proposta — Aggiornamento dipendenze con gap major ampio**
 *(emersa da audit dipendenze, 16 ago 2026)*
@@ -841,24 +867,30 @@ sempre questi passi, in ordine:
 
 ---
 
-**Stato attuale (16 ago 2026):** tutte le milestone **M0-M17 completate**
-(M9-M17: v. sezione 6 per il dettaglio di ciascuna — Admin e manutenzione
+**Stato attuale (16 ago 2026):** tutte le milestone **M0-M23 completate**
+(M9-M23: v. sezione 6 per il dettaglio di ciascuna — Admin e manutenzione
 dati, icona/splash "Tally", robustezza doppioni transazioni, build Android
 release, blocco doppioni categoria + strumento "Unisci con...", ricorrenze a
 numero di occorrenze finito, import estratto conto bancario, rifiniture
-ricerca/dashboard/CI, migrazione schema locale idempotente). Schema DB Drift
-alla **versione 7**. **CI attiva** (`.github/workflows/ci.yml`): `flutter
-analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
-Test: **20 file** in `test/` (parser CSV, receipt parser, rule matcher,
-duplicate finder, motore di sync Turso (incluso rientranza `syncNow()`,
-verifica remota puntuale e migrazione schema remoto), repair sottocategorie
-orfane, widget animati, DAO ricorrenze/categorie/budget/transazioni (incluso
-hard delete/purge, riemissione live del riordino, unione categorie/
+ricerca/dashboard/CI, migrazione schema locale idempotente, fix sicurezza
+API key Gemini, gestione errori cancellazione transazione, verifica
+`sqlite3_flutter_libs`, timeout Google Sheets, isolamento errori avvio,
+copertura test logica critica). Schema DB Drift alla **versione 7**. **CI
+attiva** (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test`
+su ogni push e PR (con rigenerazione del codice). Test: **23 file, 157
+test** in `test/` (parser CSV, receipt parser, rule matcher, duplicate
+finder, motore di sync Turso (incluso rientranza `syncNow()`, verifica
+remota puntuale e migrazione schema remoto), repair sottocategorie orfane,
+widget animati, DAO ricorrenze/categorie/budget/transazioni (incluso hard
+delete/purge, riemissione live del riordino, unione categorie/
 sottocategorie, numero di occorrenze finito), formatter e servizio Google
 Sheets (header matching), `SafeTransactionDeletionService`, parser estratto
-conto BancoPosta e duplicate matcher, **migrazione locale idempotente
-(M17)** + 1 smoke widget test). Repository impl e usecase restano senza
-test dedicati: delega pura, nessuna logica propria. Da qui in avanti, ogni
+conto BancoPosta e duplicate matcher, migrazione locale idempotente (M17),
+**servizio Gemini incluso il regression test di sicurezza M18, seed
+runner, dedupe tassonomia, client HTTP Turso con encoding/decoding reale
+(M23)** + 1 smoke widget test). Repository impl e usecase restano senza
+test dedicati: delega pura, nessuna logica propria. M24 (aggiornamento
+dipendenze) resta proposta, in attesa di sviluppo. Da qui in avanti, ogni
 nuova modifica non banale segue il processo descritto in fondo alla sezione
 6 (categorizza → documenta come milestone qui, in attesa di ok → sviluppa →
 propaga lo stato a README/CLAUDE.md).
