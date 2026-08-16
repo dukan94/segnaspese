@@ -886,6 +886,53 @@ in un messaggio d'errore**
 > CLAUDE.md. Da rivedere solo se in futuro si distribuisce mai un APK
 > release reale, non un'azione da fare ora.
 
+**M25 — 🔧 Proposta — Rimborso con divisore (quota di una spesa condivisa)**
+*(richiesta da Mario, 16 ago 2026)*
+- Problema: da una spesa esistente, creare rapidamente un rimborso pari a
+  una frazione (1/N) dell'importo originale, con nota facoltativa (di
+  solito chi restituisce la quota, es. "Nicola"), senza passare dal form
+  completo di "Nuova Operazione" — esempio concreto: spesa da 50€, divisore
+  2 → rimborso di 25€. Nota terminologica: nell'uso comune il numero "2"
+  viene chiamato "dividendo", ma matematicamente è il **divisore** (il
+  dividendo sarebbe i 50€) — l'etichetta nel campo userà "Divisore" per
+  chiarezza.
+- Decisioni prese con Mario:
+  - Data del rimborso creato: **oggi** (non la data della spesa originale).
+  - Nota: **facoltativa** (coerente con lo stile del resto dell'app).
+  - Divisore minimo accettato: **2** (dividere per 1 sarebbe un rimborso
+    pieno, già coperto dal flusso manuale esistente — validazione inline
+    se ≤1 o non numerico).
+  - Posizione UI: **nuova icona in Storico**, accanto a "Rimborsa"
+    (`Icons.currency_exchange`) esistente — icona separata (es.
+    `Icons.call_split`), stesso filtro di visibilità (`tx.type == expense
+    && !tx.isRefund`, righe 112-113 `history_page.dart`).
+- Approccio tecnico (basato sul flusso di rimborso esistente, investigato
+  prima di questa proposta):
+  - Nuovo bottom sheet leggero (stesso stile di `linked_expense_sheet.dart`,
+    non l'intero `AddTransactionPage`): mostra la spesa originale in sola
+    lettura (importo, categoria/sottocategoria, data) per contesto, poi
+    "Divisore" (numero intero) e "Note" (facoltativa), con anteprima live
+    "Quota: X,XX €" che si aggiorna mentre si digita.
+  - Al conferma, costruisce un `TransactionEntity`: `date` = oggi, `type` =
+    `expense`, `categoryId`/`subCategoryId` ereditati dalla spesa originale
+    (non modificabili, a differenza del flusso manuale), `amount` =
+    originale/divisore arrotondato a 2 decimali (stesso pattern `_round2`
+    già usato in `bancoposta_statement_parser.dart`), `note` = quella
+    inserita (o null), `isRefund: true`, `refundOfId` = id della spesa
+    originale.
+  - Salvataggio tramite lo stesso `addTransactionProvider` già usato dal
+    form manuale — stessa pipeline (bridge Google Sheets se attivo, stesso
+    percorso di persistenza), nessuna duplicazione di logica.
+  - Calcolo/arrotondamento/validazione isolati in un piccolo usecase
+    dedicato in `domain/usecases/transaction/` (puro Dart, testabile senza
+    Flutter) — la divisione con arrotondamento è l'unica vera logica di
+    business della feature, merita un test dedicato.
+  - **Non incluso in questa prima versione** (nessuna richiesta esplicita,
+    nessun codice esistente da riusare): un tetto che impedisca di
+    rimborsare più del dovuto sommando eventuali rimborsi già collegati
+    alla stessa spesa — il flusso manuale esistente non ha questo
+    controllo, quindi non è una regressione ometterlo qui.
+
 ---
 
 ### Processo per nuove milestone (da qui in avanti)
