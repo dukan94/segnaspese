@@ -632,6 +632,21 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
   (±3 giorni, stesso importo/tipo — più permissiva della sync perché nota/
   categoria dedotte dall'estratto conto raramente combaciano con
   l'inserimento manuale).
+- **Estensione post-M15 — bug reale, segnalato da Mario (16 ago 2026)**:
+  il parser leggeva la data dalla colonna sbagliata, **Data Contabile**
+  (quando la banca registra il movimento, può slittare di giorni) invece
+  di **Data Valuta** (quando il movimento incide sul saldo, molto più
+  vicina al giorno reale della spesa) — la colonna 0 invece della colonna
+  1 dello stesso foglio. Fix in `bancoposta_statement_parser.dart`
+  (`_date(at(1))` invece di `at(0)`; la colonna 0 resta usata solo per
+  individuare la riga di intestazione). Aggiornato anche il commento in
+  `statement_duplicate_matcher.dart`, la cui tolleranza di ±3 giorni era
+  motivata proprio dallo scarto tipico della data contabile — resta comunque
+  utile come margine di sicurezza. **Bug non emerso dai test esistenti**:
+  tutte le fixture usavano la stessa data in entrambe le colonne, quindi non
+  potevano distinguere quale delle due venisse davvero letta — test
+  aggiornato con date diverse nelle due colonne apposta per impedire la
+  stessa regressione in futuro.
 
 **M16 — Rifiniture ricerca, dashboard e CI** *(5 ago 2026)* — ✅ **Completata**
 - Ricerca in Storico estesa anche alla sottocategoria.

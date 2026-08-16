@@ -380,6 +380,14 @@ che esporta xlsx da "Lista movimenti" nell'home banking.
   decodifica già come `DateCellValue`; c'è comunque un fallback che
   interpreta un seriale grezzo (giorni dal 30/12/1899) per file dove la
   cella non porta uno stile data esplicito.
+  - **Data Valuta, non Data Contabile** (bug reale, segnalato da Mario 16
+    ago 2026): la colonna 0 (Data Contabile) serve SOLO ad ancorare la
+    riga di intestazione — la data della transazione va letta dalla
+    colonna 1 (Data Valuta), molto più vicina al giorno reale della spesa.
+    Il bug era passato inosservato ai test perché tutte le fixture
+    usavano la stessa data in entrambe le colonne: se aggiungi un test
+    per questo parser, usa sempre date diverse nelle due colonne per non
+    perdere la capacità di distinguerle.
 - **Arrotondamento importi**: alcuni valori arrivano dal file come double con
   errore di rappresentazione binaria (es. `40.799999999999997` invece di
   `40.8`, osservato nel file reale) — il parser arrotonda sempre a 2
