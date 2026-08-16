@@ -208,9 +208,112 @@ class _MonthGrid extends StatelessWidget {
         crossAxisCount: 4,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        mainAxisExtent: 128,
+        mainAxisExtent: 144,
       ),
       itemBuilder: (context, index) => tiles[index],
+    );
+  }
+}
+
+/// Intestazione della tile in modalità griglia (M29, fix 16 ago 2026): nome
+/// mese e importi impilati su righe separate invece che affiancati — stesso
+/// principio di `_GridHeader` in `budget_month_page.dart`.
+class _GridMonthHeader extends StatelessWidget {
+  const _GridMonthHeader({required this.overview, required this.isPast});
+
+  final MonthBudgetOverview overview;
+  final bool isPast;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final monthLabel = AppFormatters.monthName(overview.year, overview.month);
+    final capitalized = monthLabel[0].toUpperCase() + monthLabel.substring(1);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                capitalized,
+                style: theme.textTheme.titleSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (!overview.hasTotal && !isPast) const AddIcon(),
+          ],
+        ),
+        const SizedBox(height: 3),
+        if (overview.hasTotal)
+          Text(
+            '${AppFormatters.currency(overview.spent)} / ${AppFormatters.currency(overview.total!)}',
+            style: theme.textTheme.bodySmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          )
+        else if (isPast)
+          Text(
+            'Nessun budget',
+            style: TextStyle(
+              color: theme.colorScheme.outline,
+              fontSize: 12,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// "Restano/Sforato" e "Da suddividere" impilati invece che affiancati con
+/// uno `Spacer` — stesso motivo di [_GridMonthHeader].
+class _GridRemainingStatus extends StatelessWidget {
+  const _GridRemainingStatus({required this.overview});
+
+  final MonthBudgetOverview overview;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (overview.isOverBudget)
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, size: 15, color: colorScheme.error),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  'Sforato di ${AppFormatters.currency(-overview.remaining)}',
+                  style: TextStyle(color: colorScheme.error, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          )
+        else
+          Text(
+            'Restano ${AppFormatters.currency(overview.remaining)}',
+            style: Theme.of(context).textTheme.bodySmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        if (!overview.hasCategoryBudgets)
+          Text(
+            'Da suddividere',
+            style: TextStyle(
+              color: colorScheme.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+              fontSize: 11.5,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+      ],
     );
   }
 }
@@ -254,42 +357,43 @@ class _MonthTile extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      monthLabel[0].toUpperCase() + monthLabel.substring(1),
-                      style: Theme.of(context).textTheme.titleMedium,
+              if (isWideWindow(context))
+                // Griglia (M29, fix 16 ago 2026): nome mese e importi
+                // impilati invece che affiancati — stesso motivo di
+                // _GridHeader in budget_month_page.dart (colonna di griglia
+                // troppo stretta per entrambi sulla stessa riga senza
+                // sovrapporsi).
+                _GridMonthHeader(overview: overview, isPast: isPast)
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        monthLabel[0].toUpperCase() + monthLabel.substring(1),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
-                  ),
-                  if (overview.hasTotal)
-                    Text(
-                      '${AppFormatters.currency(overview.spent)} / ${AppFormatters.currency(overview.total!)}',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    )
-                  else if (isPast)
-                    // Mese passato senza budget: niente invito "Imposta".
-                    Text(
-                      'Nessun budget',
-                      style: TextStyle(color: colorScheme.outline),
-                    )
-                  else if (isWideWindow(context))
-                    // Griglia (M29): solo l'icona, stessa posizione (in alto
-                    // a destra della card) delle cifre spesa/totale dei mesi
-                    // già impostati — niente testo "Imposta →", ingombrante
-                    // e ridondante quando la card è già piccola (l'intera
-                    // card è già toccabile via l'InkWell che la avvolge).
-                    const AddIcon()
-                  else
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Imposta', style: TextStyle(color: colorScheme.primary)),
-                        Icon(Icons.chevron_right, color: colorScheme.primary, size: 20),
-                      ],
-                    ),
-                ],
-              ),
+                    if (overview.hasTotal)
+                      Text(
+                        '${AppFormatters.currency(overview.spent)} / ${AppFormatters.currency(overview.total!)}',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      )
+                    else if (isPast)
+                      // Mese passato senza budget: niente invito "Imposta".
+                      Text(
+                        'Nessun budget',
+                        style: TextStyle(color: colorScheme.outline),
+                      )
+                    else
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Imposta', style: TextStyle(color: colorScheme.primary)),
+                          Icon(Icons.chevron_right, color: colorScheme.primary, size: 20),
+                        ],
+                      ),
+                  ],
+                ),
               if (overview.hasTotal) ...[
                 const SizedBox(height: 8),
                 ClipRRect(
@@ -302,31 +406,37 @@ class _MonthTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 6),
-                Row(
-                  children: [
-                    if (overview.isOverBudget) ...[
-                      Icon(Icons.warning_amber_rounded, size: 16, color: colorScheme.error),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Sforato di ${AppFormatters.currency(-overview.remaining)}',
-                        style: TextStyle(color: colorScheme.error),
-                      ),
-                    ] else
-                      Text(
-                        'Restano ${AppFormatters.currency(overview.remaining)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    const Spacer(),
-                    if (!overview.hasCategoryBudgets)
-                      Text(
-                        'Da suddividere',
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontStyle: FontStyle.italic,
+                if (isWideWindow(context))
+                  // Impilate, non affiancate con uno Spacer: in una colonna
+                  // di griglia stretta non c'è spazio per "Restano/Sforato"
+                  // e "Da suddividere" sulla stessa riga senza sovrapporsi.
+                  _GridRemainingStatus(overview: overview)
+                else
+                  Row(
+                    children: [
+                      if (overview.isOverBudget) ...[
+                        Icon(Icons.warning_amber_rounded, size: 16, color: colorScheme.error),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Sforato di ${AppFormatters.currency(-overview.remaining)}',
+                          style: TextStyle(color: colorScheme.error),
                         ),
-                      ),
-                  ],
-                ),
+                      ] else
+                        Text(
+                          'Restano ${AppFormatters.currency(overview.remaining)}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      const Spacer(),
+                      if (!overview.hasCategoryBudgets)
+                        Text(
+                          'Da suddividere',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ),
               ],
             ],
           ),
