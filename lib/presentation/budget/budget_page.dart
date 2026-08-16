@@ -6,6 +6,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/responsive.dart';
 import '../shared_widgets/content_width_limiter.dart';
 import 'budget_providers.dart';
+import 'widgets/add_icon.dart';
 import 'widgets/annual_summary_card.dart';
 
 /// Pagina Budget (Milestone M2).
@@ -272,6 +273,13 @@ class _MonthTile extends StatelessWidget {
                       'Nessun budget',
                       style: TextStyle(color: colorScheme.outline),
                     )
+                  else if (isWideWindow(context))
+                    // Griglia (M29): solo l'icona, stessa posizione (in alto
+                    // a destra della card) delle cifre spesa/totale dei mesi
+                    // già impostati — niente testo "Imposta →", ingombrante
+                    // e ridondante quando la card è già piccola (l'intera
+                    // card è già toccabile via l'InkWell che la avvolge).
+                    const AddIcon()
                   else
                     Row(
                       mainAxisSize: MainAxisSize.min,

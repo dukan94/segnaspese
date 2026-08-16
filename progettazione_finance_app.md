@@ -1019,6 +1019,18 @@ in un messaggio d'errore**
   mesi/categorie non ancora impostati va in alto a destra della card
   (stessa posizione delle cifre spesa/totale sulle card già impostate),
   non come testo "Imposta →" in basso.
+  - **Bug reale nella prima implementazione (16 ago 2026)**: la correzione
+    era stata applicata solo al mockup HTML, non al codice Flutter reale —
+    `_MonthTile`/`_CategoryBudgetTile` continuavano a mostrare "Imposta →"/
+    "Aggiungi" anche nella griglia, perché `_MonthGrid`/`_CategoryGrid`
+    (creati per M29) riorganizzano solo la disposizione delle tile
+    esistenti, non il loro contenuto interno — la modifica al testo/icona
+    andava fatta separatamente sulle tile stesse, passo dimenticato.
+    Segnalato da Mario dopo aver visto l'app reale. Fix: nuovo widget
+    condiviso `AddIcon` (`presentation/budget/widgets/add_icon.dart`),
+    usato da entrambe le tile solo quando `isWideWindow(context)` — sotto
+    la soglia (lista) il testo resta invariato, ha senso lì perché la riga
+    è a piena larghezza.
 
 **M30 — 🔧 Proposta (da progettare) — Storico adattivo**
 - Non ancora progettata nel dettaglio. Possibile pattern master-detail
