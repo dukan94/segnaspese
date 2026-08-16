@@ -65,15 +65,15 @@ class AppDatabase extends _$AppDatabase {
           // v2: colonna "isExtraordinary" sulle transazioni (spese/entrate
           // straordinarie). addColumn preserva i dati esistenti; le righe già
           // presenti prendono il default (false).
-          if (from < 2) {
+          if (from < 2 && !await _columnExists('transactions', 'is_extraordinary')) {
             await m.addColumn(transactions, transactions.isExtraordinary);
           }
           // v3: colonna "isRefund" (rimborso ricevuto su una spesa).
-          if (from < 3) {
+          if (from < 3 && !await _columnExists('transactions', 'is_refund')) {
             await m.addColumn(transactions, transactions.isRefund);
           }
           // v4: colonna "refundOfId" (collegamento rimborso → spesa originale).
-          if (from < 4) {
+          if (from < 4 && !await _columnExists('transactions', 'refund_of_id')) {
             await m.addColumn(transactions, transactions.refundOfId);
           }
           // v5: colonna "syncId" su tutte le tabelle sincronizzabili
@@ -82,13 +82,28 @@ class AppDatabase extends _$AppDatabase {
           // SyncService la richiede sempre valorizzata per identificare le
           // righe tra dispositivi diversi.
           if (from < 5) {
-            await m.addColumn(categories, categories.syncId);
-            await m.addColumn(subCategories, subCategories.syncId);
-            await m.addColumn(merchants, merchants.syncId);
-            await m.addColumn(merchantRules, merchantRules.syncId);
-            await m.addColumn(budgets, budgets.syncId);
-            await m.addColumn(recurringTransactions, recurringTransactions.syncId);
-            await m.addColumn(transactions, transactions.syncId);
+            if (!await _columnExists('categories', 'sync_id')) {
+              await m.addColumn(categories, categories.syncId);
+            }
+            if (!await _columnExists('sub_categories', 'sync_id')) {
+              await m.addColumn(subCategories, subCategories.syncId);
+            }
+            if (!await _columnExists('merchants', 'sync_id')) {
+              await m.addColumn(merchants, merchants.syncId);
+            }
+            if (!await _columnExists('merchant_rules', 'sync_id')) {
+              await m.addColumn(merchantRules, merchantRules.syncId);
+            }
+            if (!await _columnExists('budgets', 'sync_id')) {
+              await m.addColumn(budgets, budgets.syncId);
+            }
+            if (!await _columnExists('recurring_transactions', 'sync_id')) {
+              await m.addColumn(
+                  recurringTransactions, recurringTransactions.syncId);
+            }
+            if (!await _columnExists('transactions', 'sync_id')) {
+              await m.addColumn(transactions, transactions.syncId);
+            }
             await _backfillSyncIds();
           }
           // v6: colonna "updatedAt" sulla tabella Settings, necessaria per
@@ -100,7 +115,9 @@ class AppDatabase extends _$AppDatabase {
           // Aggiungiamo la colonna nuda via SQL grezzo e valorizziamo le righe
           // esistenti con un update esplicito.
           if (from < 6) {
-            await customStatement('ALTER TABLE settings ADD COLUMN updated_at INTEGER');
+            if (!await _columnExists('settings', 'updated_at')) {
+              await customStatement('ALTER TABLE settings ADD COLUMN updated_at INTEGER');
+            }
             await customStatement(
               'UPDATE settings SET updated_at = ? WHERE updated_at IS NULL',
               [DateTime.now().millisecondsSinceEpoch],
@@ -111,11 +128,30 @@ class AppDatabase extends _$AppDatabase {
           // indeterminato, comportamento invariato per le ricorrenze già
           // esistenti). Entrambe le colonne hanno un default costante
           // (rispettivamente assente/0), quindi addColumn basta da solo.
+          //
+          // Guardia "colonna già esistente" su OGNI addColumn di questo
+          // onUpgrade (bug reale, 16 ago 2026): se il processo viene ucciso a
+          // metà di questa migrazione (es. da Task Manager, o un'istanza
+          // duplicata avviata per errore), SQLite può lasciare la ALTER TABLE
+          // già applicata ma lo schemaVersion NON aggiornato — al riavvio
+          // successivo Drift ritenta da "from" invariato e la ALTER fallisce
+          // con "duplicate column name", eccezione non gestita in main() PRIMA
+          // di runApp(): l'app non crasha in modo visibile, la finestra
+          // Windows semplicemente non appare mai (viene mostrata solo al
+          // primo frame renderizzato, che non arriva). Stesso principio già
+          // applicato allo schema remoto Turso, v. `_addColumnIfMissing` in
+          // turso_sync_service.dart.
           if (from < 7) {
-            await m.addColumn(
-                recurringTransactions, recurringTransactions.totalOccurrences);
-            await m.addColumn(recurringTransactions,
-                recurringTransactions.occurrencesGenerated);
+            if (!await _columnExists(
+                'recurring_transactions', 'total_occurrences')) {
+              await m.addColumn(recurringTransactions,
+                  recurringTransactions.totalOccurrences);
+            }
+            if (!await _columnExists(
+                'recurring_transactions', 'occurrences_generated')) {
+              await m.addColumn(recurringTransactions,
+                  recurringTransactions.occurrencesGenerated);
+            }
           }
         },
         // NOTA: l'ordine manuale (drag & drop) di categorie/sottocategorie
@@ -167,6 +203,17 @@ class AppDatabase extends _$AppDatabase {
           await _backfillSyncIds();
         },
       );
+
+  /// Vero se `table` ha già una colonna chiamata `column`. Usato in
+  /// `onUpgrade` per rendere ogni `addColumn`/ALTER TABLE idempotente: una
+  /// migrazione interrotta a metà (processo ucciso prima che Drift aggiorni
+  /// lo schemaVersion) può lasciare la colonna già presente fisicamente pur
+  /// con la versione vecchia ancora registrata, e SQLite rifiuta di
+  /// aggiungere due volte la stessa colonna.
+  Future<bool> _columnExists(String table, String column) async {
+    final rows = await customSelect('PRAGMA table_info($table)').get();
+    return rows.any((row) => row.data['name'] == column);
+  }
 
   /// Assegna un UUID v4 a ogni riga senza `syncId`: sia in migrazione (v5)
   /// sia a ogni avvio (v. beforeOpen, per riparare righe create in seguito da

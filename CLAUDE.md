@@ -97,6 +97,54 @@ una tabella diversa da quella osservata, usa lo stesso pattern (o assicurati
 che la query stessa tocchi quella tabella) invece di un `asyncMap` con una
 lettura "silenziosa".
 
+## Migrazioni schema locale (Drift) — insidia
+
+`AppDatabase.migration.onUpgrade` (`app_database.dart`) applica gli `addColumn`/
+ALTER TABLE di ogni versione di schema in sequenza (`if (from < N)`). Se il
+processo viene ucciso a metà di questa migrazione — un `Stop-Process`/Task
+Manager su un'istanza bloccata, o due istanze avviate per errore sullo stesso
+file — SQLite può lasciare una ALTER TABLE già applicata fisicamente **senza**
+che Drift abbia ancora scritto la nuova versione dello schema (`PRAGMA
+user_version`). Al riavvio successivo Drift rilancia `onUpgrade` dalla
+versione vecchia, ritenta lo stesso `addColumn` su una colonna che esiste
+già → `SqliteException("duplicate column name")`.
+
+- **Bug reale, non solo teorico (16 ago 2026)**: l'eccezione viene lanciata
+  in `main()` **prima** di `runApp()` (durante `runSeed`, che apre il DB).
+  Un'eccezione non gestita lì non fa "crashare" l'app in modo visibile: il
+  runner Windows mostra la finestra solo al primo frame Flutter renderizzato
+  (`flutter_window.cpp`, `SetNextFrameCallback`), che non arriva mai se
+  l'isolate Dart muore prima. Il processo resta "Responding: True" (il
+  message loop nativo C++ continua a girare) ma **nessuna finestra compare**
+  — sembra che l'app "non si apra", non che sia crashata. Diagnosticato
+  lanciando `flutter run -d windows --release` invece dell'exe compilato
+  (l'unico modo per vedere lo stack trace reale su un'app GUI Windows senza
+  console). Causa root sul dispositivo di Mario: un'istanza precedente
+  bloccata (avviata come amministratore) terminata a forza da Task Manager
+  aveva lasciato `recurring_transactions` con le colonne v7
+  (`total_occurrences`/`occurrences_generated`) già presenti ma
+  `user_version` fermo a 6. Fix una tantum sul file reale (backup prima:
+  `finance_app.sqlite.backup-2026-08-16-pre-userversion-fix`): verificato che
+  le colonne v7 fossero già coerenti con lo schema atteso, poi
+  `PRAGMA user_version = 7` senza toccare righe/dati.
+- **Fix strutturale**: ogni `addColumn`/ALTER TABLE in `onUpgrade` (v2→v7) è
+  ora avvolto in un controllo `_columnExists(tabella, colonna)` (query
+  `PRAGMA table_info`) — idempotente, stesso principio già in uso per lo
+  schema remoto Turso (`_addColumnIfMissing` in `turso_sync_service.dart`,
+  v. sezione dedicata sotto). Una migrazione interrotta a metà, su questo o
+  qualunque altro dispositivo, non blocca più l'avvio.
+- Test di regressione: `test/app_database_migration_test.dart` — crea un DB
+  v7 completo, riporta `user_version` a 6 lasciando le colonne fisicamente
+  presenti (stesso stato di una migrazione interrotta), poi riapre e verifica
+  che non lanci eccezioni e che `user_version` torni a 7.
+- Se in futuro un'app desktop Windows sembra "non aprirsi" senza errori
+  visibili: non fidarsi di `Get-Process`/`Responding=True` da solo (il
+  processo nativo può essere vivo col messaggio loop attivo pur con
+  l'isolate Dart morto) — controllare se la finestra ha davvero un titolo
+  (`MainWindowTitle` vuoto = nessun frame mai renderizzato) e, se serve
+  diagnosticare, rilanciare con `flutter run -d windows --release` invece
+  dell'exe per vedere lo stack trace reale.
+
 ## Sync (Turso) — dettaglio critico
 
 Si usa l'**API HTTP di Turso** (Hrana-over-HTTP, endpoint `/v2/pipeline`) col
