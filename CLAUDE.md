@@ -564,21 +564,23 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M17 completate**. M0-M8: setup + Clean Architecture, core
-  transazioni, categorie/budget, scontrini (Gemini + fallback OCR),
-  dashboard, ricorrenti, ricerca/import-export CSV, sync Turso + build
-  desktop/Android, rifinitura (fix bug critici sync, audit best-practice,
-  dedupe tassonomia post-sync, empty states + animazioni leggere, tema
-  unificato sul colore dell'icona, rename utente a "Tally", CI attiva). M9-
-  M17 (dettaglio completo, con date e cosa è stato fatto davvero, in
-  `progettazione_finance_app.md` sezione 6 — qui solo il titolo): Admin e
-  manutenzione dati (M9), icona/splash "Tally" (M10), robustezza doppioni
-  transazioni + avviso doppioni manuali (M11), build Android release (M12),
-  blocco doppioni categoria + "Unisci con..." (M13), ricorrenze a numero di
-  occorrenze finito (M14), import estratto conto bancario (M15), rifiniture
-  ricerca/dashboard/CI (M16), migrazione schema locale idempotente (M17).
-  **CI attiva** — `.github/workflows/ci.yml`: `flutter analyze` +
-  `flutter test` su ogni push/PR con rigenerazione del codice.
+- **M0–M18 completate** (M19-M24 proposte da un audit best-practice, in
+  attesa di sviluppo — v. `progettazione_finance_app.md` sezione 6). M0-M8:
+  setup + Clean Architecture, core transazioni, categorie/budget, scontrini
+  (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
+  sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
+  audit best-practice, dedupe tassonomia post-sync, empty states +
+  animazioni leggere, tema unificato sul colore dell'icona, rename utente a
+  "Tally", CI attiva). M9-M18 (dettaglio completo, con date e cosa è stato
+  fatto davvero, in `progettazione_finance_app.md` sezione 6 — qui solo il
+  titolo): Admin e manutenzione dati (M9), icona/splash "Tally" (M10),
+  robustezza doppioni transazioni + avviso doppioni manuali (M11), build
+  Android release (M12), blocco doppioni categoria + "Unisci con..." (M13),
+  ricorrenze a numero di occorrenze finito (M14), import estratto conto
+  bancario (M15), rifiniture ricerca/dashboard/CI (M16), migrazione schema
+  locale idempotente (M17), **fix sicurezza API key Gemini in messaggi
+  d'errore (M18)**. **CI attiva** — `.github/workflows/ci.yml`: `flutter
+  analyze` + `flutter test` su ogni push/PR con rigenerazione del codice.
 - Test in `test/` (20 file): parser CSV, receipt parser, rule matcher,
   duplicate finder, sync Turso (incluso **rientranza syncNow()**, verifica
   remota puntuale e migrazione schema remoto), repair sottocategorie
@@ -590,6 +592,8 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   `FlutterSecureStorage`), parser estratto conto BancoPosta e duplicate
   matcher (fixture xlsx sintetiche), **migrazione locale idempotente
   (`app_database_migration_test.dart`, M17)** + 1 smoke widget test.
+  `gemini_vision_service.dart` (M18) resta senza test dedicato — rimandato
+  a M23, che copre proprio questo gap.
 
 ### Processo per nuove modifiche (da qui in avanti)
 
