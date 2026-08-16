@@ -196,8 +196,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       ),
     );
     if (confirmed != true || tx.id == null || !mounted) return;
-    await ref.read(deleteTransactionProvider).call(tx.id!);
-    if (mounted) showSuccessSnackBar(context, 'Operazione eliminata');
+    try {
+      await ref.read(deleteTransactionProvider).call(tx.id!);
+      if (mounted) showSuccessSnackBar(context, 'Operazione eliminata');
+    } catch (e) {
+      if (mounted) showErrorSnackBar(context, 'Errore: $e');
+    }
   }
 }
 

@@ -159,8 +159,12 @@ Future<void> _confirmDelete(
   );
   if (confirmed != true || !context.mounted) return;
 
-  await ref.read(deleteTransactionProvider).call(transaction.id!);
-  if (context.mounted) showSuccessSnackBar(context, 'Operazione eliminata');
+  try {
+    await ref.read(deleteTransactionProvider).call(transaction.id!);
+    if (context.mounted) showSuccessSnackBar(context, 'Operazione eliminata');
+  } catch (e) {
+    if (context.mounted) showErrorSnackBar(context, 'Errore: $e');
+  }
 }
 
 class _EmptyState extends StatelessWidget {
