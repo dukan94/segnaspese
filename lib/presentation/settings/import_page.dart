@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -61,22 +60,19 @@ class _ImportPageState extends ConsumerState<ImportPage> {
   Future<void> _pickAndAnalyze() async {
     setState(() => _busy = true);
     try {
-      final picked = await FilePicker.platform.pickFiles(
+      // file_picker 12.x (M24): pickFiles() non è più su FilePicker.platform
+      // (rimosso), e allowMultiple/withData sono deprecati a favore di
+      // pickFile() (singolare, un solo file) + PlatformFile.readAsBytes()
+      // (lettura lazy, sostituisce la vecchia proprietà .bytes rimossa).
+      final file = await FilePicker.pickFile(
         type: FileType.custom,
         allowedExtensions: ['csv', 'txt'],
-        withData: true,
       );
-      if (picked == null) {
+      if (file == null) {
         setState(() => _busy = false);
         return;
       }
-      final file = picked.files.single;
-      final List<int>? bytes =
-          file.bytes ?? (file.path != null ? await File(file.path!).readAsBytes() : null);
-      if (bytes == null) {
-        setState(() => _busy = false);
-        return;
-      }
+      final bytes = await file.readAsBytes();
       var content = _decodeBytes(bytes);
       content = content.replaceFirst('﻿', ''); // rimuove BOM se presente
 

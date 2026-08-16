@@ -97,6 +97,22 @@ una tabella diversa da quella osservata, usa lo stesso pattern (o assicurati
 che la query stessa tocchi quella tabella) invece di un `asyncMap` con una
 lettura "silenziosa".
 
+## SQLite nativo — niente più `sqlite3_flutter_libs` (M24)
+
+Dal pacchetto `sqlite3` versione 3.x in poi, i binari nativi SQLite per
+Windows/Android vengono scaricati/bundlati automaticamente dai **build hook
+di Dart** (`native_toolchain_c`, nessuna dipendenza `sqlite3_flutter_libs`
+né configurazione manuale necessaria per l'uso senza cifratura di questo
+progetto). `sqlite3_flutter_libs` è stato rimosso dal pubspec (M24, 16 ago
+2026): il pacchetto era stato deliberatamente svuotato dall'autore dalla
+versione `0.6.0+eol` in poi, proprio per segnalare che non serve più da
+quando Drift ≥2.32 supporta `sqlite3` 3.x. **Non reintrodurre
+`sqlite3_flutter_libs`** nel pubspec: sarebbe ridondante col nuovo
+meccanismo e potenzialmente in conflitto con esso. Nessun `open.overrideFor`
+manuale nel codice (mai stato necessario in questo progetto neanche prima).
+Verificato con build Windows reale pulita contro il database vero (backup
+preventivo prima), `PRAGMA integrity_check` → `ok` con la nuova libreria.
+
 ## Migrazioni schema locale (Drift) — insidia
 
 `AppDatabase.migration.onUpgrade` (`app_database.dart`) applica gli `addColumn`/
@@ -564,14 +580,15 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M23 completate** (M24 proposta da un audit best-practice, in attesa
-  di sviluppo — v. `progettazione_finance_app.md` sezione 6). M0-M8:
+- **M0–M24 completate** (tutte le proposte emerse dall'audit best-practice
+  del 16 ago 2026 sviluppate — v. `progettazione_finance_app.md` sezione
+  6 per il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
   audit best-practice, dedupe tassonomia post-sync, empty states +
   animazioni leggere, tema unificato sul colore dell'icona, rename utente a
-  "Tally", CI attiva). M9-M18 (dettaglio completo, con date e cosa è stato
+  "Tally", CI attiva). M9-M24 (dettaglio completo, con date e cosa è stato
   fatto davvero, in `progettazione_finance_app.md` sezione 6 — qui solo il
   titolo): Admin e manutenzione dati (M9), icona/splash "Tally" (M10),
   robustezza doppioni transazioni + avviso doppioni manuali (M11), build
@@ -580,13 +597,15 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   bancario (M15), rifiniture ricerca/dashboard/CI (M16), migrazione schema
   locale idempotente (M17), fix sicurezza API key Gemini in messaggi
   d'errore (M18), gestione errori su cancellazione transazione
-  Home/Storico (M19), verifica tag `+eol` `sqlite3_flutter_libs` (upgrade
-  spostato in M24, M20), timeout su chiamate Google Sheets (M21),
-  isolamento errori nell'avvio, `_runStartupStep` in main.dart (M22),
-  **copertura test per Gemini/seed/dedupe/client HTTP Turso (M23)**. **CI
-  attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
+  Home/Storico (M19), verifica tag `+eol` `sqlite3_flutter_libs` (M20),
+  timeout su chiamate Google Sheets (M21), isolamento errori nell'avvio,
+  `_runStartupStep` in main.dart (M22), copertura test per Gemini/seed/
+  dedupe/client HTTP Turso (M23), **aggiornamento dipendenze — csv,
+  flutter_secure_storage, file_picker, go_router, Drift+sqlite3 3.x senza
+  più sqlite3_flutter_libs (M24)**. **CI attiva** — `.github/workflows/
+  ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
-- Test in `test/` (23 file, 157 test): parser CSV, receipt parser, rule
+- Test in `test/` (24 file, 159 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -596,13 +615,15 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   SafeTransactionDeletionService (con `FakeTursoHttpClient` + test double
   ufficiale di `FlutterSecureStorage`), parser estratto conto BancoPosta e
   duplicate matcher (fixture xlsx sintetiche), migrazione locale
-  idempotente (`app_database_migration_test.dart`, M17), **servizio
+  idempotente (`app_database_migration_test.dart`, M17), servizio
   Gemini incluso il regression test di sicurezza M18
   (`gemini_vision_service_test.dart`), seed runner
   (`seed_runner_test.dart`), dedupe tassonomia
   (`dedupe_default_taxonomy_test.dart`), client HTTP Turso con
   encoding/decoding reale — non solo `FakeTursoHttpClient`
-  (`turso_http_client_test.dart`) — tutti e 4 aggiunti in M23** + 1 smoke
+  (`turso_http_client_test.dart`) — tutti e 4 aggiunti in M23, **export CSV
+  (`transaction_export_service_test.dart`, M24 — non esisteva prima
+  dell'upgrade di `csv`)** + 1 smoke
   widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)

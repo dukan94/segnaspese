@@ -103,8 +103,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M23 sono completate (M24 proposta, in attesa di sviluppo).
-Integrazione continua attiva
+milestone M0-M24 sono completate. Integrazione continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
 | Milestone | Contenuto | Stato |
@@ -133,6 +132,7 @@ Integrazione continua attiva
 | **M21** | Timeout (30s) su tutte le chiamate di rete del bridge Google Sheets, "Test connessione" non resta più bloccato indefinitamente | ✅ Completata |
 | **M22** | Isolamento errori nella sequenza di avvio (`main.dart`): un errore in uno step non impedisce più agli altri e a `runApp()` di eseguire | ✅ Completata |
 | **M23** | Copertura test per 4 file critici privi di test (Gemini, seed, dedupe tassonomia, client HTTP Turso) — 37 nuovi test | ✅ Completata |
+| **M24** | Aggiornamento dipendenze (csv, flutter_secure_storage, file_picker, go_router, Drift+sqlite3 3.x senza più `sqlite3_flutter_libs`) — verificato con build reale sul database vero | ✅ Completata |
 
 ## Struttura del database
 
