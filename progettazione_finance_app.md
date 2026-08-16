@@ -688,7 +688,7 @@ in un messaggio d'errore**
   copertura — v. M23); `flutter analyze` + `flutter test` (120/120)
   invariati dopo il fix.
 
-**M19 — 🔧 Proposta — Gestione errori su cancellazione transazione
+**M19 — ✅ Completata — Gestione errori su cancellazione transazione
 (Home/Storico)**
 *(emersa da audit best-practice, 16 ago 2026)*
 - Problema: `recent_transactions_list.dart` e `history_page.dart` chiamano
@@ -696,10 +696,12 @@ in un messaggio d'errore**
   disco pieno, ecc.) non produce alcun feedback in UI, in contraddizione
   con la regola dichiarata (ogni errore risale come eccezione fino a una
   snackbar).
-- Approccio proposto: avvolgere le due chiamate in try/catch con
-  `showErrorSnackBar`, stesso pattern già usato in
+- **Fatto**: entrambe le chiamate ora avvolte in try/catch con
+  `showErrorSnackBar(context, 'Errore: $e')`, stesso pattern già usato in
   `add_transaction_page.dart`/`budget_amount_dialog.dart`/
-  `merchant_rules_page.dart`/`categories_manage_page.dart`.
+  `merchant_rules_page.dart`/`categories_manage_page.dart`. Nessun altro
+  call-site di `deleteTransactionProvider` trovato in `lib/` oltre questi
+  due. `flutter analyze` + `flutter test` (120/120) invariati.
 
 **M20 — 🔧 Proposta — Verifica tag `+eol` su `sqlite3_flutter_libs`**
 *(emersa da audit dipendenze, 16 ago 2026)*
