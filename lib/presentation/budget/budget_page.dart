@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/utils/formatters.dart';
+import '../../core/utils/responsive.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import 'budget_providers.dart';
 import 'widgets/annual_summary_card.dart';
 
@@ -45,29 +47,38 @@ class _BudgetPageState extends ConsumerState<BudgetPage> {
                 final currentMonth = _year == now.year
                     ? months.firstWhere((m) => m.month == now.month)
                     : null;
-                return ListView(
-                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-                  children: [
-                    AnnualSummaryCard(
-                      year: _year,
-                      includeExtra: _includeExtraordinary,
-                      onIncludeExtraChanged: (v) =>
-                          setState(() => _includeExtraordinary = v),
+                final tiles = [
+                  for (final m in months)
+                    _MonthTile(
+                      overview: m,
+                      isCurrent: _year == now.year && m.month == now.month,
+                      isPast: m.year < now.year ||
+                          (m.year == now.year && m.month < now.month),
+                      onTap: () => _openMonth(m.year, m.month),
                     ),
-                    if (currentMonth != null)
-                      _CurrentMonthPrompt(
-                        overview: currentMonth,
-                        onOpen: () => _openMonth(currentMonth.year, currentMonth.month),
+                ];
+                return ContentWidthLimiter(
+                  // Più larga del default (640): qui dentro c'è la griglia
+                  // dei 12 mesi su finestra larga (M29), non una colonna sola.
+                  maxWidth: 960,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+                    children: [
+                      AnnualSummaryCard(
+                        year: _year,
+                        includeExtra: _includeExtraordinary,
+                        onIncludeExtraChanged: (v) =>
+                            setState(() => _includeExtraordinary = v),
                       ),
-                    for (final m in months)
-                      _MonthTile(
-                        overview: m,
-                        isCurrent: _year == now.year && m.month == now.month,
-                        isPast: m.year < now.year ||
-                            (m.year == now.year && m.month < now.month),
-                        onTap: () => _openMonth(m.year, m.month),
-                      ),
-                  ],
+                      if (currentMonth != null)
+                        _CurrentMonthPrompt(
+                          overview: currentMonth,
+                          onOpen: () =>
+                              _openMonth(currentMonth.year, currentMonth.month),
+                        ),
+                      _MonthGrid(tiles: tiles),
+                    ],
+                  ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -167,6 +178,38 @@ class _CurrentMonthPrompt extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// 12 mesi comparabili e ripetuti → griglia 4 colonne su finestra larga
+/// invece di una lista verticale che costringe a scorrere per vedere tutto
+/// l'anno (M29, mockup discusso e approvato con Mario il 16 ago 2026).
+/// Sotto la soglia, colonna singola come oggi. Altezza fissa per riga in
+/// griglia: stesso contenuto di [_MonthTile], solo più compatto e allineato
+/// in alto invece che occupare l'altezza naturale (variabile a seconda che
+/// il mese abbia o no un budget impostato).
+class _MonthGrid extends StatelessWidget {
+  const _MonthGrid({required this.tiles});
+
+  final List<_MonthTile> tiles;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isWideWindow(context)) {
+      return Column(children: tiles);
+    }
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: tiles.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        mainAxisExtent: 128,
+      ),
+      itemBuilder: (context, index) => tiles[index],
     );
   }
 }

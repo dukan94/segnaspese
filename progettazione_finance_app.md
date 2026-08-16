@@ -933,62 +933,92 @@ in un messaggio d'errore**
     alla stessa spesa — il flusso manuale esistente non ha questo
     controllo, quindi non è una regressione ometterlo qui.
 
-**M26 — 🔧 Proposta — Fondamenta layout desktop-adattivo**
+**M26 — ✅ Completata — Fondamenta layout desktop-adattivo**
 *(richiesta da Mario, 16 ago 2026 — l'app "è scomoda da usare da pc")*
-- Problema: `root_scaffold.dart` e tutte le pagine non hanno alcuna logica
+- Problema: `root_scaffold.dart` e tutte le pagine non avevano alcuna logica
   responsive — stessa bottom navigation bar e stesso layout a colonna
   singola pensato per il telefono, indipendentemente da quanto sia larga
   la finestra Windows. Confermato con un mockup HTML di confronto
   (Home attuale vs proposta), discusso e corretto insieme prima di questa
   proposta: niente grafici aggiunti solo per riempire lo spazio guadagnato,
-  la finestra larga deve dare respiro (margini), non contenuto extra; le
-  card devono condividere un'unica famiglia di misure (raggio/padding),
-  non proporzioni ad hoc diverse tra loro.
-- Approccio approvato (solo infrastruttura condivisa, nessuna singola
-  schermata ridisegnata in questa milestone):
-  - `VisualDensity.adaptivePlatformDensity` in `app_theme.dart` — riduce
-    padding/altezze dei componenti Material standard su desktop, invariato
-    su Android (un cambio di poche righe, senza toccare la palette).
-  - Breakpoint condiviso (es. helper `isWideWindow(context)` su
-    `MediaQuery`, soglia orientativa ~900dp, coerente con le linee guida
-    Material 3 per il passaggio bottom-nav→rail).
-  - `NavigationRail` in `root_scaffold.dart` sopra la soglia, bottom
-    navigation bar invariata sotto — stessa struttura di route/tab
-    esistente (Home/Dashboard/Budget/Altro), cambia solo il widget di
-    navigazione.
-  - Widget condiviso "larghezza massima contenuto" (centra il contenuto
-    con margini generosi invece di stirarlo edge-to-edge) + una scala di
-    misure card comune (stesso raggio/padding/altezza minima), da riusare
-    in ogni pagina adattata dalle milestone successive — questa è la
-    fondamenta che rende omogenee tutte le schermate, invece di reinventare
-    le proporzioni una pagina alla volta.
-  - Verificato con build reale Windows (nessuna modifica visiva alle
-    singole schermate oltre a densità/rail attivi) prima di procedere
-    pagina per pagina nelle milestone seguenti.
+  la finestra larga deve dare respiro (margini), non contenuto extra.
+- **Fatto**:
+  - `VisualDensity.adaptivePlatformDensity` in `app_theme.dart`
+    (`_buildTheme`) — riduce padding/altezze dei componenti Material
+    standard su desktop, invariato su Android.
+  - `lib/core/utils/responsive.dart`: `kWideWindowBreakpoint = 900` +
+    `isWideWindow(context)` su `MediaQuery.sizeOf`, usato da tutte le
+    milestone successive.
+  - `NavigationRail` in `root_scaffold.dart` sopra la soglia (bottom
+    navigation bar invariata sotto) — le 4 destinazioni (Home/Dashboard/
+    Budget/Altro) sono ora dichiarate una sola volta (`_navEntries`) e
+    condivise tra i due widget di navigazione, invece di duplicate.
+  - `ContentWidthLimiter` (`presentation/shared_widgets/`): centra il
+    contenuto con una larghezza massima invece di stirarlo edge-to-edge,
+    riusato da ogni pagina adattata nelle milestone seguenti (niente nuova
+    "famiglia di card": le card continuano a condividere lo stesso
+    `CardTheme` globale già esistente, che di per sé garantisce raggio/
+    padding coerenti — non serviva introdurne uno nuovo specifico per
+    desktop).
+  - Verificato con `flutter run -d windows --release`: la finestra si apre
+    di default a 1280×720 (sopra la soglia), quindi `NavigationRail` e i
+    layout affiancati delle milestone seguenti sono stati esercitati subito
+    all'avvio senza errori di layout (`RenderFlex` overflow ecc.) in console.
 
-**M27 — 🔧 Proposta — Home adattiva da finestra larga**
+**M27 — ✅ Completata — Home adattiva da finestra larga**
 *(mockup discusso e approvato con Mario, 16 ago 2026)*
-- Problema: la Home (card Saldo Budget/Saldo Reale, barra budget, Ultime
-  operazioni) si stira a colonna singola anche su finestra larga.
-- Approccio approvato: Saldo Budget/Saldo Reale/barra budget in riga su 3
-  colonne di uguale larghezza (stessa famiglia di misure di M26), Ultime
-  operazioni sotto in lista, tutto racchiuso nel widget "larghezza massima
-  contenuto" con margini generosi ai lati. **Niente grafici in Home**
-  (restano solo in Dashboard, dove già sono): lo spazio guadagnato dalla
-  finestra larga resta respiro, non viene riempito con altro contenuto.
+- Problema: la Home (`BalanceCard`, `BudgetSummaryCard`, `MonthlyStatsRow`,
+  Ultime operazioni) si stira a colonna singola anche su finestra larga.
+- **Fatto** (adattato alle card reali, non alle card semplificate del
+  mockup): `BalanceCard` ("Saldo mese"/"Saldo anno") e `BudgetSummaryCard`
+  ("Saldo Budget" + barra) affiancate in un `Row` su finestra larga tramite
+  il nuovo widget `_BalanceAndBudgetRow` — era già l'intento del wireframe
+  originale (progettazione, sezione 5: "Saldo Budget │ Saldo Reale"),
+  realizzabile ora che c'è spazio orizzontale per farlo. `MonthlyStatsRow`
+  (Entrate/Uscite) era già una riga di 2 tile — invariata. Tutto racchiuso
+  in `ContentWidthLimiter(maxWidth: 760)`. **Niente grafici in Home**
+  (restano solo in Dashboard): lo spazio guadagnato resta respiro, non
+  contenuto in più. Sotto la soglia, tutto impilato esattamente come oggi
+  (`_BalanceAndBudgetRow` in modalità `Column`).
 
-**M28 — 🔧 Proposta (da progettare) — Dashboard adattiva**
-- Non ancora progettata nel dettaglio. La Dashboard ha già grafici
-  (andamento mensile, spese per categoria, barre sottocategoria, totali
-  annuali) oggi impilati verticalmente — su finestra larga potrebbero
-  affiancarsi, ma qui i grafici ci sono davvero (a differenza della Home),
-  quindi il principio "non riempire per riempire" di M27 non si applica
-  allo stesso modo: va comunque discussa con un mockup dedicato, come fatto
-  per la Home, prima di scrivere codice.
+**M28 — ✅ Completata — Dashboard adattiva**
+*(mockup discusso e approvato con Mario, 16 ago 2026)*
+- Problema: i grafici della Dashboard (andamento mensile, spese per
+  categoria, barre sottocategoria, totali annuali) erano impilati
+  verticalmente anche su finestra larga.
+- **Fatto**: nuovo widget `_ChartsSection` in `dashboard_page.dart` — su
+  finestra larga, torta "Spese per categoria" + barre sottocategoria
+  raggruppate in una colonna (`flex: 85`, rispondono insieme alla fetta
+  selezionata), "Andamento 12 mesi" in un'altra colonna più larga
+  (`flex: 115`, un grafico a linee legge meglio con più spazio orizzontale)
+  — raggruppate per relazione funzionale (la selezione), non per "sono
+  entrambi grafici". In modalità "Mese" (nessun andamento da mostrare)
+  resta tutto in colonna: affiancare la sola torta a uno spazio vuoto non
+  avrebbe senso. `AnnualTotals` (già una riga di 3 stat card) e il resto
+  invariati, tutto in `ContentWidthLimiter(maxWidth: 960)`. Sotto la
+  soglia, tutto impilato come oggi.
 
-**M29 — 🔧 Proposta (da progettare) — Budget adattivo**
-- Non ancora progettata nel dettaglio: da valutare con un mockup dedicato
-  quando si arriva a questa milestone.
+**M29 — ✅ Completata — Budget adattivo**
+*(mockup discusso e approvato con Mario, 16 ago 2026)*
+- Problema: i 12 mesi (`budget_page.dart`) e le categorie del mese
+  selezionato (`budget_month_page.dart`) erano liste verticali che
+  costringevano a scorrere per vedere l'anno/la suddivisione per intero,
+  pur essendo elementi comparabili e ripetuti — candidati naturali per una
+  griglia.
+- **Fatto**: nuovi widget `_MonthGrid` (`budget_page.dart`) e
+  `_CategoryGrid` (`budget_month_page.dart`), stesso identico pattern —
+  `GridView.builder` a 4 colonne (`SliverGridDelegateWithFixedCrossAxisCount`,
+  `mainAxisExtent: 128`) su finestra larga, `Column` (comportamento odierno)
+  sotto la soglia. Le tile (`_MonthTile`/`_CategoryBudgetTile`) restano
+  esattamente le stesse, solo più compatte e affiancate invece che a piena
+  larghezza una sotto l'altra — nessuna logica di calcolo toccata.
+  `AnnualSummaryCard`/`_TotalCard` (blocchi singoli, non ripetuti) restano
+  a piena larghezza sopra la griglia, non ne fanno parte. Tutto in
+  `ContentWidthLimiter(maxWidth: 960)`.
+- Correzione richiesta durante la revisione del mockup: l'icona "+" dei
+  mesi/categorie non ancora impostati va in alto a destra della card
+  (stessa posizione delle cifre spesa/totale sulle card già impostate),
+  non come testo "Imposta →" in basso.
 
 **M30 — 🔧 Proposta (da progettare) — Storico adattivo**
 - Non ancora progettata nel dettaglio. Possibile pattern master-detail
@@ -1044,15 +1074,20 @@ sempre questi passi, in ordine:
 
 ---
 
-**Stato attuale (16 ago 2026):** tutte le milestone **M0-M24 completate**
-(M9-M24: v. sezione 6 per il dettaglio di ciascuna — Admin e manutenzione
+**Stato attuale (16 ago 2026):** tutte le milestone **M0-M24 e M26-M29
+completate** (M25, rimborso con divisore, resta proposta/da sviluppare;
+M30-M31, Storico e Form/Impostazioni adattivi, restano da progettare — v.
+sezione 6 per il dettaglio di ciascuna). M9-M24: Admin e manutenzione
 dati, icona/splash "Tally", robustezza doppioni transazioni, build Android
 release, blocco doppioni categoria + strumento "Unisci con...", ricorrenze a
 numero di occorrenze finito, import estratto conto bancario, rifiniture
 ricerca/dashboard/CI, migrazione schema locale idempotente, fix sicurezza
 API key Gemini, gestione errori cancellazione transazione, verifica
 `sqlite3_flutter_libs`, timeout Google Sheets, isolamento errori avvio,
-copertura test logica critica, aggiornamento dipendenze). Schema DB Drift
+copertura test logica critica, aggiornamento dipendenze. M26-M29: refactor
+desktop-adattivo (densità, `NavigationRail`, `ContentWidthLimiter`, Home/
+Dashboard/Budget riorganizzate su finestra larga — v. sezione dedicata in
+CLAUDE.md). Schema DB Drift
 alla **versione 7**, ora su **`sqlite3` 3.x nativo** (M24: `sqlite3_flutter_
 libs` rimosso, v. sezione dedicata in CLAUDE.md — non reintrodurlo). **CI
 attiva** (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test`

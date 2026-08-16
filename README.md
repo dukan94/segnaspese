@@ -103,7 +103,8 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M24 sono completate. Integrazione continua attiva
+milestone M0-M24 e M26-M29 sono completate (M25 proposta, M30-M31 da
+progettare). Integrazione continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
 | Milestone | Contenuto | Stato |
@@ -133,6 +134,13 @@ milestone M0-M24 sono completate. Integrazione continua attiva
 | **M22** | Isolamento errori nella sequenza di avvio (`main.dart`): un errore in uno step non impedisce più agli altri e a `runApp()` di eseguire | ✅ Completata |
 | **M23** | Copertura test per 4 file critici privi di test (Gemini, seed, dedupe tassonomia, client HTTP Turso) — 37 nuovi test | ✅ Completata |
 | **M24** | Aggiornamento dipendenze (csv, flutter_secure_storage, file_picker, go_router, Drift+sqlite3 3.x senza più `sqlite3_flutter_libs`) — verificato con build reale sul database vero | ✅ Completata |
+| **M25** | Rimborso con divisore: da una spesa, crea un rimborso pari a 1/N con nota facoltativa | 🔧 Proposta |
+| **M26** | Fondamenta layout desktop-adattivo: densità, `NavigationRail`, larghezza massima contenuto | ✅ Completata |
+| **M27** | Home adattiva da finestra larga (Saldo Budget/Reale affiancate, niente grafici) | ✅ Completata |
+| **M28** | Dashboard adattiva (torta+barre sottocategoria in colonna, andamento 12 mesi nell'altra) | ✅ Completata |
+| **M29** | Budget adattivo (griglia 4 colonne per mesi/categorie) | ✅ Completata |
+| **M30** | Storico adattivo | 🔧 Da progettare |
+| **M31** | Form e Impostazioni adattivi | 🔧 Da progettare |
 
 ## Struttura del database
 

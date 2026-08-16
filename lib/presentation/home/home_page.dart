@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/di/sync_providers.dart';
+import '../../core/utils/responsive.dart';
 import '../../data/services/sync_service.dart';
 import '../budget/budget_providers.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import 'home_providers.dart';
 import 'widgets/balance_card.dart';
 import 'widgets/budget_summary_card.dart';
@@ -55,49 +57,57 @@ class HomePage extends ConsumerWidget {
           ref.invalidate(currentMonthTransactionsProvider);
           ref.invalidate(currentYearTransactionsProvider);
         },
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            if (syncStatusValue == SyncStatus.offline || syncStatusValue == SyncStatus.error) ...[
-              _SyncAlertBanner(status: syncStatusValue!),
-              const SizedBox(height: 12),
-            ],
-            summary.when(
-              data: (monthly) => yearlyBalance.when(
-                data: (yearly) => BalanceCard(
-                  monthlyBalance: monthly.balance,
-                  yearlyBalance: yearly,
+        child: ContentWidthLimiter(
+          // Più larga del default (640): qui dentro, su finestra larga,
+          // "Saldo Budget" e "Saldo Reale" stanno affiancate (M27) — serve
+          // spazio per due card leggibili una a fianco all'altra, non solo
+          // per una colonna singola.
+          maxWidth: 760,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              if (syncStatusValue == SyncStatus.offline || syncStatusValue == SyncStatus.error) ...[
+                _SyncAlertBanner(status: syncStatusValue!),
+                const SizedBox(height: 12),
+              ],
+              _BalanceAndBudgetRow(
+                balance: summary.when(
+                  data: (monthly) => yearlyBalance.when(
+                    data: (yearly) => BalanceCard(
+                      monthlyBalance: monthly.balance,
+                      yearlyBalance: yearly,
+                    ),
+                    loading: () => const _CardSkeleton(),
+                    error: (e, _) => _ErrorTile(message: 'Errore saldo: $e'),
+                  ),
+                  loading: () => const _CardSkeleton(),
+                  error: (e, _) => _ErrorTile(message: 'Errore saldo: $e'),
                 ),
-                loading: () => const _CardSkeleton(),
-                error: (e, _) => _ErrorTile(message: 'Errore saldo: $e'),
+                budget: budgetSummary.when(
+                  data: (value) => BudgetSummaryCard(summary: value),
+                  loading: () => const _CardSkeleton(),
+                  error: (e, _) => _ErrorTile(message: 'Errore budget: $e'),
+                ),
               ),
-              loading: () => const _CardSkeleton(),
-              error: (e, _) => _ErrorTile(message: 'Errore saldo: $e'),
-            ),
-            const SizedBox(height: 12),
-            budgetSummary.when(
-              data: (value) => BudgetSummaryCard(summary: value),
-              loading: () => const _CardSkeleton(),
-              error: (e, _) => _ErrorTile(message: 'Errore budget: $e'),
-            ),
-            const SizedBox(height: 12),
-            summary.when(
-              data: (value) => MonthlyStatsRow(summary: value),
-              loading: () => const _CardSkeleton(),
-              error: (e, _) => _ErrorTile(message: 'Errore statistiche: $e'),
-            ),
-            const SizedBox(height: 24),
-            Text('Ultime operazioni',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            recent.when(
-              data: (value) => RecentTransactionsList(transactions: value),
-              loading: () => const _CardSkeleton(),
-              error: (e, _) => _ErrorTile(message: 'Errore operazioni: $e'),
-            ),
-            // Spazio extra così il FAB non copre l'ultima card.
-            const SizedBox(height: 80),
-          ],
+              const SizedBox(height: 12),
+              summary.when(
+                data: (value) => MonthlyStatsRow(summary: value),
+                loading: () => const _CardSkeleton(),
+                error: (e, _) => _ErrorTile(message: 'Errore statistiche: $e'),
+              ),
+              const SizedBox(height: 24),
+              Text('Ultime operazioni',
+                  style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 12),
+              recent.when(
+                data: (value) => RecentTransactionsList(transactions: value),
+                loading: () => const _CardSkeleton(),
+                error: (e, _) => _ErrorTile(message: 'Errore operazioni: $e'),
+              ),
+              // Spazio extra così il FAB non copre l'ultima card.
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -186,6 +196,38 @@ class _SyncAlertBanner extends StatelessWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.push('/settings/sync'),
       ),
+    );
+  }
+}
+
+/// "Saldo Budget" e "Saldo Reale" affiancate su finestra larga (era già
+/// l'intento del wireframe originale — v. progettazione, sezione 5 —
+/// realizzabile solo ora che c'è spazio orizzontale per farlo, M27),
+/// impilate come oggi sotto la soglia (Android, o Windows ridotta).
+class _BalanceAndBudgetRow extends StatelessWidget {
+  const _BalanceAndBudgetRow({required this.balance, required this.budget});
+
+  final Widget balance;
+  final Widget budget;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isWideWindow(context)) {
+      return Column(
+        children: [
+          balance,
+          const SizedBox(height: 12),
+          budget,
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: balance),
+        const SizedBox(width: 12),
+        Expanded(child: budget),
+      ],
     );
   }
 }

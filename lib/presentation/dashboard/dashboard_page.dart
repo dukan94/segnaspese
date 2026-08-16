@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/utils/formatters.dart';
+import '../../core/utils/responsive.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import 'dashboard_providers.dart';
 import 'widgets/annual_totals.dart';
 import 'widgets/category_donut.dart';
@@ -81,64 +83,33 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ? null
         : data.byCategory.firstWhere((c) => c.categoryId == selectedId);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
-      children: [
-        _PeriodSelector(
-          year: _year,
-          month: _month,
-          onModeChanged: (monthMode) => setState(() {
-            if (monthMode) {
-              // Passa a "Mese": default al mese corrente se siamo nell'anno
-              // corrente, altrimenti dicembre.
-              final now = DateTime.now();
-              _month = (_year == now.year) ? now.month : 12;
-            } else {
-              _month = null;
-            }
-          }),
-          onPrev: () => setState(_goPrev),
-          onNext: () => setState(_goNext),
-        ),
-        const SizedBox(height: 8),
-        AnnualTotals(
-          income: data.totalIncome,
-          expense: data.totalExpense,
-          budget: data.totalBudget,
-          isOverBudget: data.isOverBudget,
-          savings: data.savings,
-        ),
-        SwitchListTile(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-          value: _includeExtraordinary,
-          onChanged: (v) => setState(() => _includeExtraordinary = v),
-          title: const Text('Includi operazioni straordinarie'),
-          dense: true,
-        ),
-        const SizedBox(height: 8),
-        _SectionCard(
-          title: 'Spese per categoria',
-          child: CategoryDonut(
-            slices: data.byCategory,
-            total: data.totalExpense,
-            selectedCategoryId: selectedId,
-            onSelect: (id) => setState(() => _selectedCategoryId = id),
-          ),
-        ),
-        if (selectedSlice != null)
-          _SectionCard(
+    final donutCard = _SectionCard(
+      title: 'Spese per categoria',
+      child: CategoryDonut(
+        slices: data.byCategory,
+        total: data.totalExpense,
+        selectedCategoryId: selectedId,
+        onSelect: (id) => setState(() => _selectedCategoryId = id),
+      ),
+    );
+
+    final subcategoryCard = selectedSlice == null
+        ? null
+        : _SectionCard(
             child: SubcategoryBars(
               categoryName: selectedSlice.name,
               color: selectedSlice.color,
               slices: data.subByCategory[selectedId] ?? const [],
             ),
-          ),
-        // L'andamento è una vista annuale: ha senso solo in modalità "Anno".
-        // Segue la stessa categoria selezionata nella torta (come il
-        // dettaglio sottocategorie sotto), non il totale: quando cambi
-        // fetta selezionata cambia anche questo grafico.
-        if (_month == null)
-          _SectionCard(
+          );
+
+    // L'andamento è una vista annuale: ha senso solo in modalità "Anno".
+    // Segue la stessa categoria selezionata nella torta (come il dettaglio
+    // sottocategorie sopra), non il totale: quando cambi fetta selezionata
+    // cambia anche questo grafico.
+    final trendCard = _month != null
+        ? null
+        : _SectionCard(
             title: selectedSlice == null
                 ? 'Andamento 12 mesi'
                 : 'Andamento 12 mesi · ${selectedSlice.name}',
@@ -152,7 +123,110 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   : (data.monthlyBudgetByCategory[selectedId] ??
                       List.filled(12, 0)),
             ),
+          );
+
+    return ContentWidthLimiter(
+      // Più larga del default (640): qui dentro ci sono due colonne di
+      // grafici affiancate su finestra larga (M28), non una colonna sola.
+      maxWidth: 960,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+        children: [
+          _PeriodSelector(
+            year: _year,
+            month: _month,
+            onModeChanged: (monthMode) => setState(() {
+              if (monthMode) {
+                // Passa a "Mese": default al mese corrente se siamo
+                // nell'anno corrente, altrimenti dicembre.
+                final now = DateTime.now();
+                _month = (_year == now.year) ? now.month : 12;
+              } else {
+                _month = null;
+              }
+            }),
+            onPrev: () => setState(_goPrev),
+            onNext: () => setState(_goNext),
           ),
+          const SizedBox(height: 8),
+          AnnualTotals(
+            income: data.totalIncome,
+            expense: data.totalExpense,
+            budget: data.totalBudget,
+            isOverBudget: data.isOverBudget,
+            savings: data.savings,
+          ),
+          SwitchListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            value: _includeExtraordinary,
+            onChanged: (v) => setState(() => _includeExtraordinary = v),
+            title: const Text('Includi operazioni straordinarie'),
+            dense: true,
+          ),
+          const SizedBox(height: 8),
+          _ChartsSection(
+            donut: donutCard,
+            subcategory: subcategoryCard,
+            trend: trendCard,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Torta "Spese per categoria" e barre sottocategoria raggruppate insieme
+/// (rispondono entrambe alla fetta selezionata) in una colonna; l'andamento
+/// 12 mesi in un'altra colonna più larga (un grafico a linee legge meglio
+/// con più spazio orizzontale) — solo su finestra larga (M28, mockup
+/// discusso e approvato con Mario il 16 ago 2026). Sotto la soglia, tutto
+/// impilato come oggi.
+class _ChartsSection extends StatelessWidget {
+  const _ChartsSection({
+    required this.donut,
+    required this.subcategory,
+    required this.trend,
+  });
+
+  final Widget donut;
+  final Widget? subcategory;
+  final Widget? trend;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isWideWindow(context)) {
+      return Column(
+        children: [
+          donut,
+          if (subcategory != null) subcategory!,
+          if (trend != null) trend!,
+        ],
+      );
+    }
+    if (trend == null) {
+      // Vista "Mese": nessun andamento da affiancare, resta tutto in colonna
+      // (affiancare la sola torta a un vuoto non avrebbe senso).
+      return Column(
+        children: [
+          donut,
+          if (subcategory != null) subcategory!,
+        ],
+      );
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 85,
+          child: Column(
+            children: [
+              donut,
+              if (subcategory != null) subcategory!,
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(flex: 115, child: trend!),
       ],
     );
   }
