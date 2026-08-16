@@ -933,6 +933,76 @@ in un messaggio d'errore**
     alla stessa spesa — il flusso manuale esistente non ha questo
     controllo, quindi non è una regressione ometterlo qui.
 
+**M26 — 🔧 Proposta — Fondamenta layout desktop-adattivo**
+*(richiesta da Mario, 16 ago 2026 — l'app "è scomoda da usare da pc")*
+- Problema: `root_scaffold.dart` e tutte le pagine non hanno alcuna logica
+  responsive — stessa bottom navigation bar e stesso layout a colonna
+  singola pensato per il telefono, indipendentemente da quanto sia larga
+  la finestra Windows. Confermato con un mockup HTML di confronto
+  (Home attuale vs proposta), discusso e corretto insieme prima di questa
+  proposta: niente grafici aggiunti solo per riempire lo spazio guadagnato,
+  la finestra larga deve dare respiro (margini), non contenuto extra; le
+  card devono condividere un'unica famiglia di misure (raggio/padding),
+  non proporzioni ad hoc diverse tra loro.
+- Approccio approvato (solo infrastruttura condivisa, nessuna singola
+  schermata ridisegnata in questa milestone):
+  - `VisualDensity.adaptivePlatformDensity` in `app_theme.dart` — riduce
+    padding/altezze dei componenti Material standard su desktop, invariato
+    su Android (un cambio di poche righe, senza toccare la palette).
+  - Breakpoint condiviso (es. helper `isWideWindow(context)` su
+    `MediaQuery`, soglia orientativa ~900dp, coerente con le linee guida
+    Material 3 per il passaggio bottom-nav→rail).
+  - `NavigationRail` in `root_scaffold.dart` sopra la soglia, bottom
+    navigation bar invariata sotto — stessa struttura di route/tab
+    esistente (Home/Dashboard/Budget/Altro), cambia solo il widget di
+    navigazione.
+  - Widget condiviso "larghezza massima contenuto" (centra il contenuto
+    con margini generosi invece di stirarlo edge-to-edge) + una scala di
+    misure card comune (stesso raggio/padding/altezza minima), da riusare
+    in ogni pagina adattata dalle milestone successive — questa è la
+    fondamenta che rende omogenee tutte le schermate, invece di reinventare
+    le proporzioni una pagina alla volta.
+  - Verificato con build reale Windows (nessuna modifica visiva alle
+    singole schermate oltre a densità/rail attivi) prima di procedere
+    pagina per pagina nelle milestone seguenti.
+
+**M27 — 🔧 Proposta — Home adattiva da finestra larga**
+*(mockup discusso e approvato con Mario, 16 ago 2026)*
+- Problema: la Home (card Saldo Budget/Saldo Reale, barra budget, Ultime
+  operazioni) si stira a colonna singola anche su finestra larga.
+- Approccio approvato: Saldo Budget/Saldo Reale/barra budget in riga su 3
+  colonne di uguale larghezza (stessa famiglia di misure di M26), Ultime
+  operazioni sotto in lista, tutto racchiuso nel widget "larghezza massima
+  contenuto" con margini generosi ai lati. **Niente grafici in Home**
+  (restano solo in Dashboard, dove già sono): lo spazio guadagnato dalla
+  finestra larga resta respiro, non viene riempito con altro contenuto.
+
+**M28 — 🔧 Proposta (da progettare) — Dashboard adattiva**
+- Non ancora progettata nel dettaglio. La Dashboard ha già grafici
+  (andamento mensile, spese per categoria, barre sottocategoria, totali
+  annuali) oggi impilati verticalmente — su finestra larga potrebbero
+  affiancarsi, ma qui i grafici ci sono davvero (a differenza della Home),
+  quindi il principio "non riempire per riempire" di M27 non si applica
+  allo stesso modo: va comunque discussa con un mockup dedicato, come fatto
+  per la Home, prima di scrivere codice.
+
+**M29 — 🔧 Proposta (da progettare) — Budget adattivo**
+- Non ancora progettata nel dettaglio: da valutare con un mockup dedicato
+  quando si arriva a questa milestone.
+
+**M30 — 🔧 Proposta (da progettare) — Storico adattivo**
+- Non ancora progettata nel dettaglio. Possibile pattern master-detail
+  (lista a sinistra, dettaglio/modifica a destra invece di navigare a
+  schermo intero) sfruttando la larghezza, ma è una decisione strutturale
+  da confermare con un mockup dedicato, non assunta qui.
+
+**M31 — 🔧 Proposta (da progettare) — Form e Impostazioni adattivi**
+- Nuova Operazione, Impostazioni e sottopagine (Categorie, Regole Merchant,
+  Import/Export, Admin, import estratto conto). Probabilmente beneficiano
+  soprattutto della densità/larghezza massima già pronte in M26 senza
+  bisogno di un redesign strutturale come la Home, ma da confermare
+  schermata per schermata quando si arriva a questa milestone.
+
 ---
 
 ### Processo per nuove milestone (da qui in avanti)
