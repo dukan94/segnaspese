@@ -33,7 +33,9 @@ desktop Windows** grazie a Flutter.
   Opzionalmente a numero di occorrenze finito (es. "12 rate"): raggiunto il
   numero impostato si mette in pausa da sola.
 - **Rimborsi collegati** — un rimborso può essere agganciato alla spesa
-  originale (dallo Storico o dal form di modifica).
+  originale (dallo Storico o dal form di modifica); un'azione rapida
+  "Rimborso con divisore" crea la quota (importo/N) con nota facoltativa,
+  senza passare dal form completo.
 - **Ricerca e import/export CSV** — ricerca full-text sui movimenti,
   import/export CSV round-trip (compatibile con Excel).
 - **Import estratto conto bancario** — importa i movimenti da un file Excel
@@ -103,8 +105,8 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M24 e M26-M29 sono completate (M25 proposta, M30-M31 da
-progettare). Integrazione continua attiva
+milestone M0-M29 sono completate (M30-M31 da progettare). Integrazione
+continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
 | Milestone | Contenuto | Stato |
@@ -134,7 +136,7 @@ progettare). Integrazione continua attiva
 | **M22** | Isolamento errori nella sequenza di avvio (`main.dart`): un errore in uno step non impedisce più agli altri e a `runApp()` di eseguire | ✅ Completata |
 | **M23** | Copertura test per 4 file critici privi di test (Gemini, seed, dedupe tassonomia, client HTTP Turso) — 37 nuovi test | ✅ Completata |
 | **M24** | Aggiornamento dipendenze (csv, flutter_secure_storage, file_picker, go_router, Drift+sqlite3 3.x senza più `sqlite3_flutter_libs`) — verificato con build reale sul database vero | ✅ Completata |
-| **M25** | Rimborso con divisore: da una spesa, crea un rimborso pari a 1/N con nota facoltativa | 🔧 Proposta |
+| **M25** | Rimborso con divisore: da una spesa, crea un rimborso pari a 1/N con nota facoltativa | ✅ Completata |
 | **M26** | Fondamenta layout desktop-adattivo: densità, `NavigationRail`, larghezza massima contenuto | ✅ Completata |
 | **M27** | Home adattiva da finestra larga (Saldo Budget/Reale affiancate, niente grafici) | ✅ Completata |
 | **M28** | Dashboard adattiva (torta+barre sottocategoria in colonna, andamento 12 mesi nell'altra) | ✅ Completata |

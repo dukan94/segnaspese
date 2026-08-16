@@ -14,6 +14,7 @@ import '../shared_widgets/empty_state.dart';
 import '../shared_widgets/fade_in_item.dart';
 import '../shared_widgets/linked_expense_sheet.dart';
 import '../transaction/add_transaction_page.dart';
+import '../transaction/widgets/split_refund_sheet.dart';
 
 /// Storico: elenco completo delle operazioni con ricerca, modifica ed
 /// eliminazione. Raggiungibile dalla barra di navigazione.
@@ -119,6 +120,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         onEdit: () => _edit(tx),
                         onDelete: () => _confirmDelete(tx),
                         onRefund: canRefund ? () => _refund(tx) : null,
+                        onSplitRefund: canRefund
+                            ? () => showSplitRefundSheet(
+                                  context,
+                                  tx,
+                                  catById[tx.categoryId],
+                                )
+                            : null,
                         linkedExpense: linked,
                         onShowLinked: linked == null
                             ? null
@@ -212,6 +220,7 @@ class _HistoryTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     this.onRefund,
+    this.onSplitRefund,
     this.linkedExpense,
     this.onShowLinked,
   });
@@ -223,6 +232,11 @@ class _HistoryTile extends StatelessWidget {
 
   /// Avvia un rimborso collegato a questa spesa (solo per le uscite normali).
   final VoidCallback? onRefund;
+
+  /// Rimborso con divisore (M25): quota rapida di questa spesa, senza
+  /// passare dal form completo. Stessa condizione di visibilità di
+  /// [onRefund] (solo uscite normali, mai un rimborso di un rimborso).
+  final VoidCallback? onSplitRefund;
 
   /// Spesa originale a cui questo rimborso è collegato (se presente).
   final TransactionEntity? linkedExpense;
@@ -285,6 +299,14 @@ class _HistoryTile extends StatelessWidget {
                 color: theme.colorScheme.outline,
                 visualDensity: VisualDensity.compact,
                 onPressed: onRefund,
+              ),
+            if (onSplitRefund != null)
+              IconButton(
+                icon: const Icon(Icons.call_split, size: 20),
+                tooltip: 'Rimborso con divisore',
+                color: theme.colorScheme.outline,
+                visualDensity: VisualDensity.compact,
+                onPressed: onSplitRefund,
               ),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),

@@ -621,8 +621,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M24 e M26–M29 completate** (M25, rimborso con divisore, resta
-  proposta/da sviluppare; M30-M31, Storico e Form/Impostazioni adattivi,
+- **M0–M29 completate** (M30-M31, Storico e Form/Impostazioni adattivi,
   restano da progettare — v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
@@ -644,13 +643,13 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   `_runStartupStep` in main.dart (M22), copertura test per Gemini/seed/
   dedupe/client HTTP Turso (M23), aggiornamento dipendenze — csv,
   flutter_secure_storage, file_picker, go_router, Drift+sqlite3 3.x senza
-  più sqlite3_flutter_libs (M24). **Refactor desktop-adattivo (M26-M29,
-  v. sezione dedicata sopra)**: fondamenta (densità, `NavigationRail`,
-  `ContentWidthLimiter`, M26), Home (M27), Dashboard (M28), Budget (M29)
-  riorganizzate su finestra larga. **CI attiva** — `.github/workflows/
-  ci.yml`: `flutter analyze` + `flutter test`
+  più sqlite3_flutter_libs (M24). Rimborso con divisore (M25). **Refactor
+  desktop-adattivo (M26-M29, v. sezione dedicata sopra)**: fondamenta
+  (densità, `NavigationRail`, `ContentWidthLimiter`, M26), Home (M27),
+  Dashboard (M28), Budget (M29) riorganizzate su finestra larga. **CI
+  attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
-- Test in `test/` (24 file, 159 test): parser CSV, receipt parser, rule
+- Test in `test/` (26 file, 169 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -666,9 +665,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (`seed_runner_test.dart`), dedupe tassonomia
   (`dedupe_default_taxonomy_test.dart`), client HTTP Turso con
   encoding/decoding reale — non solo `FakeTursoHttpClient`
-  (`turso_http_client_test.dart`) — tutti e 4 aggiunti in M23, **export CSV
+  (`turso_http_client_test.dart`) — tutti e 4 aggiunti in M23, export CSV
   (`transaction_export_service_test.dart`, M24 — non esisteva prima
-  dell'upgrade di `csv`)** + 1 smoke
+  dell'upgrade di `csv`), **rimborso con divisore
+  (`build_split_refund_test.dart`, M25)** + 1 smoke
   widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)

@@ -886,7 +886,7 @@ in un messaggio d'errore**
 > CLAUDE.md. Da rivedere solo se in futuro si distribuisce mai un APK
 > release reale, non un'azione da fare ora.
 
-**M25 — 🔧 Proposta — Rimborso con divisore (quota di una spesa condivisa)**
+**M25 — ✅ Completata — Rimborso con divisore (quota di una spesa condivisa)**
 *(richiesta da Mario, 16 ago 2026)*
 - Problema: da una spesa esistente, creare rapidamente un rimborso pari a
   una frazione (1/N) dell'importo originale, con nota facoltativa (di
@@ -927,6 +927,19 @@ in un messaggio d'errore**
     dedicato in `domain/usecases/transaction/` (puro Dart, testabile senza
     Flutter) — la divisione con arrotondamento è l'unica vera logica di
     business della feature, merita un test dedicato.
+  - **Fatto**: `BuildSplitRefund` (`domain/usecases/transaction/
+    build_split_refund.dart`) — pura logica di calcolo/validazione (divide,
+    arrotonda a 2 decimali, valida divisore ≥2/spesa con id/spesa normale
+    non già rimborso o entrata), 10 test dedicati
+    (`test/build_split_refund_test.dart`). Bottom sheet
+    `showSplitRefundSheet` (`presentation/transaction/widgets/
+    split_refund_sheet.dart`): spesa originale in sola lettura, campo
+    "Divisore" (solo cifre, errore inline se <2), "Note" facoltativa,
+    anteprima live "Quota: X,XX €". Nuova icona `Icons.call_split`
+    ("Rimborso con divisore") in Storico accanto a "Rimborsa" esistente,
+    stesso filtro di visibilità. Salvataggio tramite lo stesso
+    `addTransactionProvider` del form manuale (stessa pipeline, bridge
+    Google Sheets incluso).
   - **Non incluso in questa prima versione** (nessuna richiesta esplicita,
     nessun codice esistente da riusare): un tetto che impedisca di
     rimborsare più del dovuto sommando eventuali rimborsi già collegati
@@ -1101,9 +1114,8 @@ sempre questi passi, in ordine:
 
 ---
 
-**Stato attuale (16 ago 2026):** tutte le milestone **M0-M24 e M26-M29
-completate** (M25, rimborso con divisore, resta proposta/da sviluppare;
-M30-M31, Storico e Form/Impostazioni adattivi, restano da progettare — v.
+**Stato attuale (16 ago 2026):** tutte le milestone **M0-M29 completate**
+(M30-M31, Storico e Form/Impostazioni adattivi, restano da progettare — v.
 sezione 6 per il dettaglio di ciascuna). M9-M24: Admin e manutenzione
 dati, icona/splash "Tally", robustezza doppioni transazioni, build Android
 release, blocco doppioni categoria + strumento "Unisci con...", ricorrenze a
@@ -1111,26 +1123,27 @@ numero di occorrenze finito, import estratto conto bancario, rifiniture
 ricerca/dashboard/CI, migrazione schema locale idempotente, fix sicurezza
 API key Gemini, gestione errori cancellazione transazione, verifica
 `sqlite3_flutter_libs`, timeout Google Sheets, isolamento errori avvio,
-copertura test logica critica, aggiornamento dipendenze. M26-M29: refactor
-desktop-adattivo (densità, `NavigationRail`, `ContentWidthLimiter`, Home/
-Dashboard/Budget riorganizzate su finestra larga — v. sezione dedicata in
-CLAUDE.md). Schema DB Drift
-alla **versione 7**, ora su **`sqlite3` 3.x nativo** (M24: `sqlite3_flutter_
-libs` rimosso, v. sezione dedicata in CLAUDE.md — non reintrodurlo). **CI
-attiva** (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test`
-su ogni push e PR (con rigenerazione del codice). Test: **24 file, 159
-test** in `test/` (parser CSV, receipt parser, rule matcher, duplicate
-finder, motore di sync Turso (incluso rientranza `syncNow()`, verifica
-remota puntuale e migrazione schema remoto), repair sottocategorie orfane,
-widget animati, DAO ricorrenze/categorie/budget/transazioni (incluso hard
-delete/purge, riemissione live del riordino, unione categorie/
-sottocategorie, numero di occorrenze finito), formatter e servizio Google
-Sheets (header matching), `SafeTransactionDeletionService`, parser estratto
-conto BancoPosta e duplicate matcher, migrazione locale idempotente (M17),
-servizio Gemini incluso il regression test di sicurezza M18, seed
-runner, dedupe tassonomia, client HTTP Turso con encoding/decoding reale
-(M23), **export CSV (M24, non esisteva prima dell'upgrade di `csv`)** + 1
-smoke widget test). Repository impl e usecase restano senza test dedicati:
+copertura test logica critica, aggiornamento dipendenze. M25: rimborso con
+divisore (quota di una spesa condivisa). M26-M29: refactor desktop-adattivo
+(densità, `NavigationRail`, `ContentWidthLimiter`, Home/Dashboard/Budget
+riorganizzate su finestra larga — v. sezione dedicata in CLAUDE.md). Schema
+DB Drift alla **versione 7**, ora su **`sqlite3` 3.x nativo** (M24:
+`sqlite3_flutter_libs` rimosso, v. sezione dedicata in CLAUDE.md — non
+reintrodurlo). **CI attiva** (`.github/workflows/ci.yml`): `flutter
+analyze` + `flutter test` su ogni push e PR (con rigenerazione del
+codice). Test: **26 file, 169 test** in `test/` (parser CSV, receipt
+parser, rule matcher, duplicate finder, motore di sync Turso (incluso
+rientranza `syncNow()`, verifica remota puntuale e migrazione schema
+remoto), repair sottocategorie orfane, widget animati, DAO
+ricorrenze/categorie/budget/transazioni (incluso hard delete/purge,
+riemissione live del riordino, unione categorie/sottocategorie, numero di
+occorrenze finito), formatter e servizio Google Sheets (header matching),
+`SafeTransactionDeletionService`, parser estratto conto BancoPosta e
+duplicate matcher, migrazione locale idempotente (M17), servizio Gemini
+incluso il regression test di sicurezza M18, seed runner, dedupe
+tassonomia, client HTTP Turso con encoding/decoding reale (M23), export
+CSV (M24), **rimborso con divisore (M25)** + 1 smoke widget test).
+Repository impl e usecase restano senza test dedicati:
 delega pura, nessuna logica propria. Da qui in avanti, ogni nuova modifica
 non banale segue il processo descritto in fondo alla sezione 6 (categorizza
 → documenta come milestone qui, in attesa di ok → sviluppa → propaga lo
