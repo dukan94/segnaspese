@@ -662,7 +662,7 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
   principio già usato per lo schema remoto Turso (M14). Test di regressione
   in `test/app_database_migration_test.dart`.
 
-**M18 — 🔧 Proposta — Fix sicurezza: API key Gemini non deve mai comparire
+**M18 — ✅ Completata — Fix sicurezza: API key Gemini non deve mai comparire
 in un messaggio d'errore**
 *(emersa da audit best-practice, 16 ago 2026)*
 - Problema: `gemini_vision_service.dart` costruisce l'URL della chiamata
@@ -675,12 +675,18 @@ in un messaggio d'errore**
   errore di rete durante uno scan. Il `TimeoutException` nello stesso file
   non ha questo problema (messaggio già pulito) — serve lo stesso
   trattamento per gli altri tipi di eccezione di rete.
-- Approccio proposto: intercettare `SocketException`/`ClientException`
-  attorno alla chiamata Gemini e sostituire il messaggio con un testo
-  generico (senza includere l'eccezione originale/URL). Verificare anche il
-  messaggio d'errore esposto da "Test connessione" Google Sheets in Admin,
-  per lo stesso tipo di rischio (Turso non è a rischio: il token passa in
-  header, non in URL).
+- **Fatto**: il blocco `catch (e)` generico in `analyzeReceipt` non
+  interpola più l'eccezione originale nel messaggio (era `'Impossibile
+  contattare Gemini: $e'`, ora un testo fisso senza `$e`); aggiunto un
+  branch dedicato `on SocketException` per un messaggio leggermente più
+  specifico ("nessuna connessione di rete") comunque senza echeggiare
+  l'eccezione originale. Verificato il bridge Google Sheets: non ha lo
+  stesso rischio (le credenziali passano per header/JWT nella libreria
+  `googleapis_auth`, mai in query string) — nessuna modifica necessaria
+  lì. Test dedicato di regressione rimandato a M23 (serve prima
+  un'infrastruttura di test per questo servizio, oggi privo di qualunque
+  copertura — v. M23); `flutter analyze` + `flutter test` (120/120)
+  invariati dopo il fix.
 
 **M19 — 🔧 Proposta — Gestione errori su cancellazione transazione
 (Home/Storico)**

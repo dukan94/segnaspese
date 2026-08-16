@@ -83,8 +83,18 @@ indovinare.''';
           .timeout(const Duration(seconds: 30));
     } on TimeoutException {
       throw GeminiApiException('Gemini non ha risposto entro 30s.');
+    } on SocketException {
+      throw GeminiApiException(
+          'Impossibile contattare Gemini: nessuna connessione di rete.');
     } catch (e) {
-      throw GeminiApiException('Impossibile contattare Gemini: $e');
+      // MAI interpolare l'eccezione originale nel messaggio (bug reale,
+      // audit 16 ago 2026): l'URL della richiesta contiene la API key in
+      // query string (v. sopra), e alcune eccezioni HTTP (es.
+      // ClientException di package:http) includono l'URL completo nel
+      // proprio toString(). Quel messaggio risale fino a una snackbar
+      // mostrata all'utente (receipt_scan_page.dart) — la key finirebbe
+      // visibile a schermo.
+      throw GeminiApiException('Impossibile contattare Gemini.');
     }
 
     if (response.statusCode == 400 || response.statusCode == 403) {
