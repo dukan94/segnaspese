@@ -557,6 +557,21 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
 
 ## Come lavorare su questo progetto
 
+0. **Sincronizza SEMPRE per primo, prima di leggere codice o iniziare
+   qualunque lavoro**: `git fetch --all` poi allinea `main` locale a
+   `origin/main` (fast-forward se il locale non ha commit propri, altrimenti
+   fermati e chiedi). Mario lavora in parallelo da **due PC diversi**, ognuno
+   con una propria sessione Claude Code: git è lo strumento con cui i due
+   ambienti restano sincronizzati, quindi l'esperienza deve essere
+   indistinguibile da un unico posto di lavoro. Un locale rimasto indietro
+   porta a rifare (o peggio, a duplicare/entrare in conflitto con) lavoro già
+   fatto e pushato dall'altra sessione — **successo reale, non solo
+   teorico** (16 ago 2026): una sessione ha rifatto da zero un fix per la
+   quota storage GitHub Actions già risolto e pushato 11 giorni prima
+   dall'altro PC, scoperto solo perché Mario si è ricordato di aver già
+   affrontato quel problema. Se emergono branch remoti con lavoro non ancora
+   mergiato in `main` durante il fetch, segnalarlo esplicitamente invece di
+   ignorarlo.
 1. Prima di modifiche non banali proponi il **design** e attendi l'ok.
 2. Verifica lo stato reale sul codice (specie milestone e test) prima di
    affidarti a questi documenti.
