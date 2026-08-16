@@ -17,6 +17,22 @@ void _logSyncError(Object error, StackTrace stackTrace) {
   debugPrint('Sync Turso fallita (background): $error\n$stackTrace');
 }
 
+/// Esegue uno step di avvio isolandone gli errori (bug reale, audit 16 ago
+/// 2026): un'eccezione non gestita qui, prima di `runApp()`, impedisce alla
+/// finestra di comparire (Windows la mostra solo al primo frame Flutter
+/// renderizzato) senza nessun errore visibile — stessa fragilità già
+/// corretta per la migrazione schema (M17), qui estesa a ogni altro step.
+/// Ognuno di questi step è comunque opportunistico/riparativo: saltarlo una
+/// volta non perde dati, solo rimanda riparazione/generazione al prossimo
+/// avvio (stesso principio già in uso per la sync Turso sotto).
+Future<void> _runStartupStep(String label, Future<void> Function() step) async {
+  try {
+    await step();
+  } catch (error, stackTrace) {
+    debugPrint('Avvio: "$label" fallito, si continua comunque: $error\n$stackTrace');
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -29,24 +45,27 @@ Future<void> main() async {
   // Applica i dati di default. Al primo avvio popola categorie,
   // sottocategorie e regole; se la tassonomia di default è cambiata
   // (kSeedVersion) esegue un reset pulito e ripopola (v. seed_runner.dart).
-  await runSeed(db);
+  await _runStartupStep('seed dati di default', () => runSeed(db));
 
   // Ripara eventuali doppioni di categorie/sottocategorie/regole di default
   // creati da dispositivi che hanno seedato la tassonomia indipendentemente
   // prima di sincronizzare (v. dedupe_default_taxonomy.dart). Innocuo e
   // veloce quando non ce ne sono.
-  await dedupeDefaultTaxonomy(db);
+  await _runStartupStep(
+      'dedupe tassonomia di default', () => dedupeDefaultTaxonomy(db));
 
   // Ripara sottocategorie rimaste attive con una categoria padre cancellata
   // (v. repair_orphaned_subcategories.dart). Va dopo dedupeDefaultTaxonomy:
   // pulisce anche eventuali incoerenze che il re-pointing del dedupe stesso
   // potrebbe rivelare.
-  await repairOrphanedSubCategories(db);
+  await _runStartupStep('riparazione sottocategorie orfane',
+      () => repairOrphanedSubCategories(db));
 
   // Genera le transazioni dovute dai movimenti ricorrenti attivi (recupera
   // anche le occorrenze arretrate se l'app non veniva aperta da più periodi).
   // v. domain/usecases/recurring/generate_due_recurring.dart
-  await container.read(generateDueRecurringProvider).call();
+  await _runStartupStep('generazione ricorrenze dovute',
+      () => container.read(generateDueRecurringProvider).call());
 
   // Sync Turso (Milestone M7): non deve mai bloccare l'avvio né far
   // crashare l'app se non configurata o offline, quindi fire-and-forget con

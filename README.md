@@ -103,7 +103,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M21 sono completate (M22-M24 proposte, in attesa di sviluppo).
+milestone M0-M22 sono completate (M23-M24 proposte, in attesa di sviluppo).
 Integrazione continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -131,6 +131,7 @@ Integrazione continua attiva
 | **M19** | Gestione errori su cancellazione transazione (Home/Storico): un fallimento ora mostra sempre una snackbar | ✅ Completata |
 | **M20** | Verifica tag `+eol` su `sqlite3_flutter_libs`: l'upgrade richiede prima Drift ≥2.32, spostato dentro M24 | ✅ Completata |
 | **M21** | Timeout (30s) su tutte le chiamate di rete del bridge Google Sheets, "Test connessione" non resta più bloccato indefinitamente | ✅ Completata |
+| **M22** | Isolamento errori nella sequenza di avvio (`main.dart`): un errore in uno step non impedisce più agli altri e a `runApp()` di eseguire | ✅ Completata |
 
 ## Struttura del database
 
