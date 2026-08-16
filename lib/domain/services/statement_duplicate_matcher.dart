@@ -11,9 +11,12 @@ import '../entities/transaction_entity.dart';
 /// stesso movimento arrivato da un altro device), qui una transazione
 /// inserita a mano ha quasi certamente nota/categoria diverse da quelle
 /// dedotte dall'estratto conto — l'unico segnale affidabile è importo
-/// identico e data vicina (la data contabile dell'estratto conto spesso non
-/// coincide col giorno reale della spesa, v. PAGAMENTO POS nel formato
-/// BancoPosta).
+/// identico e data vicina. `bancoposta_statement_parser.dart` usa la Data
+/// Valuta (non la Data Contabile, più lontana dal giorno reale — bug
+/// corretto il 16 ago 2026), quindi generalmente già vicina al giorno reale
+/// della spesa; la tolleranza resta comunque utile come margine di
+/// sicurezza (es. valuta calcolata su un giorno non lavorativo, o la spesa
+/// inserita a mano con un giorno di scarto).
 class StatementDuplicateMatcher {
   const StatementDuplicateMatcher({this.toleranceDays = 3});
 

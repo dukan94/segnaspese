@@ -43,10 +43,16 @@ void main() {
     expect(parser.bankName, contains('BancoPosta'));
   });
 
-  test('riga PAGAMENTO POS → uscita, importo e descrizione corretti', () {
+  test(
+      'riga PAGAMENTO POS → uscita, importo e descrizione corretti, data '
+      'presa dalla colonna Data Valuta (non Data Contabile, bug reale 16 ago 2026)',
+      () {
     final bytes = _buildWorkbook(dataRows: [
       [
-        const DateCellValue(year: 2026, month: 8, day: 3),
+        // Data Contabile e Data Valuta diverse apposta: se il parser
+        // leggesse ancora la colonna sbagliata (Data Contabile), questo
+        // test lo scoprirebbe subito.
+        const DateCellValue(year: 2026, month: 8, day: 5),
         const DateCellValue(year: 2026, month: 8, day: 3),
         const DoubleCellValue(8.0),
         null,
@@ -57,7 +63,7 @@ void main() {
 
     final rows = parser.parse(bytes);
     expect(rows, hasLength(1));
-    expect(rows.single.date, DateTime(2026, 8, 3));
+    expect(rows.single.date, DateTime(2026, 8, 3)); // Data Valuta, non Contabile
     expect(rows.single.amount, 8.0);
     expect(rows.single.type, TransactionType.expense);
     expect(rows.single.description, contains('SAPORI DI PUGLIA'));

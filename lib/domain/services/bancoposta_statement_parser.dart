@@ -17,6 +17,15 @@ import 'bank_statement_parser.dart';
 /// stile numerico data (`numFmtId` 14): il pacchetto `excel` le decodifica
 /// già come [DateCellValue]; il fallback su seriale grezzo copre file dove
 /// la cella non ha uno stile data esplicito.
+///
+/// **Data Valuta, non Data Contabile** (bug reale, segnalato da Mario 16 ago
+/// 2026): la colonna usata per popolare [ParsedStatementRow.date] è la
+/// seconda (Data Valuta), non la prima (Data Contabile) — quest'ultima serve
+/// solo ad ancorare la ricerca della riga di intestazione (v. sotto), non è
+/// la data della transazione. La data contabile è quando la banca registra
+/// il movimento (può slittare di giorni per weekend/elaborazione batch); la
+/// data valuta è quella con cui il movimento incide sul saldo, molto più
+/// vicina al giorno reale della spesa per i pagamenti POS.
 class BancoPostaStatementParser implements BankStatementParser {
   const BancoPostaStatementParser();
 
@@ -58,7 +67,9 @@ class BancoPostaStatementParser implements BankStatementParser {
       final row = sheet.row(r);
       Data? at(int i) => i < row.length ? row[i] : null;
 
-      final date = _date(at(0));
+      // Colonna 1 (Data Valuta), non 0 (Data Contabile) — v. commento di
+      // classe sopra.
+      final date = _date(at(1));
       if (date == null) break; // fine dei dati
 
       final debit = _amount(at(2));
