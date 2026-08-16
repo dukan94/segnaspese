@@ -6,6 +6,7 @@ import '../../core/utils/formatters.dart';
 import '../../core/utils/responsive.dart';
 import '../shared_widgets/content_width_limiter.dart';
 import 'budget_providers.dart';
+import 'widgets/add_icon.dart';
 import 'widgets/budget_amount_dialog.dart';
 
 /// Dettaglio del budget di un mese: totale del mese e suddivisione tra le
@@ -335,6 +336,10 @@ class _CategoryBudgetTile extends StatelessWidget {
                     // Mese passato: niente invito ad aggiungere un budget.
                     Text('Nessun budget',
                         style: TextStyle(color: colorScheme.outline))
+                  else if (isWideWindow(context))
+                    // Griglia (M29): stesso trattamento di _MonthTile in
+                    // budget_page.dart, v. AddIcon.
+                    const AddIcon()
                   else
                     Row(
                       mainAxisSize: MainAxisSize.min,
