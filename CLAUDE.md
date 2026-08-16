@@ -582,15 +582,49 @@ default (90 giorni).
   mano gli artifact vecchi dalla tab Actions del repo (o "Manage artifacts"
   nella singola run), aspettare il ricalcolo, poi rilanciare.
 
+## Layout desktop-adattivo (M26-M29)
+
+Refactor richiesto da Mario il 16 ago 2026 ("l'app è scomoda da usare da
+pc" — elementi troppo da touch, contenuto stirato a piena larghezza).
+Ogni pagina toccata da M26 in poi (e le prossime, M30/M31) segue lo stesso
+schema — riusarlo per coerenza invece di inventarne uno nuovo:
+
+- `isWideWindow(context)` (`core/utils/responsive.dart`, soglia 900dp) per
+  decidere Row/griglia (finestra larga) vs Column (sotto la soglia, stesso
+  comportamento di sempre — Android non cambia mai).
+- `ContentWidthLimiter` (`presentation/shared_widgets/`) per centrare il
+  contenuto con una larghezza massima invece di stirarlo edge-to-edge:
+  `maxWidth: 640` per pagine a colonna singola tipo form, `960` per pagine
+  con griglie/colonne interne (Dashboard, Budget). **Lo spazio guadagnato
+  da una finestra larga resta respiro (margini), non diventa contenuto in
+  più** — principio esplicito di Mario durante la discussione del mockup
+  Home, non va violato aggiungendo widget "perché c'è spazio" (es. niente
+  grafici in Home, che non li ha mai avuti).
+- Nessuna nuova "famiglia di card" per desktop: le card continuano a usare
+  il `CardTheme` globale già esistente (`app_theme.dart`), che garantisce
+  raggio/padding coerenti da solo. L'omogeneità va cercata raggruppando
+  per **relazione funzionale** (es. Dashboard: torta+barre sottocategoria
+  insieme perché rispondono alla stessa selezione, non "sono entrambi
+  grafici") o riconoscendo **elementi ripetuti e comparabili** (es. Budget:
+  12 mesi/N categorie → griglia `GridView` a 4 colonne con `mainAxisExtent`
+  fisso, non una lista; un blocco singolo come `AnnualSummaryCard` non
+  entra nella griglia, resta a piena larghezza sopra).
+- `VisualDensity.adaptivePlatformDensity` (M26, in `app_theme.dart`) è
+  invece globale, non per-pagina: non serve ripeterlo.
+- Ogni pagina è stata prima discussa con un mockup HTML (non genera
+  codice, solo per concordare la direzione) e approvata da Mario prima di
+  scrivere il codice Flutter — se si riprende M30/M31, stesso metodo.
+
 ## Stato attuale (16 ago 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M24 completate** (tutte le proposte emerse dall'audit best-practice
-  del 16 ago 2026 sviluppate — v. `progettazione_finance_app.md` sezione
-  6 per il dettaglio completo). M0-M8:
+- **M0–M24 e M26–M29 completate** (M25, rimborso con divisore, resta
+  proposta/da sviluppare; M30-M31, Storico e Form/Impostazioni adattivi,
+  restano da progettare — v. `progettazione_finance_app.md` sezione 6 per
+  il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
@@ -608,9 +642,12 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   Home/Storico (M19), verifica tag `+eol` `sqlite3_flutter_libs` (M20),
   timeout su chiamate Google Sheets (M21), isolamento errori nell'avvio,
   `_runStartupStep` in main.dart (M22), copertura test per Gemini/seed/
-  dedupe/client HTTP Turso (M23), **aggiornamento dipendenze — csv,
+  dedupe/client HTTP Turso (M23), aggiornamento dipendenze — csv,
   flutter_secure_storage, file_picker, go_router, Drift+sqlite3 3.x senza
-  più sqlite3_flutter_libs (M24)**. **CI attiva** — `.github/workflows/
+  più sqlite3_flutter_libs (M24). **Refactor desktop-adattivo (M26-M29,
+  v. sezione dedicata sopra)**: fondamenta (densità, `NavigationRail`,
+  `ContentWidthLimiter`, M26), Home (M27), Dashboard (M28), Budget (M29)
+  riorganizzate su finestra larga. **CI attiva** — `.github/workflows/
   ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
 - Test in `test/` (24 file, 159 test): parser CSV, receipt parser, rule

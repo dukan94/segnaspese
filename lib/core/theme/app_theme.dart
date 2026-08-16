@@ -90,6 +90,11 @@ class AppTheme {
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
+      // Componenti Material standard più compatti su desktop (Windows),
+      // invariati su Android — richiesto da Mario (16 ago 2026, "elementi
+      // troppo da touch" usando l'app da PC). Un solo cambio qui, nessuna
+      // palette/dimensione da mantenere a mano altrove.
+      visualDensity: VisualDensity.adaptivePlatformDensity,
       scaffoldBackgroundColor: colorScheme.surface,
       appBarTheme: AppBarTheme(
         backgroundColor: colorScheme.surface,
