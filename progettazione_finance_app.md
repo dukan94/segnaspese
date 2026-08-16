@@ -2,8 +2,11 @@
 
 > Documento di design originale, mantenuto aggiornato allo stato reale
 > dell'implementazione (v. sezione 6 per lo stato milestone e le note a fondo
-> pagina). Le nuove milestone/estensioni continuano a seguire il metodo di
-> lavoro concordato: design approvato prima di scrivere il codice.
+> pagina). **Ogni modifica non banale — nuova milestone, estensione, fix
+> strutturale — va categorizzata e documentata qui PRIMA di scrivere codice**
+> (v. "Processo per nuove milestone" in fondo alla sezione 6), non solo
+> concordata a voce: l'obiettivo è che lo stato scritto qui sia sempre quello
+> vero, milestone per milestone, come per M0-M8.
 
 ---
 
@@ -106,7 +109,7 @@ lib/
 ├── data/
 │   ├── local/
 │   │   ├── database/
-│   │   │   ├── app_database.dart     # Drift @DriftDatabase (schemaVersion 6)
+│   │   │   ├── app_database.dart     # Drift @DriftDatabase (schemaVersion 7)
 │   │   │   ├── tables/               # transactions, categories, subcategories,
 │   │   │   │                         # merchants, merchant_rules, budgets,
 │   │   │   │                         # recurring, settings
@@ -115,23 +118,35 @@ lib/
 │   │   └── seed/                     # default_categories/subcategories/
 │   │                                  # merchant_rules_seed, seed_runner,
 │   │                                  # dedupe_default_taxonomy (riparazione
-│   │                                  # doppioni post-sync multi-dispositivo)
+│   │                                  # doppioni post-sync multi-dispositivo),
+│   │                                  # repair_orphaned_subcategories
 │   ├── services/
 │   │   ├── turso_http_client.dart    # client HTTP puro Dart per l'API Hrana
 │   │   ├── turso_sync_service.dart   # push/pull bidirezionale, conflict res.
 │   │   ├── sync_service.dart         # interfaccia SyncService + SyncStatus
 │   │   ├── gemini_vision_service.dart # lettura scontrino via Google Gemini
-│   │   └── gemini_api_key_store.dart # API key Gemini in flutter_secure_storage
+│   │   ├── gemini_api_key_store.dart # API key Gemini in flutter_secure_storage
+│   │   ├── google_sheets_service.dart # bridge temporaneo (Admin), service account
+│   │   ├── google_sheets_row_formatter.dart # colonne del foglio "Copia di Spese"
+│   │   ├── safe_transaction_deletion_service.dart # hard delete/purge con
+│   │   │                              # conferma remota (Admin, v. sezione 6 M9)
+│   │   └── transaction_duplicate_finder.dart # doppioni di contenuto in pull sync
 │   ├── mappers/                      # Drift row ↔ Domain entity
 │   └── repositories_impl/            # transaction, category, merchant_rule,
 │                                      # budget, recurring
+│
+├── domain/services/
+│   ├── bank_statement_parser.dart    # interfaccia comune import estratto conto
+│   ├── bancoposta_statement_parser.dart # prima implementazione (Poste/BancoPosta)
+│   └── statement_duplicate_matcher.dart # doppioni con tolleranza (± giorni)
 │
 └── presentation/
     ├── home/                          # home_page, home_providers, widgets/
     │                                  # (balance_card, budget_summary_card,
     │                                  # monthly_stats_row, recent_transactions)
     ├── transaction/                   # add_transaction_page (manuale +
-    │                                  # modifica + rimborso collegato),
+    │                                  # modifica + rimborso collegato + modalità
+    │                                  # "bozza" per l'import estratto conto),
     │                                  # widgets/ (amount_keypad, category_picker)
     ├── receipt/                       # receipt_scan_page (foto/galleria +
     │                                  # Gemini/OCR su mobile, testo su desktop)
@@ -141,14 +156,19 @@ lib/
     ├── budget/                        # budget_page, budget_month_page,
     │                                  # budget_providers, widgets/
     ├── recurring/                     # recurring_list_page, recurring_edit_page
-    ├── history/                       # history_page (ricerca full-text +
-    │                                  # elenco movimenti)
+    │                                  # (numero di occorrenze finito opzionale)
+    ├── history/                       # history_page (ricerca full-text, anche
+    │                                  # per sottocategoria + elenco movimenti)
+    ├── statement_import/              # statement_import_page (import estratto
+    │                                  # conto bancario, un parser per banca)
     ├── altro/                         # altro_page (hub di navigazione
     │                                  # secondaria: Storico, Ricorrenze, Imp.)
-    ├── settings/                      # settings_page, categories_manage_page,
-    │                                  # merchant_rules_page, import_page,
-    │                                  # export_page, sync_page, gemini_page,
-    │                                  # theme_page
+    ├── settings/                      # settings_page, categories_manage_page
+    │                                  # (blocco nomi duplicati + "Unisci con..."),
+    │                                  # merchant_rules_page, export_page,
+    │                                  # sync_page, gemini_page, theme_page,
+    │                                  # admin_page (import CSV, bridge Sheets,
+    │                                  # eliminazione definitiva/pulizia dati)
     └── shared_widgets/                # root_scaffold (bottom nav), linked_
                                         # expense_sheet (spesa collegata a un
                                         # rimborso)
@@ -235,7 +255,9 @@ Schema normalizzato in 3NF. Tutte le tabelle usano `id` autoincrementale come PK
 | frequency | enum(weekly, monthly, yearly) | |
 | dayOfMonth | int (nullable) | |
 | nextOccurrence | dateTime | |
-| active | bool | |
+| active | bool | si disattiva da sola al raggiungimento di `totalOccurrences` (M14) |
+| totalOccurrences | int (nullable) | schema v7 (M14): null = a tempo indeterminato |
+| occurrencesGenerated | int | schema v7 (M14): contatore, parte da 0 |
 
 ### Settings
 | Campo | Tipo | Note |
@@ -501,8 +523,7 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
   + 1 smoke widget test). Repository impl e usecase restano senza test dedicati:
   sono delega pura al DAO sottostante, senza logica propria da verificare.
 
-**Post-M8 — Admin, bridge temporaneo Google Sheets e manutenzione dati** (non
-una milestone, strumenti interni)
+**M9 — Admin e manutenzione dati** *(29 lug 2026)* — ✅ **Completata**
 - Nuova pagina **Impostazioni > Admin** (`admin_page.dart`, nessuna password,
   solo fuori dal flusso normale): ospita l'import CSV (spostato da
   Impostazioni) e la configurazione del bridge Google Sheets.
@@ -514,56 +535,162 @@ una milestone, strumenti interni)
   Note;Tipologia Spesa;Categoria;Tipologia`, dedotto da un export CSV locale
   non versionato del foglio stesso). `testConnection` verifica anche che
   l'intestazione reale del tab combaci con quella attesa, non solo che il tab
-  esista.
-- Autenticazione **service account** (`googleapis`/`googleapis_auth`), non
-  OAuth interattivo: `google_sign_in` non supporta Windows desktop, e questa
-  app gira da un'unica codebase su Windows e Android. Nessun login: il
-  service account è condiviso come Editor sul foglio, fuori dall'app.
-  Credenziali (chiave JSON, id foglio, nome tab) in Admin, chiave JSON in
-  `flutter_secure_storage`.
-- Fallimenti isolati: un problema di rete/permessi su Sheets non blocca né fa
-  fallire il salvataggio locale (stesso principio della sync Turso).
-- **Temporaneo**: da disattivare (switch in Admin) quando l'app sarà completa
-  e testata al 100% — non va esteso oltre questo scopo (es. niente storico
-  retroattivo, niente sync inversa dal foglio verso l'app).
-- **Gestione transazioni** (stessa pagina Admin, `data/services/
-  safe_transaction_deletion_service.dart`): il DB fa di norma solo soft
-  delete (`isDeleted` + `updatedAt`, necessario per propagare le cancellazioni
-  alla sync). Admin aggiunge due modi di eliminare *per sempre* (irreversibili,
-  solo tabella `Transactions`): ricerca puntuale + eliminazione, o "Pulisci
-  database" (bulk su tutte le già soft-deleted).
-  - **`SafeTransactionDeletionService` è l'unico punto d'accesso**: prima di
-    ogni hard delete/purge fa un tentativo di sync (best-effort, fino a 3
-    volte) e poi LEGGE DIRETTAMENTE dal server se quella riga risulta
-    davvero cancellata, prima di eliminarla fisicamente. Se non confermata,
-    resta soft-deleted (nascosta, recuperabile solo da "Pulisci database"
-    più tardi).
-  - Questo copre in un colpo solo i 3 modi in cui una `syncNow()` "senza
-    eccezioni" può comunque non aver davvero spinto la cancellazione: righe
-    scartate in silenzio dal push (FK non ancora sincronizzata), upsert LWW
-    che non aggiorna nulla (clock skew o pareggio esatto di `updatedAt`), e
-    sync di sfondo già in corso.
-  - `TursoSyncService.syncNow()` non ha più una guardia di rientranza
-    silenziosa: una chiamata concorrente aspetta quella in corso e ne lancia
-    comunque una fresca, invece di accontentarsi di un giro iniziato prima
-    della propria chiamata — necessario con più dispositivi attivi, dove le
-    sync di sfondo si sovrappongono spesso.
-  - Righe mai sincronizzate (nessuna copia remota) sono sempre sicure da
-    eliminare subito: nessuna copia da cui potrebbero "ricomparire". Una
-    volta confermata la cancellazione, l'hard delete rimuove comunque il
-    tombstone locale: irrilevante per un secondo dispositivo con storico non
-    ancora risincronizzato finché resta tale.
+  esista. Autenticazione **service account** (`googleapis`/`googleapis_auth`),
+  non OAuth interattivo (`google_sign_in` non supporta Windows desktop).
+  **Temporaneo**: da disattivare (switch in Admin) quando l'app sarà completa
+  e testata al 100%.
+- **Gestione transazioni** (`safe_transaction_deletion_service.dart`): il DB
+  fa di norma solo soft delete. Admin aggiunge due modi di eliminare *per
+  sempre* (irreversibili, solo tabella `Transactions`): ricerca puntuale +
+  eliminazione, o "Pulisci database" (bulk sulle già soft-deleted).
+  `SafeTransactionDeletionService` è l'unico punto d'accesso: prima di ogni
+  hard delete/purge fa un tentativo di sync (best-effort) e poi LEGGE
+  DIRETTAMENTE dal server se quella riga risulta davvero cancellata, prima di
+  eliminarla fisicamente — copre righe scartate in silenzio dal push, upsert
+  LWW che non aggiorna nulla (clock skew), sync di sfondo già in corso.
+  `TursoSyncService.syncNow()` non ha più una guardia di rientranza
+  silenziosa (una chiamata concorrente aspetta quella in corso e ne lancia
+  comunque una fresca).
 - **Fix reattività riordino categorie/sottocategorie** (`category_dao.dart`):
-  il riordino manuale (drag & drop in Impostazioni) non si vedeva nel menù a
-  tendina di "Nuova Operazione" finché non si riavviava l'app. Causa: gli
-  stream Drift (`watchByType`/`watchSubCategories`/`watchSubCategoriesForType`)
-  erano costruiti su query che toccano solo Categories/SubCategories, ma
-  leggevano l'ordine manuale da una tabella diversa (`Settings`) dentro un
-  `asyncMap` — Drift invalida uno stream in base alle sole tabelle della
-  query originale, quindi una scrittura solo su `Settings` non lo faceva mai
-  ripartire. Fix: `_combineLatest2` combina la query principale con uno
-  stream sull'intera tabella `Settings`, così un cambiamento in una delle due
-  ricalcola subito il risultato — nessun riavvio più necessario.
+  il riordino drag & drop non si vedeva nel menù di "Nuova Operazione" finché
+  non si riavviava l'app (stream Drift che legge da una tabella diversa da
+  quella osservata, v. CLAUDE.md "Stream Drift che dipendono da un'altra
+  tabella"). Fix: `_combineLatest2` combina la query principale con uno
+  stream sull'intera tabella `Settings`.
+
+**M10 — Icona app e splash screen "Tally"** *(31 lug 2026)* — ✅ **Completata**
+- Icona adattiva Android (API 26+) + fallback legacy, splash screen nativo
+  pre/post Android 12, icona Windows multi-risoluzione (16–256,
+  `tool/generate_windows_icon.ps1`, necessario oltre a
+  `flutter_launcher_icons` che scrive una sola risoluzione). Stessi colori
+  del tema (crema/ambra), sorgenti in `assets/icon/` (v. CLAUDE.md per il
+  comando di rigenerazione completo).
+
+**M11 — Robustezza doppioni transazioni pre-sync + avviso doppioni manuali**
+*(31 lug – 1 ago 2026)* — ✅ **Completata**
+- Fix crash sync (`transaction_duplicate_finder.dart` assumeva al massimo 1
+  candidato locale identico; con 2+ candidati preesistenti lanciava
+  un'eccezione che bloccava il pull di tutte le transazioni). Fix
+  definitivo: con 1+ candidati che combaciano su tutti i campi, la riga
+  remota è comunque riconosciuta come duplicata (nessuna nuova inserita) —
+  "se un dispositivo ha già sincronizzato, quello stato va rispettato".
+- Pulizia una tantum del backlog di doppioni storici pre-sync (749/796
+  transazioni doppie sul dispositivo di Mario, causa probabile: storico
+  importato indipendentemente su più device prima che la sync esistesse):
+  554 righe soft-deleted, backup pre-pulizia conservato.
+- **Avviso doppione in "Nuova Operazione"**: al salvataggio, se esiste già
+  una spesa con stessa data/categoria/importo, avvisa con link alla spesa di
+  riferimento prima di confermare. Fix successivo lo stesso giorno:
+  l'avviso interroga il database, non una cache in memoria potenzialmente
+  stale.
+- V. memoria `project_transaction_duplicates_pre_sync` per il dettaglio
+  completo dell'incidente e della pulizia.
+
+**M12 — Build Android release funzionante** *(1 ago 2026)* — ✅ **Completata**
+- `flutter build apk --release` falliva per un problema R8/ProGuard
+  preesistente (riferimenti a classi ML Kit per alfabeti mai usati
+  dall'app). Fix in `android/app/proguard-rules.pro`. Release ~95MB contro
+  ~200MB del debug. CI (`android-build.yml`) continua a buildare debug per
+  scelta esplicita di Mario; il fix resta disponibile per quando servirà.
+
+**M13 — Blocco doppioni categoria + strumento "Unisci con..."**
+*(2 ago 2026)* — ✅ **Completata**
+- UI blocca in `categories_manage_page.dart` la creazione/rinomina di una
+  categoria o sottocategoria con un nome già esistente (case-insensitive).
+- Nuova azione **"Unisci con..."**: sposta transazioni/regole
+  merchant/budget/ricorrenze dalla categoria o sottocategoria sorgente a
+  quella scelta come destinazione (anche verso un'altra categoria padre per
+  le sottocategorie), poi elimina la sorgente. Rifiuta di unire una
+  categoria che ha ancora sottocategorie attive con dati collegati.
+- Pulizia una tantum dei doppioni `Casa`/`Salute`/`Viaggio` (default vs
+  ricreate a mano da Mario con lo stesso nome). Verificato end-to-end da
+  Mario su 2 dispositivi dopo il rilascio (v. memoria
+  `project_category_default_vs_custom_duplicates`).
+
+**M14 — Ricorrenze a numero di occorrenze finito** *(3 ago 2026)* — ✅ **Completata**
+- Schema v7: colonne `totalOccurrences`/`occurrencesGenerated` su
+  `RecurringTransactions` (v. sezione 3). Campo opzionale nel form; se vuoto
+  la ricorrenza resta a tempo indeterminato come prima. `generateDue` si
+  ferma da sola al tetto impostato (anche recuperando occorrenze arretrate)
+  e mette la ricorrenza in pausa. Nessuna riattivazione automatica se il
+  tetto viene rialzato.
+- **Bug reale scoperto appena rilasciato**: `_ensureRemoteSchema()` crea le
+  tabelle remote Turso con `CREATE TABLE IF NOT EXISTS`, che non altera una
+  tabella già esistente — sul database Turso già in uso di Mario, le due
+  colonne nuove non arrivavano mai sul remoto ("no such column"). Fix:
+  `_addColumnIfMissing` (PRAGMA table_info + ALTER se manca), da applicare
+  ad ogni futura colonna aggiunta a una tabella già sincronizzata (v.
+  CLAUDE.md "Sync (Turso) — dettaglio critico").
+
+**M15 — Import estratto conto bancario** *(5 ago 2026)* — ✅ **Completata**
+- Feature utente vera (non un tool Admin), voce propria in Impostazioni.
+  Un parser per banca (`domain/services/bank_statement_parser.dart`), prima
+  implementazione Poste Italiane/BancoPosta (xlsx da "Lista movimenti").
+  Categorizzazione automatica riga per riga via `RuleMatcherService`
+  (stesse regole degli scontrini), editing inline di ogni riga (stessa
+  `AddTransactionPage` in modalità "bozza"), doppioni con tolleranza
+  (±3 giorni, stesso importo/tipo — più permissiva della sync perché nota/
+  categoria dedotte dall'estratto conto raramente combaciano con
+  l'inserimento manuale).
+
+**M16 — Rifiniture ricerca, dashboard e CI** *(5 ago 2026)* — ✅ **Completata**
+- Ricerca in Storico estesa anche alla sottocategoria.
+- Fix tooltip del grafico andamento mensile in Dashboard (formattazione e
+  filtro per categoria non corretti).
+- CI (`android-build.yml`): l'APK debug caricato ad ogni push su `main`
+  saturava il quota storage Artifacts gratuito di GitHub (0.5GB) con la
+  retention di default a 90 giorni — GitHub ha segnalato l'errore
+  ("Artifact storage quota has been hit"). Fix: `retention-days: 3`
+  sull'upload (v. CLAUDE.md "CI — build Android APK, quota storage
+  Artifacts" per i dettagli, incluso il ritardo di 6-12h nel ricalcolo
+  quota dopo una pulizia manuale).
+
+**M17 — Migrazione schema locale idempotente** *(16 ago 2026)* — ✅ **Completata**
+- Bug reale: una migrazione Drift interrotta a metà (processo ucciso, es. da
+  Task Manager, o istanze duplicate avviate per errore sullo stesso file)
+  può lasciare una colonna già aggiunta fisicamente ma `user_version` non
+  aggiornato. Al riavvio, `onUpgrade` ritenta lo stesso `addColumn` su una
+  colonna già esistente → `SqliteException("duplicate column name")`,
+  eccezione non gestita in `main()` **prima** di `runApp()`: la finestra
+  Windows non appare mai (si mostra solo al primo frame renderizzato), senza
+  errore visibile — sembra che l'app "non si apra", non che sia crashata.
+  Riscontrato realmente sul dispositivo di Mario (v. CLAUDE.md "Migrazioni
+  schema locale (Drift) — insidia" per la diagnosi completa e il fix una
+  tantum sul suo database).
+- Fix strutturale: ogni `addColumn`/ALTER TABLE in `onUpgrade` (v2→v7) ora
+  controlla `PRAGMA table_info` prima di eseguire (`_columnExists`), stesso
+  principio già usato per lo schema remoto Turso (M14). Test di regressione
+  in `test/app_database_migration_test.dart`.
+
+---
+
+### Processo per nuove milestone (da qui in avanti)
+
+Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
+il lavoro "post-M8" (fatto bene, ma poco visibile perché non numerato):
+**ogni modifica non banale** (nuova feature, estensione a una milestone
+esistente, fix strutturale — non un typo o una correzione cosmetica) segue
+sempre questi passi, in ordine:
+
+1. **Categorizza**: è una nuova milestone (M18, M19, ...), un'estensione di
+   una milestone già chiusa (es. "Estensione post-M15"), o un fix
+   abbastanza piccolo da meritare solo una riga in un'"insidia" esistente in
+   CLAUDE.md? La differenza è la portata: una nuova pagina/flusso utente è
+   quasi sempre una milestone; un bug fix locale a un meccanismo già
+   documentato è quasi sempre solo una nota.
+2. **Documenta PRIMA di scrivere codice**: aggiungi qui in sezione 6 la voce
+   "M<N> — <titolo>" con lo stato **🔧 Proposta** e una descrizione breve di
+   problema + approccio previsto. Aspetta l'ok esplicito di Mario prima di
+   passare al passo 3 (il metodo di lavoro concordato da sempre: design
+   approvato prima di scrivere codice — qui semplicemente lo mettiamo per
+   iscritto invece che solo a voce).
+3. **Sviluppa**: implementa, `flutter analyze` + `flutter test` (rigenera
+   `build_runner` se serve), poi aggiorna la voce a **✅ Completata** con
+   cosa è stato fatto davvero (se diverso dal piano iniziale, come già
+   successo per M3/scontrini o M6/export).
+4. **Propaga lo stato**: aggiorna `README.md` (tabella milestone) e
+   `CLAUDE.md` ("Stato attuale") per puntare alla nuova voce — stesso
+   principio già in uso, ora esplicito anche qui.
 
 ---
 
@@ -576,33 +703,27 @@ una milestone, strumenti interni)
 
 ---
 
-**Stato attuale (29 lug 2026):** tutte le milestone M0-M8 completate. M8
-(rifinitura): fix critici al motore di sync Turso (isolamento errori per
-tabella, backfill syncId, timeout HTTP, alert su Home), sostituzione della
-scansione scontrini con Google Gemini (fallback su OCR ML Kit), audit
-best-practice del codice, dedupe della tassonomia post-sync, empty states +
-animazioni leggere, tema unificato sul colore dell'icona, rename utente a
-"Tally" (solo UX). **CI attiva** (`.github/workflows/ci.yml`): `flutter
+**Stato attuale (16 ago 2026):** tutte le milestone **M0-M17 completate**
+(M9-M17: v. sezione 6 per il dettaglio di ciascuna — Admin e manutenzione
+dati, icona/splash "Tally", robustezza doppioni transazioni, build Android
+release, blocco doppioni categoria + strumento "Unisci con...", ricorrenze a
+numero di occorrenze finito, import estratto conto bancario, rifiniture
+ricerca/dashboard/CI, migrazione schema locale idempotente). Schema DB Drift
+alla **versione 7**. **CI attiva** (`.github/workflows/ci.yml`): `flutter
 analyze` + `flutter test` su ogni push e PR (con rigenerazione del codice).
-Test: 16 file in `test/` (parser CSV, receipt parser, rule matcher, duplicate
-finder, motore di sync Turso (incluso rientranza `syncNow()` e verifica
-remota puntuale), repair sottocategorie orfane, widget animati, DAO
-ricorrenze/categorie/budget/transazioni (incluso hard delete/purge e
-riemissione live del riordino), formatter e servizio Google Sheets (header
-matching), `SafeTransactionDeletionService` + 1 smoke widget test).
-Repository impl e usecase restano senza test dedicati: delega pura, nessuna
-logica propria. Verifica approfondita del codice Admin/Sheets fatta il
-29/07: bug corretti, il rischio residuo sulla sync in background
-(identificato nella stessa verifica) risolto lo stesso giorno con
-`SafeTransactionDeletionService` + fix alla rientranza di `syncNow()`, e un
-bug di reattività Drift sul riordino categorie/sottocategorie (segnalato da
-Mario dopo un reset del dispositivo Android) risolto subito dopo (v.
-CLAUDE.md, sezioni Admin e "Stream Drift che dipendono da un'altra tabella").
-**Post-M8:** nuova pagina Impostazioni > Admin (import CSV spostato lì) con
-bridge temporaneo verso il foglio Google "Copia di Spese" (service account,
-disattivabile, da rimuovere a fine progetto) e strumenti di eliminazione
-definitiva/pulizia database, con verifica diretta sul server prima di ogni
-hard delete se Turso è configurato (v. sezioni dedicate sopra).
+Test: **20 file** in `test/` (parser CSV, receipt parser, rule matcher,
+duplicate finder, motore di sync Turso (incluso rientranza `syncNow()`,
+verifica remota puntuale e migrazione schema remoto), repair sottocategorie
+orfane, widget animati, DAO ricorrenze/categorie/budget/transazioni (incluso
+hard delete/purge, riemissione live del riordino, unione categorie/
+sottocategorie, numero di occorrenze finito), formatter e servizio Google
+Sheets (header matching), `SafeTransactionDeletionService`, parser estratto
+conto BancoPosta e duplicate matcher, **migrazione locale idempotente
+(M17)** + 1 smoke widget test). Repository impl e usecase restano senza
+test dedicati: delega pura, nessuna logica propria. Da qui in avanti, ogni
+nuova modifica non banale segue il processo descritto in fondo alla sezione
+6 (categorizza → documenta come milestone qui, in attesa di ok → sviluppa →
+propaga lo stato a README/CLAUDE.md).
 
 > NOTA PIATTAFORME: generate **Windows** (`windows/`) e **Android**
 > (`android/`, con `applicationId` dedicato, permesso INTERNET e CI). Per
@@ -612,4 +733,8 @@ hard delete se Turso è configurato (v. sezioni dedicate sopra).
 
 > NOTA BUILD: modifiche allo schema Drift o ai provider Riverpod richiedono
 > `dart run build_runner build --delete-conflicting-outputs`. Lo schema DB è
-> alla versione **6** (v. `AppDatabase.schemaVersion` in `app_database.dart`).
+> alla versione **7** (v. `AppDatabase.schemaVersion` in `app_database.dart`).
+> Ogni `addColumn`/ALTER TABLE in `onUpgrade` deve controllare che la colonna
+> non esista già (`_columnExists`, v. sezione 6 M17) prima di aggiungerla:
+> una migrazione interrotta a metà può lasciare la colonna già presente
+> fisicamente con la versione vecchia ancora registrata.

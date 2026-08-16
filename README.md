@@ -100,8 +100,10 @@ flutter doctor
 
 ## Stato del progetto
 
-Sviluppo per milestone incrementali. Tutte le milestone pianificate, incluso
-l'hardening post-M7, sono completate. Integrazione continua attiva
+Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
+scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
+dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
+milestone M0-M17 sono completate. Integrazione continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
 | Milestone | Contenuto | Stato |
@@ -115,13 +117,15 @@ l'hardening post-M7, sono completate. Integrazione continua attiva
 | **M6** | Ricerca, import/export CSV | ✅ Completata |
 | **M7** | Sync multi-dispositivo su Turso + build desktop/Android | ✅ Completata |
 | **M8** | Rifinitura: fix bug di sync, audit best-practice, dedupe tassonomia, empty states + animazioni, tema unificato sull'icona, rename a "Tally", CI (`flutter analyze`/`flutter test`), test estesi (motore di sync + DAO) | ✅ Completata |
-
-Post-M8 (non milestone, strumenti/rifiniture interne): pannello Admin
-(import CSV, bridge Google Sheets temporaneo, eliminazione definitiva/pulizia
-transazioni); icona app e splash screen Android/Windows con il logo Tally
-(carrello + "T", v. `CLAUDE.md` sezione dedicata per come rigenerarli); import
-estratto conto bancario (Impostazioni, primo parser BancoPosta) — a differenza
-degli strumenti Admin, questa è una feature utente vera, non un tool interno.
+| **M9** | Admin (import CSV, bridge Google Sheets temporaneo, eliminazione definitiva/pulizia transazioni con conferma remota), fix reattività riordino categorie | ✅ Completata |
+| **M10** | Icona app e splash screen Android/Windows con il logo Tally | ✅ Completata |
+| **M11** | Robustezza doppioni transazioni pre-sync (fix crash + pulizia backlog) e avviso doppioni in "Nuova Operazione" | ✅ Completata |
+| **M12** | Build Android release funzionante (fix ProGuard/R8) | ✅ Completata |
+| **M13** | Blocco nomi categoria duplicati + strumento "Unisci con..." | ✅ Completata |
+| **M14** | Ricorrenze a numero di occorrenze finito (schema v7) + fix schema remoto Turso | ✅ Completata |
+| **M15** | Import estratto conto bancario (Impostazioni, primo parser BancoPosta) | ✅ Completata |
+| **M16** | Ricerca per sottocategoria, fix tooltip dashboard, fix quota storage Artifacts CI | ✅ Completata |
+| **M17** | Migrazione schema locale idempotente (fix avvio bloccato su migrazione interrotta) | ✅ Completata |
 
 ## Struttura del database
 

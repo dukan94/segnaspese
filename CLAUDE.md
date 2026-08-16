@@ -558,37 +558,54 @@ default (90 giorni).
   mano gli artifact vecchi dalla tab Actions del repo (o "Manage artifacts"
   nella singola run), aspettare il ricalcolo, poi rilanciare.
 
-## Stato attuale (lug 2026)
+## Stato attuale (16 ago 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
-scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
+scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
+concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M8 completate**: setup + Clean Architecture, core transazioni,
-  categorie/budget, scontrini (Gemini + fallback OCR), dashboard, ricorrenti,
-  ricerca/import-export CSV, sync Turso + build desktop/Android, rifinitura
-  (fix bug critici sync, audit best-practice, dedupe tassonomia post-sync,
-  empty states + animazioni leggere, tema unificato sul colore dell'icona,
-  rename utente a "Tally", **CI attiva** — `.github/workflows/ci.yml`:
-  `flutter analyze` + `flutter test` su ogni push/PR con rigenerazione del
-  codice — copertura test estesa al motore di sync e ai DAO con logica reale).
-- Test in `test/` (18 file): parser CSV, receipt parser, rule matcher,
-  duplicate finder, sync Turso (incluso **rientranza syncNow()** e verifica
-  remota puntuale), repair sottocategorie orfane, widget animati, DAO
-  ricorrenze/categorie/budget/transazioni (date-math, riordino, upsert,
-  filtri ricerca, hard delete/purge, **unione categorie/sottocategorie**),
-  formatter e servizio Google Sheets (header matching),
-  **SafeTransactionDeletionService** (con `FakeTursoHttpClient` + test
-  double ufficiale di `FlutterSecureStorage`), **parser estratto conto
-  BancoPosta e duplicate matcher** (fixture xlsx sintetiche) + 1 smoke
-  widget test.
-- **Post-M8**: Admin (Impostazioni > Admin) con import CSV spostato lì,
-  bridge temporaneo verso il foglio Google "Copia di Spese" e strumenti di
-  eliminazione definitiva/pulizia (v. sezione dedicata sopra) — non è una
-  milestone, sono strumenti interni, il bridge Sheets va rimosso a fine
-  progetto. Icona app e splash screen Android/Windows finalizzati (v.
-  sezione dedicata sopra): non più il placeholder di Flutter. Import
-  estratto conto bancario (v. sezione dedicata sopra), primo parser
-  BancoPosta: feature utente vera, non un tool interno.
+- **M0–M17 completate**. M0-M8: setup + Clean Architecture, core
+  transazioni, categorie/budget, scontrini (Gemini + fallback OCR),
+  dashboard, ricorrenti, ricerca/import-export CSV, sync Turso + build
+  desktop/Android, rifinitura (fix bug critici sync, audit best-practice,
+  dedupe tassonomia post-sync, empty states + animazioni leggere, tema
+  unificato sul colore dell'icona, rename utente a "Tally", CI attiva). M9-
+  M17 (dettaglio completo, con date e cosa è stato fatto davvero, in
+  `progettazione_finance_app.md` sezione 6 — qui solo il titolo): Admin e
+  manutenzione dati (M9), icona/splash "Tally" (M10), robustezza doppioni
+  transazioni + avviso doppioni manuali (M11), build Android release (M12),
+  blocco doppioni categoria + "Unisci con..." (M13), ricorrenze a numero di
+  occorrenze finito (M14), import estratto conto bancario (M15), rifiniture
+  ricerca/dashboard/CI (M16), migrazione schema locale idempotente (M17).
+  **CI attiva** — `.github/workflows/ci.yml`: `flutter analyze` +
+  `flutter test` su ogni push/PR con rigenerazione del codice.
+- Test in `test/` (20 file): parser CSV, receipt parser, rule matcher,
+  duplicate finder, sync Turso (incluso **rientranza syncNow()**, verifica
+  remota puntuale e migrazione schema remoto), repair sottocategorie
+  orfane, widget animati, DAO ricorrenze/categorie/budget/transazioni
+  (date-math, riordino, upsert, filtri ricerca, hard delete/purge, unione
+  categorie/sottocategorie, numero di occorrenze finito), formatter e
+  servizio Google Sheets (header matching), SafeTransactionDeletionService
+  (con `FakeTursoHttpClient` + test double ufficiale di
+  `FlutterSecureStorage`), parser estratto conto BancoPosta e duplicate
+  matcher (fixture xlsx sintetiche), **migrazione locale idempotente
+  (`app_database_migration_test.dart`, M17)** + 1 smoke widget test.
+
+### Processo per nuove modifiche (da qui in avanti)
+
+Deciso con Mario il 16 ago 2026: il lavoro dopo M8 era fatto bene ma poco
+visibile, catalogato solo come "Post-M8" informale invece che come milestone
+numerate — rendendo più facile perdere il filo su cosa fosse già stato fatto
+(v. l'incidente in "Come lavorare su questo progetto" punto 0). Da qui in
+avanti **ogni modifica non banale** (nuova feature, estensione a una
+milestone esistente, fix strutturale) segue sempre, in ordine: categorizza
+(nuova milestone M<N>, estensione di una già chiusa, o solo una nota in
+un'"insidia" esistente) → documenta la proposta in
+`progettazione_finance_app.md` sezione 6 PRIMA di scrivere codice, stato
+🔧 Proposta → attendi l'ok di Mario → sviluppa (analyze/test) → aggiorna la
+voce a ✅ Completata con cosa è stato fatto davvero → propaga lo stato a
+`README.md` (tabella milestone) e qui sopra. Dettaglio completo del processo
+in `progettazione_finance_app.md`, fondo sezione 6.
 
 ## Convenzioni
 
@@ -620,7 +637,10 @@ scrivere codice** (metodo di lavoro concordato con Mario: mantienilo).
    affrontato quel problema. Se emergono branch remoti con lavoro non ancora
    mergiato in `main` durante il fetch, segnalarlo esplicitamente invece di
    ignorarlo.
-1. Prima di modifiche non banali proponi il **design** e attendi l'ok.
+1. Prima di modifiche non banali: categorizza, documenta la proposta come
+   voce di milestone in `progettazione_finance_app.md` sezione 6 (stato
+   🔧 Proposta) e attendi l'ok esplicito di Mario prima di scrivere codice —
+   v. "Processo per nuove modifiche" più sotto per il dettaglio completo.
 2. Verifica lo stato reale sul codice (specie milestone e test) prima di
    affidarti a questi documenti.
 3. Dopo modifiche a schema Drift o provider: rilancia `build_runner`, poi
