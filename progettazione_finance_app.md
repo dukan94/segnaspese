@@ -662,6 +662,109 @@ Ogni riga editabile/eliminabile; "+" apre form per aggiungere pattern regex → 
   principio già usato per lo schema remoto Turso (M14). Test di regressione
   in `test/app_database_migration_test.dart`.
 
+**M18 — 🔧 Proposta — Fix sicurezza: API key Gemini non deve mai comparire
+in un messaggio d'errore**
+*(emersa da audit best-practice, 16 ago 2026)*
+- Problema: `gemini_vision_service.dart` costruisce l'URL della chiamata
+  Gemini con la API key in query string (`?key=$apiKey`). Se la richiesta
+  fallisce per un problema di rete (es. offline durante uno scan scontrino),
+  l'eccezione di basso livello del pacchetto `http` include l'URL completo
+  (con la key) nel proprio `toString()` — messaggio che risale fino a
+  `receipt_scan_page.dart` e viene mostrato **testualmente in una
+  snackbar**. La key di Mario finirebbe quindi visibile a schermo in caso di
+  errore di rete durante uno scan. Il `TimeoutException` nello stesso file
+  non ha questo problema (messaggio già pulito) — serve lo stesso
+  trattamento per gli altri tipi di eccezione di rete.
+- Approccio proposto: intercettare `SocketException`/`ClientException`
+  attorno alla chiamata Gemini e sostituire il messaggio con un testo
+  generico (senza includere l'eccezione originale/URL). Verificare anche il
+  messaggio d'errore esposto da "Test connessione" Google Sheets in Admin,
+  per lo stesso tipo di rischio (Turso non è a rischio: il token passa in
+  header, non in URL).
+
+**M19 — 🔧 Proposta — Gestione errori su cancellazione transazione
+(Home/Storico)**
+*(emersa da audit best-practice, 16 ago 2026)*
+- Problema: `recent_transactions_list.dart` e `history_page.dart` chiamano
+  `deleteTransactionProvider` senza try/catch — un fallimento (DB locked,
+  disco pieno, ecc.) non produce alcun feedback in UI, in contraddizione
+  con la regola dichiarata (ogni errore risale come eccezione fino a una
+  snackbar).
+- Approccio proposto: avvolgere le due chiamate in try/catch con
+  `showErrorSnackBar`, stesso pattern già usato in
+  `add_transaction_page.dart`/`budget_amount_dialog.dart`/
+  `merchant_rules_page.dart`/`categories_manage_page.dart`.
+
+**M20 — 🔧 Proposta — Verifica tag `+eol` su `sqlite3_flutter_libs`**
+*(emersa da audit dipendenze, 16 ago 2026)*
+- Problema: `flutter pub outdated` segnala `sqlite3_flutter_libs` 0.5.42 (in
+  uso) → `0.6.0+eol` disponibile. Il significato esatto di quel tag non è
+  stato verificabile senza accesso affidabile a internet durante l'audit;
+  essendo il pacchetto che fornisce i binari SQLite nativi (DB locale core),
+  merita un controllo prima di ignorarlo.
+- Approccio proposto: controllare changelog/issue tracker su pub.dev, capire
+  se riguarda la versione in uso o solo quella più recente, decidere se e
+  quando aggiornare (major bump — da testare con build reale Windows +
+  Android dopo l'update, non solo `flutter test`).
+
+**M21 — 🔧 Proposta — Timeout sulle chiamate Google Sheets (bridge Admin)**
+*(emersa da audit gestione errori, 16 ago 2026)*
+- Problema: `google_sheets_service.dart` (`appendRow`, `testConnection`)
+  non ha nessun `.timeout(...)` esplicito, a differenza di
+  `turso_http_client.dart` e `gemini_vision_service.dart` (30s con commento
+  dedicato). "Test connessione" in Admin può restare bloccato a tempo
+  indefinito se la rete non risponde.
+- Approccio proposto: stesso timeout esplicito (30s) usato altrove, con
+  messaggio d'errore coerente (v. anche M18: verificare che il messaggio
+  non esponga credenziali).
+
+**M22 — 🔧 Proposta — Isolamento errori nella sequenza di avvio
+(main.dart)**
+*(emersa da audit gestione errori, 16 ago 2026)*
+- Problema: `runSeed`/`dedupeDefaultTaxonomy`/`repairOrphanedSubCategories`/
+  `generateDueRecurringProvider` in `main.dart` girano in sequenza senza
+  try/catch individuali — un'eccezione in uno qualsiasi impedisce
+  `runApp()` (stessa classe di fragilità del bug M17, qui sugli altri 3
+  step, non ancora protetti).
+- Approccio da discutere (non solo tecnico, serve una decisione di
+  prodotto): cosa deve succedere se uno di questi step fallisce? Es. se il
+  seed fallisce l'app non ha nemmeno le categorie di default — "continuare
+  comunque" potrebbe non essere sempre la scelta giusta per ogni step.
+  Probabilmente serve un trattamento diverso per step (alcuni possono
+  fallire silenziosamente e loggare, altri no) invece di una regola unica.
+
+**M23 — 🔧 Proposta — Copertura test per logica critica priva di test**
+*(emersa da audit copertura test, 16 ago 2026)*
+- Problema: `gemini_vision_service.dart` (parsing/validazione output AI
+  scontrini), `seed_runner.dart` (reset distruttivo condizionale),
+  `dedupe_default_taxonomy.dart` (riparazione automatica a ogni avvio),
+  `turso_http_client.dart` (encoding/decoding protocollo Hrana reale, oggi
+  esercitato solo tramite `FakeTursoHttpClient` nei test di sync) non hanno
+  nessun test dedicato, pur contenendo logica non banale con impatto
+  diretto su dati reali.
+- Approccio proposto: un file di test per ciascuno, stesso stile già in uso
+  nel progetto (fixture sintetiche/mock di `http.Client` per Gemini, DB
+  Drift in-memory per seed/dedupe, stesso pattern di
+  `turso_sync_service_test.dart` per l'encoding Hrana).
+
+**M24 — 🔧 Proposta — Aggiornamento dipendenze con gap major ampio**
+*(emersa da audit dipendenze, 16 ago 2026)*
+- Problema: `file_picker` (4 major indietro), `go_router` (3),
+  `csv`/`flutter_secure_storage` (2 ciascuno) hanno accumulato breaking
+  change; restare troppo indietro rende ogni futuro aggiornamento più
+  rischioso e può far perdere fix di sicurezza a monte.
+- Approccio proposto: un pacchetto alla volta (non tutti insieme), changelog
+  di ogni major letto prima di aggiornare, `flutter analyze` + `flutter
+  test` + build reale Windows/Android dopo ciascuno — `go_router` in
+  particolare va isolato dagli altri (usato ovunque per la navigazione,
+  superficie di rischio più ampia).
+
+> **Nota (non una milestone)**: l'audit ha anche confermato che le build
+> Android "release" sono firmate con la stessa `debug.keystore` di CI —
+> deliberato per ora (nessuna distribuzione su store), coerente con
+> CLAUDE.md. Da rivedere solo se in futuro si distribuisce mai un APK
+> release reale, non un'azione da fare ora.
+
 ---
 
 ### Processo per nuove milestone (da qui in avanti)
