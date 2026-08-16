@@ -728,16 +728,21 @@ in un messaggio d'errore**
   delicato di quella milestone, con una build Windows reale avviata e
   verificata dopo, non solo `flutter test`.
 
-**M21 — 🔧 Proposta — Timeout sulle chiamate Google Sheets (bridge Admin)**
+**M21 — ✅ Completata — Timeout sulle chiamate Google Sheets (bridge Admin)**
 *(emersa da audit gestione errori, 16 ago 2026)*
 - Problema: `google_sheets_service.dart` (`appendRow`, `testConnection`)
   non ha nessun `.timeout(...)` esplicito, a differenza di
   `turso_http_client.dart` e `gemini_vision_service.dart` (30s con commento
   dedicato). "Test connessione" in Admin può restare bloccato a tempo
   indefinito se la rete non risponde.
-- Approccio proposto: stesso timeout esplicito (30s) usato altrove, con
-  messaggio d'errore coerente (v. anche M18: verificare che il messaggio
-  non esponga credenziali).
+- **Fatto**: timeout di 30s (stessa costante `_networkTimeout`) su tutte e
+  4 le chiamate di rete del file — autenticazione service account
+  (`_client`), `appendRow`, e le due chiamate di `testConnection`
+  (`spreadsheets.get` + `spreadsheets.values.get`) — ciascuna con messaggio
+  d'errore dedicato in caso di `TimeoutException`. Verificato (v. M18) che
+  nessun messaggio esponga credenziali: le eccezioni sollevate qui sono
+  testo fisso, mai un'interpolazione dell'eccezione di rete originale.
+  `flutter analyze` + `flutter test` (120/120) invariati.
 
 **M22 — 🔧 Proposta — Isolamento errori nella sequenza di avvio
 (main.dart)**
