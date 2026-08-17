@@ -12,6 +12,7 @@ import '../../core/utils/app_snackbar.dart';
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/services/transaction_export_service.dart';
+import '../shared_widgets/content_width_limiter.dart';
 
 /// Export delle operazioni di un anno in CSV (Milestone M6).
 ///
@@ -46,11 +47,14 @@ class _ExportPageState extends ConsumerState<ExportPage> {
       final categoryNameById = {for (final c in cats) c.id: c.name};
 
       final expSubs = await ref.read(
-          subCategoriesForTypeProvider(TransactionType.expense.toDrift()).future);
+          subCategoriesForTypeProvider(TransactionType.expense.toDrift())
+              .future);
       final incSubs = await ref.read(
-          subCategoriesForTypeProvider(TransactionType.income.toDrift()).future);
+          subCategoriesForTypeProvider(TransactionType.income.toDrift())
+              .future);
       final subCategoryNameById = <int, String>{
-        for (final s in [...expSubs, ...incSubs]) s.subCategory.id: s.subCategory.name,
+        for (final s in [...expSubs, ...incSubs])
+          s.subCategory.id: s.subCategory.name,
       };
 
       final csv = const TransactionCsvExporter().buildCsv(
@@ -99,58 +103,62 @@ class _ExportPageState extends ConsumerState<ExportPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Esporta operazioni')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            'Esporta in CSV tutte le operazioni di un anno. Il file usa lo '
-            'stesso formato dell\'import, quindi puoi ri-importarlo o aprirlo '
-            'in Excel.',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('Anno'),
-                  ),
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: _busy ? null : () => setState(() => _year--),
-                        icon: const Icon(Icons.chevron_left),
-                        tooltip: 'Anno precedente',
-                      ),
-                      Text('$_year', style: theme.textTheme.titleLarge),
-                      IconButton(
-                        onPressed: _busy ? null : () => setState(() => _year++),
-                        icon: const Icon(Icons.chevron_right),
-                        tooltip: 'Anno successivo',
-                      ),
-                    ],
-                  ),
-                ],
+      body: ContentWidthLimiter(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              'Esporta in CSV tutte le operazioni di un anno. Il file usa lo '
+              'stesso formato dell\'import, quindi puoi ri-importarlo o aprirlo '
+              'in Excel.',
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Anno'),
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed:
+                              _busy ? null : () => setState(() => _year--),
+                          icon: const Icon(Icons.chevron_left),
+                          tooltip: 'Anno precedente',
+                        ),
+                        Text('$_year', style: theme.textTheme.titleLarge),
+                        IconButton(
+                          onPressed:
+                              _busy ? null : () => setState(() => _year++),
+                          icon: const Icon(Icons.chevron_right),
+                          tooltip: 'Anno successivo',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _busy ? null : _export,
-            icon: _busy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.download_outlined),
-            label: Text(_busy ? 'Esportazione...' : 'Esporta CSV del $_year'),
-          ),
-        ],
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _busy ? null : _export,
+              icon: _busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_outlined),
+              label: Text(_busy ? 'Esportazione...' : 'Esporta CSV del $_year'),
+            ),
+          ],
+        ),
       ),
     );
   }

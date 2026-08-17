@@ -10,6 +10,7 @@ import '../../core/utils/formatters.dart';
 import '../../domain/entities/parsed_statement_row.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/services/bank_statement_parser.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import '../transaction/add_transaction_page.dart';
 import '../transaction/widgets/category_picker.dart';
 
@@ -24,7 +25,8 @@ class StatementImportPage extends ConsumerStatefulWidget {
   const StatementImportPage({super.key});
 
   @override
-  ConsumerState<StatementImportPage> createState() => _StatementImportPageState();
+  ConsumerState<StatementImportPage> createState() =>
+      _StatementImportPageState();
 }
 
 class _ReviewRow {
@@ -216,82 +218,93 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Importa estratto conto')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DropdownButtonFormField<BankStatementParser>(
-                  initialValue: _bank,
-                  decoration: const InputDecoration(labelText: 'Banca'),
-                  items: [
-                    for (final b in banks)
-                      DropdownMenuItem(value: b, child: Text(b.bankName)),
-                  ],
-                  onChanged: _busy ? null : (b) => setState(() => _bank = b),
-                ),
-                const SizedBox(height: 12),
-                FilledButton.tonalIcon(
-                  onPressed: (_busy || _bank == null) ? null : _pickAndAnalyze,
-                  icon: const Icon(Icons.upload_file_outlined),
-                  label:
-                      Text(analyzed ? 'Scegli un altro file' : 'Scegli file Excel'),
-                ),
-                if (_busy) ...[
-                  const SizedBox(height: 16),
-                  const Center(child: CircularProgressIndicator()),
-                ],
-              ],
-            ),
-          ),
-          if (analyzed && !_busy)
-            Expanded(
-              child: _rows.isEmpty
-                  ? const Center(child: Text('Nessun movimento trovato nel file.'))
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _rows.length,
-                      itemBuilder: (context, i) => _RowCard(
-                        review: _rows[i],
-                        onChanged: () => setState(() {}),
-                        onEdit: () => _editRow(_rows[i]),
-                      ),
-                    ),
-            ),
-          if (analyzed && !_busy && _rows.isNotEmpty)
-            SafeArea(
-              minimum: const EdgeInsets.all(16),
+      body: ContentWidthLimiter(
+        // Più larga del default (640): ogni riga di revisione è densa
+        // (checkbox, nota, importo, sottocategoria, azioni) — comprimerla in
+        // colonna stretta rischierebbe lo stesso overlap corretto in
+        // Budget M29.
+        maxWidth: 900,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_duplicateCount > 0 || _missingCategoryCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        [
-                          if (_duplicateCount > 0)
-                            '$_duplicateCount possibili doppioni',
-                          if (_missingCategoryCount > 0)
-                            '$_missingCategoryCount incluse senza categoria (non verranno importate)',
-                        ].join(' · '),
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: (_busy || _readyCount == 0) ? null : _confirm,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Text('Importa $_readyCount operazioni'),
-                      ),
-                    ),
+                  DropdownButtonFormField<BankStatementParser>(
+                    initialValue: _bank,
+                    decoration: const InputDecoration(labelText: 'Banca'),
+                    items: [
+                      for (final b in banks)
+                        DropdownMenuItem(value: b, child: Text(b.bankName)),
+                    ],
+                    onChanged: _busy ? null : (b) => setState(() => _bank = b),
                   ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    onPressed:
+                        (_busy || _bank == null) ? null : _pickAndAnalyze,
+                    icon: const Icon(Icons.upload_file_outlined),
+                    label: Text(analyzed
+                        ? 'Scegli un altro file'
+                        : 'Scegli file Excel'),
+                  ),
+                  if (_busy) ...[
+                    const SizedBox(height: 16),
+                    const Center(child: CircularProgressIndicator()),
+                  ],
                 ],
               ),
             ),
-        ],
+            if (analyzed && !_busy)
+              Expanded(
+                child: _rows.isEmpty
+                    ? const Center(
+                        child: Text('Nessun movimento trovato nel file.'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: _rows.length,
+                        itemBuilder: (context, i) => _RowCard(
+                          review: _rows[i],
+                          onChanged: () => setState(() {}),
+                          onEdit: () => _editRow(_rows[i]),
+                        ),
+                      ),
+              ),
+            if (analyzed && !_busy && _rows.isNotEmpty)
+              SafeArea(
+                minimum: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    if (_duplicateCount > 0 || _missingCategoryCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          [
+                            if (_duplicateCount > 0)
+                              '$_duplicateCount possibili doppioni',
+                            if (_missingCategoryCount > 0)
+                              '$_missingCategoryCount incluse senza categoria (non verranno importate)',
+                          ].join(' · '),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed:
+                            (_busy || _readyCount == 0) ? null : _confirm,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text('Importa $_readyCount operazioni'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -346,8 +359,9 @@ class _RowCard extends StatelessWidget {
                 Text(
                   '${isExpense ? '-' : '+'}${AppFormatters.currency(review.amount)}',
                   style: theme.textTheme.titleSmall?.copyWith(
-                    color:
-                        isExpense ? theme.colorScheme.error : Colors.green.shade700,
+                    color: isExpense
+                        ? theme.colorScheme.error
+                        : Colors.green.shade700,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -363,7 +377,8 @@ class _RowCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4, left: 40),
                 child: Row(
                   children: [
-                    Icon(Icons.content_copy, size: 14, color: theme.colorScheme.error),
+                    Icon(Icons.content_copy,
+                        size: 14, color: theme.colorScheme.error),
                     const SizedBox(width: 4),
                     Text('Possibile doppione, esclusa di default',
                         style: theme.textTheme.bodySmall

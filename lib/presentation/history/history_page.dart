@@ -59,66 +59,72 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Storico')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText:
-                    'Cerca per negozio, categoria, sottocategoria, importo, data...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _query.isEmpty
-                    ? null
-                    : IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() => _query = '');
-                        },
-                      ),
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                isDense: true,
+      body: ContentWidthLimiter(
+        // Stessa larghezza di Home (760): lista a colonna singola, niente
+        // master-detail (deciso con Mario per M30). Avvolge tutto il body
+        // (ricerca + lista), non solo la lista: altrimenti la barra di
+        // ricerca resterebbe stirata a piena larghezza sopra una lista
+        // centrata sotto — incoerenza corretta insieme a M31.
+        maxWidth: 760,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText:
+                      'Cerca per negozio, categoria, sottocategoria, importo, data...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  isDense: true,
+                ),
+                onChanged: (v) =>
+                    setState(() => _query = v.trim().toLowerCase()),
               ),
-              onChanged: (v) => setState(() => _query = v.trim().toLowerCase()),
             ),
-          ),
-          Expanded(
-            child: txAsync.when(
-              data: (all) {
-                final filtered = _filter(all, catById, subNameById);
-                // Lookup id → transazione, per risolvere la spesa collegata a
-                // un rimborso (refundOfId).
-                final byId = {
-                  for (final t in all)
-                    if (t.id != null) t.id!: t,
-                };
-                // Direzione opposta: spesa → rimborsi collegati (una spesa
-                // può averne più di uno, v. M25 "nessun tetto sui rimborsi").
-                final refundsByExpenseId = <int, List<TransactionEntity>>{};
-                for (final t in all) {
-                  final expenseId = t.refundOfId;
-                  if (expenseId != null) {
-                    refundsByExpenseId.putIfAbsent(expenseId, () => []).add(t);
+            Expanded(
+              child: txAsync.when(
+                data: (all) {
+                  final filtered = _filter(all, catById, subNameById);
+                  // Lookup id → transazione, per risolvere la spesa collegata a
+                  // un rimborso (refundOfId).
+                  final byId = {
+                    for (final t in all)
+                      if (t.id != null) t.id!: t,
+                  };
+                  // Direzione opposta: spesa → rimborsi collegati (una spesa
+                  // può averne più di uno, v. M25 "nessun tetto sui rimborsi").
+                  final refundsByExpenseId = <int, List<TransactionEntity>>{};
+                  for (final t in all) {
+                    final expenseId = t.refundOfId;
+                    if (expenseId != null) {
+                      refundsByExpenseId
+                          .putIfAbsent(expenseId, () => [])
+                          .add(t);
+                    }
                   }
-                }
-                if (filtered.isEmpty) {
-                  return EmptyState(
-                    icon: all.isEmpty
-                        ? Icons.receipt_long_outlined
-                        : Icons.search_off_outlined,
-                    message: all.isEmpty
-                        ? 'Nessuna operazione'
-                        : 'Nessun risultato per "${_searchController.text}"',
-                  );
-                }
-                return ContentWidthLimiter(
-                  // Stessa larghezza di Home (760): lista a colonna singola,
-                  // niente master-detail (deciso con Mario per M30).
-                  maxWidth: 760,
-                  child: ListView.builder(
+                  if (filtered.isEmpty) {
+                    return EmptyState(
+                      icon: all.isEmpty
+                          ? Icons.receipt_long_outlined
+                          : Icons.search_off_outlined,
+                      message: all.isEmpty
+                          ? 'Nessuna operazione'
+                          : 'Nessun risultato per "${_searchController.text}"',
+                    );
+                  }
+                  return ListView.builder(
                     padding: const EdgeInsets.only(bottom: 16),
                     itemCount: filtered.length,
                     itemBuilder: (context, i) {
@@ -156,25 +162,25 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                                     catById[linked.categoryId],
                                   ),
                           linkedRefunds: linkedRefunds,
-                          onShowLinkedRefunds: (linkedRefunds == null ||
-                                  linkedRefunds.isEmpty)
-                              ? null
-                              : () => showLinkedRefundsSheet(
-                                    context,
-                                    linkedRefunds,
-                                    catById[tx.categoryId],
-                                  ),
+                          onShowLinkedRefunds:
+                              (linkedRefunds == null || linkedRefunds.isEmpty)
+                                  ? null
+                                  : () => showLinkedRefundsSheet(
+                                        context,
+                                        linkedRefunds,
+                                        catById[tx.categoryId],
+                                      ),
                         ),
                       );
                     },
-                  ),
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Errore: $e')),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Errore: $e')),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

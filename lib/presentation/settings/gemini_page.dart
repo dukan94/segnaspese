@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../core/di/gemini_providers.dart';
 import '../../core/utils/app_snackbar.dart';
+import '../shared_widgets/content_width_limiter.dart';
 
 enum _GeminiTestStatus { unknown, testing, valid, invalid }
 
@@ -36,8 +37,7 @@ class _GeminiPageState extends ConsumerState<GeminiPage> {
   }
 
   Future<void> _loadExisting() async {
-    final configured =
-        await ref.read(geminiApiKeyStoreProvider).isConfigured();
+    final configured = await ref.read(geminiApiKeyStoreProvider).isConfigured();
     if (!mounted) return;
     setState(() => _alreadyConfigured = configured);
   }
@@ -121,78 +121,81 @@ class _GeminiPageState extends ConsumerState<GeminiPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('AI per scontrini (Gemini)')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            '"Scansiona scontrino" può leggere la foto direttamente con '
-            'Google Gemini (gratuito, richiede una API key personale) '
-            'invece del solo riconoscimento testo offline. Se la key non è '
-            'configurata o la richiesta fallisce, si ricade automaticamente '
-            'sul riconoscimento offline. Ottieni una API key gratuita su '
-            'aistudio.google.com/apikey.',
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          _StatusBanner(
-            testStatus: _testStatus,
-            alreadyConfigured: _alreadyConfigured,
-          ),
-          const SizedBox(height: 24),
-          TextField(
-            controller: _apiKeyController,
-            obscureText: _obscureKey,
-            decoration: InputDecoration(
-              labelText: 'API key Gemini',
-              hintText: _alreadyConfigured
-                  ? 'Già configurata — lascia vuoto per non cambiarla'
-                  : null,
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(_obscureKey
-                    ? Icons.visibility_outlined
-                    : Icons.visibility_off_outlined),
-                onPressed: () => setState(() => _obscureKey = !_obscureKey),
+      body: ContentWidthLimiter(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text(
+              '"Scansiona scontrino" può leggere la foto direttamente con '
+              'Google Gemini (gratuito, richiede una API key personale) '
+              'invece del solo riconoscimento testo offline. Se la key non è '
+              'configurata o la richiesta fallisce, si ricade automaticamente '
+              'sul riconoscimento offline. Ottieni una API key gratuita su '
+              'aistudio.google.com/apikey.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 16),
+            _StatusBanner(
+              testStatus: _testStatus,
+              alreadyConfigured: _alreadyConfigured,
+            ),
+            const SizedBox(height: 24),
+            TextField(
+              controller: _apiKeyController,
+              obscureText: _obscureKey,
+              decoration: InputDecoration(
+                labelText: 'API key Gemini',
+                hintText: _alreadyConfigured
+                    ? 'Già configurata — lascia vuoto per non cambiarla'
+                    : null,
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(_obscureKey
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined),
+                  onPressed: () => setState(() => _obscureKey = !_obscureKey),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _modelController,
-            decoration: const InputDecoration(
-              labelText: 'Modello',
-              hintText: 'gemini-2.5-flash',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _modelController,
+              decoration: const InputDecoration(
+                labelText: 'Modello',
+                hintText: 'gemini-2.5-flash',
+                border: OutlineInputBorder(),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _busy ? null : _save,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Salva'),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _testStatus == _GeminiTestStatus.testing
-                ? null
-                : _testConnection,
-            icon: _testStatus == _GeminiTestStatus.testing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.wifi_tethering_outlined),
-            label: const Text('Testa connessione'),
-          ),
-        ],
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _busy ? null : _save,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Salva'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _testStatus == _GeminiTestStatus.testing
+                  ? null
+                  : _testConnection,
+              icon: _testStatus == _GeminiTestStatus.testing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_tethering_outlined),
+              label: const Text('Testa connessione'),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _StatusBanner extends StatelessWidget {
-  const _StatusBanner({required this.testStatus, required this.alreadyConfigured});
+  const _StatusBanner(
+      {required this.testStatus, required this.alreadyConfigured});
 
   final _GeminiTestStatus testStatus;
   final bool alreadyConfigured;

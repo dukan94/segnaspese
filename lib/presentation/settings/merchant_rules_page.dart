@@ -10,6 +10,7 @@ import '../../data/local/database/daos/category_dao.dart';
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/merchant_rule_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/fade_in_item.dart';
 import '../transaction/widgets/category_picker.dart';
 
@@ -29,24 +30,35 @@ class MerchantRulesPage extends ConsumerWidget {
         .watch(subCategoriesForTypeProvider(TransactionType.expense.toDrift()));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Regole di classificazione')),
-      body: rulesAsync.when(
-        data: (rules) {
-          if (rules.isEmpty) {
-            return const _EmptyState();
-          }
-          final lookup = subCatsAsync.valueOrNull ?? const [];
-          return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 88),
-            itemCount: rules.length,
-            itemBuilder: (context, index) => FadeInItem(
-              key: ValueKey(rules[index].id),
-              child: _RuleTile(rule: rules[index], lookup: lookup),
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+      appBar: AppBar(
+        title: const Text('Regole di classificazione'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Come scrivere una regola',
+            onPressed: () => showRuleHelpSheet(context),
+          ),
+        ],
+      ),
+      body: ContentWidthLimiter(
+        child: rulesAsync.when(
+          data: (rules) {
+            if (rules.isEmpty) {
+              return const _EmptyState();
+            }
+            final lookup = subCatsAsync.valueOrNull ?? const [];
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 88),
+              itemCount: rules.length,
+              itemBuilder: (context, index) => FadeInItem(
+                key: ValueKey(rules[index].id),
+                child: _RuleTile(rule: rules[index], lookup: lookup),
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Errore: $e')),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showRuleEditor(context, ref),
@@ -150,6 +162,191 @@ Future<void> _confirmDelete(
   if (confirmed != true || !context.mounted) return;
   await ref.read(deleteMerchantRuleProvider).call(rule.id!);
   if (context.mounted) showSuccessSnackBar(context, 'Regola eliminata');
+}
+
+/// Spiega come scrivere il pattern di una regola (icona "i" in AppBar,
+/// richiesta da Mario, 17 ago 2026, resa più esaustiva su sua richiesta lo
+/// stesso giorno): il matching reale è in `rule_matcher_service.dart`,
+/// questo testo ne descrive il comportamento perché chi scrive una regola
+/// sappia cosa aspettarsi. Altezza limitata (85% dello schermo) + scroll
+/// verticale: il contenuto è lungo apposta (esaustivo, non un riassunto),
+/// non deve mai andare in overflow né tagliare il pulsante di chiusura.
+Future<void> showRuleHelpSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) {
+      final theme = Theme.of(ctx);
+      final maxHeight = MediaQuery.sizeOf(ctx).height * 0.85;
+      return SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text('Come scrivere una regola',
+                        style: theme.textTheme.titleMedium),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Il "Pattern" è un\'espressione regolare (regex) cercata '
+                  'nel testo dello scontrino letto dall\'AI/OCR, o nella '
+                  'causale per l\'import estratto conto — non serve che '
+                  'combaci tutto il testo, basta che il pattern lo trovi in '
+                  'una parte qualsiasi, e maiuscole/minuscole non contano '
+                  'mai.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 20),
+                const _SectionTitle('Simboli di base'),
+                const _HelpRow(symbol: '.', meaning: 'un carattere qualsiasi'),
+                const _HelpRow(
+                    symbol: '.*',
+                    meaning: 'qualsiasi sequenza di caratteri, anche vuota — '
+                        'utile per "non mi interessa cosa c\'è in mezzo"'),
+                const _HelpRow(
+                    symbol: 'A|B',
+                    meaning:
+                        '"oppure": A oppure B (es. Q8|ENI|IP, tutti in una '
+                        'sola regola invece di scriverne tre)'),
+                const _HelpRow(
+                    symbol: '^',
+                    meaning: 'inizio del testo — di rado serve, dato che il '
+                        'pattern già "contiene" senza bisogno di ancorarlo'),
+                const _HelpRow(symbol: r'$', meaning: 'fine del testo'),
+                const SizedBox(height: 16),
+                const _SectionTitle('Classi di caratteri'),
+                const _HelpRow(
+                    symbol: '[abc]',
+                    meaning: 'uno dei caratteri elencati (es. [oO] per una '
+                        'lettera che può comparire maiuscola o minuscola — '
+                        'anche se qui non serve mai, il match è già '
+                        'case-insensitive)'),
+                const _HelpRow(
+                    symbol: r'[^abc]',
+                    meaning: 'un carattere diverso da quelli elencati'),
+                const _HelpRow(symbol: r'\d', meaning: 'una cifra (0-9)'),
+                const _HelpRow(
+                    symbol: r'\w',
+                    meaning:
+                        'una "lettera di parola" (lettere, cifre, underscore)'),
+                const _HelpRow(
+                    symbol: r'\s', meaning: 'uno spazio (o tab/a capo)'),
+                const SizedBox(height: 16),
+                const _SectionTitle('Quantità (quante volte)'),
+                const _HelpRow(
+                    symbol: 'X+',
+                    meaning: 'X ripetuto una o più volte (es. \\d+ = "una o '
+                        'più cifre di fila")'),
+                const _HelpRow(
+                    symbol: 'X?',
+                    meaning: 'X presente zero o una volta (facoltativo)'),
+                const _HelpRow(
+                    symbol: 'X{2,4}',
+                    meaning: 'X ripetuto da 2 a 4 volte (di rado serve qui)'),
+                const SizedBox(height: 16),
+                const _SectionTitle('Caratteri speciali da "spegnere"'),
+                Text(
+                  'Alcuni simboli hanno un significato speciale in una regex '
+                  '(. * + ? ^ \$ | ( ) [ ] { } \\): per cercarli così come '
+                  'sono, letteralmente, va messa una barra rovesciata prima.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 8),
+                const _HelpRow(
+                    symbol: r'\.',
+                    meaning: 'un punto letterale (es. "S\\.p\\.A\\." per '
+                        '"S.p.A.")'),
+                const _HelpRow(
+                    symbol: r'\(', meaning: 'una parentesi tonda letterale'),
+                const SizedBox(height: 20),
+                const _SectionTitle('Priorità e pattern non validi'),
+                Text(
+                  'Se il pattern di più regole trova riscontro nello stesso '
+                  'testo, vince quella con priorità più alta — usala per far '
+                  'prevalere una regola più specifica su una più generica '
+                  '(es. una regola per "ESSELUNGA BAR" con priorità più alta '
+                  'di una generica "ESSEL.*"). Un pattern scritto in modo '
+                  'non valido non dà errore: semplicemente non classifica '
+                  'mai nulla — se una regola non scatta mai, controlla la '
+                  'sintassi.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 20),
+                const _SectionTitle('Esempi'),
+                const _HelpRow(symbol: 'ESSEL.*', meaning: '→ Esselunga'),
+                const _HelpRow(
+                    symbol: 'Q8|ENI|IP\\s',
+                    meaning:
+                        '→ più distributori di benzina con una sola regola'),
+                const _HelpRow(
+                    symbol: 'AMAZON', meaning: '→ qualunque riga con "Amazon"'),
+                const _HelpRow(
+                    symbol: r'PARCH\w*',
+                    meaning: '→ "PARCHEGGIO", "PARCH." e varianti simili'),
+                const _HelpRow(
+                    symbol: r'PEDAGGIO.*\d{2}/\d{2}/\d{4}',
+                    meaning: '→ un pedaggio autostradale seguito da una data '
+                        'gg/mm/aaaa nel testo (es. estratto conto)'),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+    );
+  }
+}
+
+/// Simbolo/pattern impilato sopra il suo significato (non affiancati):
+/// alcuni esempi sono regex lunghe che con una colonna di larghezza fissa
+/// andrebbero in overflow o si leggerebbero male.
+class _HelpRow extends StatelessWidget {
+  const _HelpRow({required this.symbol, required this.meaning});
+
+  final String symbol;
+  final String meaning;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            symbol,
+            style: theme.textTheme.bodyMedium?.copyWith(
+                fontFamily: 'monospace', fontWeight: FontWeight.w600),
+          ),
+          Text(meaning, style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
 }
 
 /// Apre il form di creazione/modifica di una regola.

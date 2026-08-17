@@ -591,12 +591,12 @@ default (90 giorni).
   mano gli artifact vecchi dalla tab Actions del repo (o "Manage artifacts"
   nella singola run), aspettare il ricalcolo, poi rilanciare.
 
-## Layout desktop-adattivo (M26-M29)
+## Layout desktop-adattivo (M26-M31)
 
 Refactor richiesto da Mario il 16 ago 2026 ("l'app è scomoda da usare da
 pc" — elementi troppo da touch, contenuto stirato a piena larghezza).
-Ogni pagina toccata da M26 in poi (e le prossime, M30/M31) segue lo stesso
-schema — riusarlo per coerenza invece di inventarne uno nuovo:
+Ogni pagina toccata da M26 in poi segue lo stesso schema — riusarlo per
+coerenza invece di inventarne uno nuovo:
 
 - `isWideWindow(context)` (`core/utils/responsive.dart`, soglia 900dp) per
   decidere Row/griglia (finestra larga) vs Column (sotto la soglia, stesso
@@ -622,7 +622,28 @@ schema — riusarlo per coerenza invece di inventarne uno nuovo:
   invece globale, non per-pagina: non serve ripeterlo.
 - Ogni pagina è stata prima discussa con un mockup HTML (non genera
   codice, solo per concordare la direzione) e approvata da Mario prima di
-  scrivere il codice Flutter — se si riprende M31, stesso metodo.
+  scrivere il codice Flutter — stesso metodo per ogni futura pagina
+  adattata.
+- **M31 (Form e Impostazioni, 17 ago 2026)**: qui NON si applica la parte
+  su "elementi ripetuti e comparabili → griglia" sopra — proposta una
+  griglia per Regole Merchant (stesso pattern di Budget M29), **scartata
+  esplicitamente da Mario** dopo aver visto il mockup ("più semplice da
+  implementare e comode da usare" con la sola centratura). Tutte le pagine
+  rimaste (`add_transaction_page.dart`, `settings_page.dart`,
+  `categories_manage_page.dart`, `merchant_rules_page.dart`,
+  `export_page.dart`, `import_page.dart`, `sync_page.dart`,
+  `gemini_page.dart`, `theme_page.dart`, `admin_page.dart`,
+  `statement_import_page.dart`) hanno solo `ContentWidthLimiter` (640
+  default, 900 per Admin/Import estratto conto — righe più dense). **Non
+  riproporre una griglia per queste pagine** senza una richiesta esplicita
+  nuova. Fix incluso: in Storico (M30) la barra di ricerca non era
+  centrata come la lista sotto — `ContentWidthLimiter` ora avvolge
+  l'intero body, non solo la lista. Aggiunta richiesta a parte: icona "i"
+  in AppBar in Regole di classificazione, apre un bottom sheet
+  (`showRuleHelpSheet`) che spiega la sintassi del pattern (regex
+  case-insensitive cercata ovunque nel testo, priorità, pattern non validi
+  ignorati silenziosamente) — v. `rule_matcher_service.dart` per il
+  comportamento reale che il testo descrive.
 
 ## Storico — card ridisegnata, colori entrata/badge rimborso (M30)
 
@@ -676,9 +697,8 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M30 e M32 completate** (M31, Form/Impostazioni adattivi, resta da
-  progettare — v. `progettazione_finance_app.md` sezione 6 per il
-  dettaglio completo). M0-M8:
+- **M0–M32 completate** (v. `progettazione_finance_app.md` sezione 6 per
+  il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
@@ -705,7 +725,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (M30, v. sezione dedicata sopra)**: card ridisegnata (data isolata,
   sottocategoria sotto la Nota), sfondo verde per le entrate, badge
   colorato per le spese con rimborso collegato — niente master-detail,
-  scelta esplicita di Mario. **Sync immediata su salvataggio (M32, v.
+  scelta esplicita di Mario. **Form e Impostazioni adattivi (M31, v.
+  sezione dedicata sopra)**: `ContentWidthLimiter` su tutte le pagine
+  rimaste, niente griglie (scartate da Mario), icona info nelle Regole di
+  classificazione. **Sync immediata su salvataggio (M32, v.
   sezione Sync sopra)**: inserimento/modifica/cancellazione transazione
   lanciano subito una sync in background, oltre al timer ogni 5 minuti
   (invariato). **CI

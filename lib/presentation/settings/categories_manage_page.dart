@@ -4,11 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/di/category_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../data/local/database/app_database.dart';
-import '../../data/local/database/daos/category_dao.dart' show SubCategoryWithCategory;
-import '../../data/local/database/tables/categories_table.dart' show TransactionKind;
+import '../../data/local/database/daos/category_dao.dart'
+    show SubCategoryWithCategory;
+import '../../data/local/database/tables/categories_table.dart'
+    show TransactionKind;
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/empty_state.dart';
 
 /// Palette di colori proposta per le categorie (usata nei grafici futuri
@@ -118,37 +121,39 @@ class _CategoryTypeListState extends ConsumerState<_CategoryTypeList> {
         ref.watch(categoriesByTypeProvider(widget.type.toDrift()));
 
     return Scaffold(
-      body: categoriesAsync.when(
-        data: (categories) {
-          _syncItems(categories);
-          if (_items.isEmpty) {
-            return EmptyState(
-              icon: Icons.category_outlined,
-              title: 'Nessuna categoria',
-              message:
-                  'Aggiungine una per iniziare a classificare le operazioni.',
-              action: FilledButton.icon(
-                onPressed: () =>
-                    showCategoryEditor(context, ref, type: widget.type),
-                icon: const Icon(Icons.add),
-                label: const Text('Aggiungi categoria'),
+      body: ContentWidthLimiter(
+        child: categoriesAsync.when(
+          data: (categories) {
+            _syncItems(categories);
+            if (_items.isEmpty) {
+              return EmptyState(
+                icon: Icons.category_outlined,
+                title: 'Nessuna categoria',
+                message:
+                    'Aggiungine una per iniziare a classificare le operazioni.',
+                action: FilledButton.icon(
+                  onPressed: () =>
+                      showCategoryEditor(context, ref, type: widget.type),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Aggiungi categoria'),
+                ),
+              );
+            }
+            return ReorderableListView.builder(
+              buildDefaultDragHandles: false,
+              padding: const EdgeInsets.only(bottom: 88),
+              itemCount: _items.length,
+              onReorderItem: _onReorder,
+              itemBuilder: (context, index) => _CategoryTile(
+                key: ValueKey('category-${_items[index].id}'),
+                category: _items[index],
+                index: index,
               ),
             );
-          }
-          return ReorderableListView.builder(
-            buildDefaultDragHandles: false,
-            padding: const EdgeInsets.only(bottom: 88),
-            itemCount: _items.length,
-            onReorderItem: _onReorder,
-            itemBuilder: (context, index) => _CategoryTile(
-              key: ValueKey('category-${_items[index].id}'),
-              category: _items[index],
-              index: index,
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Errore: $e')),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'add-category-${widget.type.name}',
@@ -398,7 +403,8 @@ Future<void> _mergeCategory(
 ) async {
   final repository = ref.read(categoryRepositoryProvider);
 
-  final hasBlocking = await repository.categoryHasBlockingSubCategories(category.id);
+  final hasBlocking =
+      await repository.categoryHasBlockingSubCategories(category.id);
   if (!context.mounted) return;
   if (hasBlocking) {
     showErrorSnackBar(
@@ -409,9 +415,10 @@ Future<void> _mergeCategory(
     return;
   }
 
-  final candidates = (await ref.read(categoriesByTypeProvider(category.type).future))
-      .where((c) => c.id != category.id)
-      .toList();
+  final candidates =
+      (await ref.read(categoriesByTypeProvider(category.type).future))
+          .where((c) => c.id != category.id)
+          .toList();
   if (!context.mounted) return;
   if (candidates.isEmpty) {
     showErrorSnackBar(context, 'Nessun\'altra categoria a cui unire questa.');
@@ -450,7 +457,9 @@ Future<void> _mergeCategory(
   if (confirmed != true || !context.mounted) return;
 
   try {
-    await ref.read(mergeCategoryProvider).call(sourceId: category.id, targetId: target.id);
+    await ref
+        .read(mergeCategoryProvider)
+        .call(sourceId: category.id, targetId: target.id);
     if (context.mounted) showSuccessSnackBar(context, 'Categoria unita');
   } catch (e) {
     if (context.mounted) showErrorSnackBar(context, 'Errore: $e');
@@ -473,7 +482,8 @@ Future<void> _mergeSubCategory(
       .toList();
   if (!context.mounted) return;
   if (candidates.isEmpty) {
-    showErrorSnackBar(context, 'Nessun\'altra sottocategoria a cui unire questa.');
+    showErrorSnackBar(
+        context, 'Nessun\'altra sottocategoria a cui unire questa.');
     return;
   }
 
@@ -526,9 +536,11 @@ String _mergeImpactMessage(
   }
   final parts = <String>[
     if (impact.transactions > 0) '${impact.transactions} transazioni',
-    if (impact.merchantRules > 0) '${impact.merchantRules} regole di categorizzazione',
+    if (impact.merchantRules > 0)
+      '${impact.merchantRules} regole di categorizzazione',
     if (impact.budgets > 0) '${impact.budgets} budget',
-    if (impact.recurringTransactions > 0) '${impact.recurringTransactions} ricorrenze',
+    if (impact.recurringTransactions > 0)
+      '${impact.recurringTransactions} ricorrenze',
   ];
   return 'Verranno spostate su "$targetName": ${parts.join(', ')}. '
       '"$sourceName" verrà poi eliminata.';
@@ -612,7 +624,8 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
     final categories = await ref.read(categoriesByTypeProvider(kind).future);
     final normalized = name.toLowerCase();
     return categories.any((c) =>
-        c.id != widget.existing?.id && c.name.trim().toLowerCase() == normalized);
+        c.id != widget.existing?.id &&
+        c.name.trim().toLowerCase() == normalized);
   }
 
   Future<void> _save() async {
@@ -781,7 +794,8 @@ class _SubCategoryEditorDialogState
         await ref.read(subCategoriesProvider(widget.categoryId).future);
     final normalized = name.toLowerCase();
     return subCategories.any((s) =>
-        s.id != widget.existing?.id && s.name.trim().toLowerCase() == normalized);
+        s.id != widget.existing?.id &&
+        s.name.trim().toLowerCase() == normalized);
   }
 
   Future<void> _save() async {
