@@ -10,6 +10,7 @@ import '../../data/local/database/daos/category_dao.dart';
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/merchant_rule_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/fade_in_item.dart';
 import '../transaction/widgets/category_picker.dart';
 
@@ -29,24 +30,35 @@ class MerchantRulesPage extends ConsumerWidget {
         .watch(subCategoriesForTypeProvider(TransactionType.expense.toDrift()));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Regole di classificazione')),
-      body: rulesAsync.when(
-        data: (rules) {
-          if (rules.isEmpty) {
-            return const _EmptyState();
-          }
-          final lookup = subCatsAsync.valueOrNull ?? const [];
-          return ListView.builder(
-            padding: const EdgeInsets.only(bottom: 88),
-            itemCount: rules.length,
-            itemBuilder: (context, index) => FadeInItem(
-              key: ValueKey(rules[index].id),
-              child: _RuleTile(rule: rules[index], lookup: lookup),
-            ),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Errore: $e')),
+      appBar: AppBar(
+        title: const Text('Regole di classificazione'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Come scrivere una regola',
+            onPressed: () => showRuleHelpSheet(context),
+          ),
+        ],
+      ),
+      body: ContentWidthLimiter(
+        child: rulesAsync.when(
+          data: (rules) {
+            if (rules.isEmpty) {
+              return const _EmptyState();
+            }
+            final lookup = subCatsAsync.valueOrNull ?? const [];
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 88),
+              itemCount: rules.length,
+              itemBuilder: (context, index) => FadeInItem(
+                key: ValueKey(rules[index].id),
+                child: _RuleTile(rule: rules[index], lookup: lookup),
+              ),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('Errore: $e')),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => showRuleEditor(context, ref),
@@ -150,6 +162,115 @@ Future<void> _confirmDelete(
   if (confirmed != true || !context.mounted) return;
   await ref.read(deleteMerchantRuleProvider).call(rule.id!);
   if (context.mounted) showSuccessSnackBar(context, 'Regola eliminata');
+}
+
+/// Spiega come scrivere il pattern di una regola (icona "i" in AppBar,
+/// richiesta da Mario, 17 ago 2026): il matching reale è in
+/// `rule_matcher_service.dart`, questo testo ne descrive il comportamento
+/// perché chi scrive una regola sappia cosa aspettarsi.
+Future<void> showRuleHelpSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) {
+      final theme = Theme.of(ctx);
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text('Come scrivere una regola',
+                        style: theme.textTheme.titleMedium),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Il "Pattern" è un\'espressione regolare cercata nel testo '
+                  'dello scontrino (o nella causale, per l\'import estratto '
+                  'conto) — non serve che combaci tutto il testo, basta che '
+                  'lo trovi in una parte qualsiasi, e maiuscole/minuscole non '
+                  'contano.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                Text('Simboli utili', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                const _HelpRow(symbol: '.', meaning: 'un carattere qualsiasi'),
+                const _HelpRow(
+                    symbol: '.*',
+                    meaning: 'qualsiasi sequenza di caratteri (anche vuota)'),
+                const _HelpRow(
+                    symbol: 'A|B',
+                    meaning: '"oppure": A oppure B (es. Q8|ENI|IP)'),
+                const _HelpRow(
+                    symbol: r'\.',
+                    meaning:
+                        'un punto letterale (senza la barra, "." significa '
+                        '"un carattere qualsiasi")'),
+                const SizedBox(height: 16),
+                Text(
+                  'Se più regole hanno un pattern che trova riscontro, vince '
+                  'quella con priorità più alta — usala per far prevalere una '
+                  'regola più specifica su una più generica. Un pattern '
+                  'scritto in modo non valido non dà errore: semplicemente '
+                  'non classifica mai nulla.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 16),
+                Text('Esempi', style: theme.textTheme.titleSmall),
+                const SizedBox(height: 8),
+                const _HelpRow(symbol: 'ESSEL.*', meaning: '→ Esselunga'),
+                const _HelpRow(
+                    symbol: 'Q8|ENI|IP\\s',
+                    meaning: '→ più distributori con una sola regola'),
+                const _HelpRow(
+                    symbol: 'AMAZON', meaning: '→ qualunque riga con "Amazon"'),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
+class _HelpRow extends StatelessWidget {
+  const _HelpRow({required this.symbol, required this.meaning});
+
+  final String symbol;
+  final String meaning;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              symbol,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace', fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(
+            child: Text(meaning, style: theme.textTheme.bodySmall),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Apre il form di creazione/modifica di una regola.

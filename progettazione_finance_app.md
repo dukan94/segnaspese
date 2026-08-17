@@ -1174,12 +1174,36 @@ cancellazione transazione**
   presentazione/tema, senza calcoli o casi limite da coprire — stesso
   principio già seguito per M26-M29).
 
-**M31 — 🔧 Proposta (da progettare) — Form e Impostazioni adattivi**
-- Nuova Operazione, Impostazioni e sottopagine (Categorie, Regole Merchant,
-  Import/Export, Admin, import estratto conto). Probabilmente beneficiano
-  soprattutto della densità/larghezza massima già pronte in M26 senza
-  bisogno di un redesign strutturale come la Home, ma da confermare
-  schermata per schermata quando si arriva a questa milestone.
+**M31 — ✅ Completata (17 ago 2026) — Form e Impostazioni adattivi**
+- Mockup di confronto (prima/dopo) discusso e approvato da Mario: proposta
+  iniziale con Regole Merchant in griglia (come Budget M29) — **scartata**
+  da Mario, "più semplice da implementare e comode da usare" con la sola
+  centratura ovunque, nessuna griglia.
+- **Fatto**: `ContentWidthLimiter` aggiunto a tutte le pagine rimaste senza
+  (nessuna ristrutturazione, solo centratura su finestra larga):
+  `add_transaction_page.dart`, `settings_page.dart`,
+  `categories_manage_page.dart`, `merchant_rules_page.dart`,
+  `export_page.dart`, `import_page.dart`, `sync_page.dart`,
+  `gemini_page.dart`, `theme_page.dart`, `admin_page.dart`,
+  `statement_import_page.dart`. Larghezza massima 640 (default, form/liste
+  semplici) tranne Admin e Import estratto conto (900: righe più dense —
+  checkbox, importo, sottocategoria, azioni — stesso motivo per cui Budget
+  M29 aveva bisogno di più spazio nelle celle di griglia).
+- **Fix incluso, non solo M31**: in Storico (M30) la barra di ricerca non
+  era centrata come la lista sottostante — `ContentWidthLimiter` avvolgeva
+  solo la lista, non l'intero body. Corretto insieme (avvolge ora
+  ricerca + lista in un colpo solo).
+- **Richiesta aggiuntiva di Mario**: icona "i" (info) in AppBar in Regole di
+  classificazione, apre un bottom sheet (`showRuleHelpSheet`,
+  `merchant_rules_page.dart`) che spiega come scrivere un pattern —
+  matching case-insensitive che cerca il pattern ovunque nel testo (non
+  serve `^`/`$`), simboli di base (`.`, `.*`, `A|B`, escape con `\`),
+  priorità (più alta vince a parità di match) e che un pattern non valido
+  non dà errore, semplicemente non classifica mai nulla — stessa logica
+  reale di `rule_matcher_service.dart`, descritta perché chi scrive una
+  regola sappia cosa aspettarsi.
+- `flutter analyze` pulito, **169/169 test invariati** (nessuna logica di
+  business toccata, solo layout/presentazione + un testo informativo).
 
 ---
 

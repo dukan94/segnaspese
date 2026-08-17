@@ -9,6 +9,7 @@ import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/usecases/transaction/search_transactions.dart';
 import '../home/home_providers.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/empty_state.dart';
 import 'widgets/amount_keypad.dart';
 import 'widgets/category_picker.dart';
@@ -370,114 +371,116 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            AmountKeypad(
-              initialAmount: widget.existing?.amount ?? widget.draftAmount,
-              onChanged: (value) => setState(() => _amount = value),
-            ),
-            const SizedBox(height: 20),
-            if (!_isRefund)
-              SegmentedButton<TransactionType>(
-                segments: const [
-                  ButtonSegment(
-                    value: TransactionType.income,
-                    label: Text('Entrata'),
-                    icon: Icon(Icons.arrow_downward),
-                  ),
-                  ButtonSegment(
-                    value: TransactionType.expense,
-                    label: Text('Uscita'),
-                    icon: Icon(Icons.arrow_upward),
-                  ),
-                ],
-                selected: {_type},
-                onSelectionChanged: (selection) {
-                  setState(() {
-                    _type = selection.first;
-                    // Le sottocategorie disponibili dipendono dal tipo: reset.
-                    _selection = null;
-                  });
-                },
+      body: ContentWidthLimiter(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              AmountKeypad(
+                initialAmount: widget.existing?.amount ?? widget.draftAmount,
+                onChanged: (value) => setState(() => _amount = value),
               ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _isRefund,
-              onChanged: (v) => setState(() {
-                _isRefund = v;
-                // Un rimborso è sempre relativo a una spesa: forza il tipo a
-                // uscita e azzera la scelta, così il picker mostra le spese.
-                if (v) {
-                  _type = TransactionType.expense;
-                } else {
-                  // Disattivando il rimborso si scollega la spesa.
-                  _refundOfId = null;
-                  _linkedExpense = null;
-                }
-                _selection = null;
-              }),
-              title: const Text('Rimborso ricevuto'),
-              subtitle: const Text('Riduce la spesa della categoria scelta'),
-            ),
-            if (_isRefund) ...[
-              const SizedBox(height: 4),
-              _LinkedExpenseField(
-                linked: linked,
-                category: linked == null ? null : catById[linked.categoryId],
-                onPick: _pickExpenseToRefund,
-                onClear: () => setState(() {
-                  _refundOfId = null;
-                  _linkedExpense = null;
+              const SizedBox(height: 20),
+              if (!_isRefund)
+                SegmentedButton<TransactionType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: TransactionType.income,
+                      label: Text('Entrata'),
+                      icon: Icon(Icons.arrow_downward),
+                    ),
+                    ButtonSegment(
+                      value: TransactionType.expense,
+                      label: Text('Uscita'),
+                      icon: Icon(Icons.arrow_upward),
+                    ),
+                  ],
+                  selected: {_type},
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _type = selection.first;
+                      // Le sottocategorie disponibili dipendono dal tipo: reset.
+                      _selection = null;
+                    });
+                  },
+                ),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _isRefund,
+                onChanged: (v) => setState(() {
+                  _isRefund = v;
+                  // Un rimborso è sempre relativo a una spesa: forza il tipo a
+                  // uscita e azzera la scelta, così il picker mostra le spese.
+                  if (v) {
+                    _type = TransactionType.expense;
+                  } else {
+                    // Disattivando il rimborso si scollega la spesa.
+                    _refundOfId = null;
+                    _linkedExpense = null;
+                  }
+                  _selection = null;
                 }),
+                title: const Text('Rimborso ricevuto'),
+                subtitle: const Text('Riduce la spesa della categoria scelta'),
               ),
-            ],
-            const SizedBox(height: 12),
-            SubCategoryPicker(
-              key: ValueKey('$_type-$_isRefund'),
-              type: _type,
-              selection: _selection,
-              onChanged: (value) => setState(() => _selection = value),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.calendar_today_outlined),
-              title: const Text('Data'),
-              trailing: Text(AppFormatters.shortDate(_date)),
-              onTap: _pickDate,
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _noteController,
-              decoration: const InputDecoration(
-                labelText: 'Note (opzionale)',
-                hintText: 'Es. negozio, dettagli...',
+              if (_isRefund) ...[
+                const SizedBox(height: 4),
+                _LinkedExpenseField(
+                  linked: linked,
+                  category: linked == null ? null : catById[linked.categoryId],
+                  onPick: _pickExpenseToRefund,
+                  onClear: () => setState(() {
+                    _refundOfId = null;
+                    _linkedExpense = null;
+                  }),
+                ),
+              ],
+              const SizedBox(height: 12),
+              SubCategoryPicker(
+                key: ValueKey('$_type-$_isRefund'),
+                type: _type,
+                selection: _selection,
+                onChanged: (value) => setState(() => _selection = value),
               ),
-              maxLines: 2,
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _isExtraordinary,
-              onChanged: (v) => setState(() => _isExtraordinary = v),
-              title: const Text('Straordinaria'),
-              subtitle: const Text(
-                  'Operazione una tantum, esclusa di default dalle statistiche'),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _canSave ? _save : null,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Salva'),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today_outlined),
+                title: const Text('Data'),
+                trailing: Text(AppFormatters.shortDate(_date)),
+                onTap: _pickDate,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _noteController,
+                decoration: const InputDecoration(
+                  labelText: 'Note (opzionale)',
+                  hintText: 'Es. negozio, dettagli...',
+                ),
+                maxLines: 2,
+              ),
+              const SizedBox(height: 8),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _isExtraordinary,
+                onChanged: (v) => setState(() => _isExtraordinary = v),
+                title: const Text('Straordinaria'),
+                subtitle: const Text(
+                    'Operazione una tantum, esclusa di default dalle statistiche'),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: _canSave ? _save : null,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Salva'),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

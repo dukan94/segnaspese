@@ -11,6 +11,7 @@ import '../../data/local/database/daos/category_dao.dart';
 import '../../data/mappers/transaction_mapper.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/services/csv_transaction_parser.dart';
+import '../shared_widgets/content_width_limiter.dart';
 
 /// Import operazioni da CSV (prima slice di M6).
 ///
@@ -81,10 +82,12 @@ class _ImportPageState extends ConsumerState<ImportPage> {
       // Mappa combinata nome-normalizzato → sottocategoria+categoria. Il tipo
       // (entrata/uscita) lo determina la categoria abbinata; un importo
       // negativo su una categoria di spesa è un rimborso.
-      final expenseSubs = await ref
-          .read(subCategoriesForTypeProvider(TransactionType.expense.toDrift()).future);
-      final incomeSubs = await ref
-          .read(subCategoriesForTypeProvider(TransactionType.income.toDrift()).future);
+      final expenseSubs = await ref.read(
+          subCategoriesForTypeProvider(TransactionType.expense.toDrift())
+              .future);
+      final incomeSubs = await ref.read(
+          subCategoriesForTypeProvider(TransactionType.income.toDrift())
+              .future);
 
       final combined = <String, SubCategoryWithCategory>{};
       for (final s in [...expenseSubs, ...incomeSubs]) {
@@ -164,101 +167,105 @@ class _ImportPageState extends ConsumerState<ImportPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Importa da CSV')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const _FormatHint(),
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            onPressed: _busy ? null : _pickAndAnalyze,
-            icon: const Icon(Icons.upload_file_outlined),
-            label: Text(analyzed ? 'Scegli un altro file' : 'Scegli file CSV'),
-          ),
-          if (_busy) ...[
-            const SizedBox(height: 16),
-            const Center(child: CircularProgressIndicator()),
-          ],
-          if (_missingColumns.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Card(
-                color: Theme.of(context).colorScheme.errorContainer,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    'Intestazione non valida. Colonne obbligatorie mancanti: '
-                    '${_missingColumns.join(", ")}.',
+      body: ContentWidthLimiter(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const _FormatHint(),
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed: _busy ? null : _pickAndAnalyze,
+              icon: const Icon(Icons.upload_file_outlined),
+              label:
+                  Text(analyzed ? 'Scegli un altro file' : 'Scegli file CSV'),
+            ),
+            if (_busy) ...[
+              const SizedBox(height: 16),
+              const Center(child: CircularProgressIndicator()),
+            ],
+            if (_missingColumns.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Card(
+                  color: Theme.of(context).colorScheme.errorContainer,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'Intestazione non valida. Colonne obbligatorie mancanti: '
+                      '${_missingColumns.join(", ")}.',
+                    ),
                   ),
                 ),
               ),
-            ),
-          if (analyzed && _missingColumns.isEmpty) ...[
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(_fileName!,
-                        style: Theme.of(context).textTheme.titleSmall),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.check_circle_outline,
-                            color: Colors.green.shade600, size: 18),
-                        const SizedBox(width: 6),
-                        Text('$_okCount pronte all\'import'),
-                      ],
-                    ),
-                    if (_skipCount > 0) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.remove_circle_outline,
-                              color: Theme.of(context).colorScheme.error, size: 18),
-                          const SizedBox(width: 6),
-                          Text('$_skipCount da saltare'),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            if (unmatchedNames.isNotEmpty)
+            if (analyzed && _missingColumns.isEmpty) ...[
+              const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Sottocategorie non riconosciute',
+                      Text(_fileName!,
                           style: Theme.of(context).textTheme.titleSmall),
-                      const SizedBox(height: 4),
-                      const Text(
-                          'Rinominale nel CSV come nell\'app (o creale in Categorie), poi rilancia:'),
                       const SizedBox(height: 8),
-                      for (final name in unmatchedNames)
-                        Text('• $name',
-                            style: Theme.of(context).textTheme.bodySmall),
+                      Row(
+                        children: [
+                          Icon(Icons.check_circle_outline,
+                              color: Colors.green.shade600, size: 18),
+                          const SizedBox(width: 6),
+                          Text('$_okCount pronte all\'import'),
+                        ],
+                      ),
+                      if (_skipCount > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.remove_circle_outline,
+                                color: Theme.of(context).colorScheme.error,
+                                size: 18),
+                            const SizedBox(width: 6),
+                            Text('$_skipCount da saltare'),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: (_busy || _okCount == 0) ? null : _import,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Importa $_okCount operazioni'),
+              if (unmatchedNames.isNotEmpty)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Sottocategorie non riconosciute',
+                            style: Theme.of(context).textTheme.titleSmall),
+                        const SizedBox(height: 4),
+                        const Text(
+                            'Rinominale nel CSV come nell\'app (o creale in Categorie), poi rilancia:'),
+                        const SizedBox(height: 8),
+                        for (final name in unmatchedNames)
+                          Text('• $name',
+                              style: Theme.of(context).textTheme.bodySmall),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: (_busy || _okCount == 0) ? null : _import,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Importa $_okCount operazioni'),
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

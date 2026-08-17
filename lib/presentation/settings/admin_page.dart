@@ -12,6 +12,7 @@ import '../../data/local/database/tables/categories_table.dart';
 import '../../data/services/google_sheets_service.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
+import '../shared_widgets/content_width_limiter.dart';
 
 enum _SheetsTestStatus { unknown, testing, valid, invalid }
 
@@ -162,7 +163,8 @@ class _AdminPageState extends ConsumerState<AdminPage> {
         // A questo punto la transazione è già stata rimossa dalle liste (il
         // soft delete iniziale è andato a buon fine): il messaggio non deve
         // suggerire che l'operazione sia fallita del tutto.
-        showErrorSnackBar(context, outcome.reason ?? 'Non eliminata definitivamente');
+        showErrorSnackBar(
+            context, outcome.reason ?? 'Non eliminata definitivamente');
       }
     } catch (e) {
       if (!mounted) return;
@@ -291,241 +293,252 @@ class _AdminPageState extends ConsumerState<AdminPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Admin')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('Import CSV', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.file_upload_outlined),
-              title: const Text('Importa operazioni da CSV'),
-              subtitle: const Text('Solo sviluppo/backfill, non il vero import da estratto conto'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/settings/import'),
-            ),
-          ),
-          const _AdminSectionDivider(),
-          Text('Google Sheet spese (temporaneo)', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Finché l\'app non è completa e testata al 100%, ogni entrata/uscita '
-            'inserita a mano o da scontrino può essere copiata anche sul foglio '
-            'Google usato finora, seguendo lo stesso schema di colonne. Non '
-            'copre i movimenti generati dalle ricorrenze, né le modifiche o '
-            'cancellazioni fatte dopo il salvataggio: il foglio può divergere '
-            'dall\'app in quei casi. Da disattivare qui quando non serve più.',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          Card(
-            child: SwitchListTile(
-              title: const Text('Bridge attivo'),
-              subtitle: Text(_alreadyConfigured
-                  ? 'Configurato'
-                  : 'Configura prima le credenziali qui sotto'),
-              value: enabled && _alreadyConfigured,
-              onChanged: !_alreadyConfigured ? null : _toggleGoogleSheetsEnabled,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _credentialsController,
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: 'Chiave JSON del service account',
-              hintText: _alreadyConfigured
-                  ? 'Già configurata — lascia vuoto per non cambiarla'
-                  : '{ "type": "service_account", ... }',
-              border: const OutlineInputBorder(),
-              alignLabelWithHint: true,
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _spreadsheetController,
-            decoration: const InputDecoration(
-              labelText: 'URL o id del foglio Google',
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _sheetNameController,
-            decoration: const InputDecoration(
-              labelText: 'Nome del tab',
-              hintText: googleSheetsSheetNameDefault,
-              border: OutlineInputBorder(),
-            ),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: _busy ? null : _save,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Salva'),
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            onPressed: _testStatus == _SheetsTestStatus.testing
-                ? null
-                : _testConnection,
-            icon: _testStatus == _SheetsTestStatus.testing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.wifi_tethering_outlined),
-            label: const Text('Testa connessione'),
-          ),
-          if (_testStatus == _SheetsTestStatus.valid ||
-              _testStatus == _SheetsTestStatus.invalid) ...[
-            const SizedBox(height: 12),
+      body: ContentWidthLimiter(
+        // Più larga del default (640): la ricerca transazioni in fondo ha
+        // righe piuttosto dense (importo, data, azione di eliminazione).
+        maxWidth: 900,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Text('Import CSV', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 8),
             Card(
-              color: _testStatus == _SheetsTestStatus.valid
-                  ? theme.colorScheme.surfaceContainerHigh
-                  : theme.colorScheme.errorContainer,
               child: ListTile(
-                leading: Icon(
-                  _testStatus == _SheetsTestStatus.valid
-                      ? Icons.check_circle_outline
-                      : Icons.error_outline,
-                ),
-                title: Text(
-                  _testStatus == _SheetsTestStatus.valid
-                      ? 'Foglio raggiungibile'
-                      : 'Connessione fallita',
-                ),
+                leading: const Icon(Icons.file_upload_outlined),
+                title: const Text('Importa operazioni da CSV'),
+                subtitle: const Text(
+                    'Solo sviluppo/backfill, non il vero import da estratto conto'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.push('/settings/import'),
               ),
             ),
-          ],
-          const _AdminSectionDivider(),
-          Text('Gestione transazioni', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 4),
-          Text(
-            'Il database elimina di norma solo "a metà" (soft delete): serve '
-            'per propagare le cancellazioni alla sync. Qui invece elimini '
-            'per sempre, senza possibilità di recupero.',
-            style: theme.textTheme.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: theme.colorScheme.error,
-              side: BorderSide(color: theme.colorScheme.error),
+            const _AdminSectionDivider(),
+            Text('Google Sheet spese (temporaneo)',
+                style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Finché l\'app non è completa e testata al 100%, ogni entrata/uscita '
+              'inserita a mano o da scontrino può essere copiata anche sul foglio '
+              'Google usato finora, seguendo lo stesso schema di colonne. Non '
+              'copre i movimenti generati dalle ricorrenze, né le modifiche o '
+              'cancellazioni fatte dopo il salvataggio: il foglio può divergere '
+              'dall\'app in quei casi. Da disattivare qui quando non serve più.',
+              style: theme.textTheme.bodySmall,
             ),
-            onPressed: _destructiveOpInProgress ? null : _confirmAndPurge,
-            icon: _purgeBusy
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.delete_sweep_outlined),
-            label: const Text('Pulisci database'),
-          ),
-          const SizedBox(height: 20),
-          Text('Elimina definitivamente una transazione',
-              style: theme.textTheme.titleSmall),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _deleteSearchController,
-            decoration: InputDecoration(
-              hintText:
-                  'Cerca per nota, categoria, sottocategoria, importo, data...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _deleteQuery.isEmpty
+            const SizedBox(height: 12),
+            Card(
+              child: SwitchListTile(
+                title: const Text('Bridge attivo'),
+                subtitle: Text(_alreadyConfigured
+                    ? 'Configurato'
+                    : 'Configura prima le credenziali qui sotto'),
+                value: enabled && _alreadyConfigured,
+                onChanged:
+                    !_alreadyConfigured ? null : _toggleGoogleSheetsEnabled,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _credentialsController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: 'Chiave JSON del service account',
+                hintText: _alreadyConfigured
+                    ? 'Già configurata — lascia vuoto per non cambiarla'
+                    : '{ "type": "service_account", ... }',
+                border: const OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _spreadsheetController,
+              decoration: const InputDecoration(
+                labelText: 'URL o id del foglio Google',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _sheetNameController,
+              decoration: const InputDecoration(
+                labelText: 'Nome del tab',
+                hintText: googleSheetsSheetNameDefault,
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: _busy ? null : _save,
+              icon: const Icon(Icons.save_outlined),
+              label: const Text('Salva'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _testStatus == _SheetsTestStatus.testing
                   ? null
-                  : IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _deleteSearchController.clear();
-                        setState(() => _deleteQuery = '');
-                      },
-                    ),
-              border: const OutlineInputBorder(),
-              isDense: true,
+                  : _testConnection,
+              icon: _testStatus == _SheetsTestStatus.testing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_tethering_outlined),
+              label: const Text('Testa connessione'),
             ),
-            onChanged: (v) =>
-                setState(() => _deleteQuery = v.trim().toLowerCase()),
-          ),
-          if (_deleteQuery.isNotEmpty)
-            Consumer(
-              builder: (context, ref, _) {
-                final txAsync = ref.watch(allTransactionsProvider);
-                final categories =
-                    ref.watch(allCategoriesProvider).valueOrNull ?? const [];
-                final catById = {for (final c in categories) c.id: c};
-                final expenseSubs = ref
-                        .watch(subCategoriesForTypeProvider(TransactionKind.expense))
-                        .valueOrNull ??
-                    const [];
-                final incomeSubs = ref
-                        .watch(subCategoriesForTypeProvider(TransactionKind.income))
-                        .valueOrNull ??
-                    const [];
-                final subNameById = {
-                  for (final s in [...expenseSubs, ...incomeSubs])
-                    s.subCategory.id: s.subCategory.name,
-                };
-                return txAsync.when(
-                  data: (all) {
-                    final results =
-                        _filterForDelete(all, catById, subNameById);
-                    if (results.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 12),
-                        child: Text('Nessun risultato'),
-                      );
-                    }
-                    return Column(
-                      children: [
-                        for (final tx in results)
-                          Card(
-                            margin: const EdgeInsets.only(top: 8),
-                            child: ListTile(
-                              title: Text(tx.note?.isNotEmpty == true
-                                  ? tx.note!
-                                  : (catById[tx.categoryId]?.name ??
-                                      'Senza categoria')),
-                              subtitle: Text(
-                                '${AppFormatters.signedCurrency(tx.signedAmount)} · '
-                                '${AppFormatters.shortDate(tx.date)}',
+            if (_testStatus == _SheetsTestStatus.valid ||
+                _testStatus == _SheetsTestStatus.invalid) ...[
+              const SizedBox(height: 12),
+              Card(
+                color: _testStatus == _SheetsTestStatus.valid
+                    ? theme.colorScheme.surfaceContainerHigh
+                    : theme.colorScheme.errorContainer,
+                child: ListTile(
+                  leading: Icon(
+                    _testStatus == _SheetsTestStatus.valid
+                        ? Icons.check_circle_outline
+                        : Icons.error_outline,
+                  ),
+                  title: Text(
+                    _testStatus == _SheetsTestStatus.valid
+                        ? 'Foglio raggiungibile'
+                        : 'Connessione fallita',
+                  ),
+                ),
+              ),
+            ],
+            const _AdminSectionDivider(),
+            Text('Gestione transazioni', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Il database elimina di norma solo "a metà" (soft delete): serve '
+              'per propagare le cancellazioni alla sync. Qui invece elimini '
+              'per sempre, senza possibilità di recupero.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.error,
+                side: BorderSide(color: theme.colorScheme.error),
+              ),
+              onPressed: _destructiveOpInProgress ? null : _confirmAndPurge,
+              icon: _purgeBusy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_sweep_outlined),
+              label: const Text('Pulisci database'),
+            ),
+            const SizedBox(height: 20),
+            Text('Elimina definitivamente una transazione',
+                style: theme.textTheme.titleSmall),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _deleteSearchController,
+              decoration: InputDecoration(
+                hintText:
+                    'Cerca per nota, categoria, sottocategoria, importo, data...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _deleteQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _deleteSearchController.clear();
+                          setState(() => _deleteQuery = '');
+                        },
+                      ),
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (v) =>
+                  setState(() => _deleteQuery = v.trim().toLowerCase()),
+            ),
+            if (_deleteQuery.isNotEmpty)
+              Consumer(
+                builder: (context, ref, _) {
+                  final txAsync = ref.watch(allTransactionsProvider);
+                  final categories =
+                      ref.watch(allCategoriesProvider).valueOrNull ?? const [];
+                  final catById = {for (final c in categories) c.id: c};
+                  final expenseSubs = ref
+                          .watch(subCategoriesForTypeProvider(
+                              TransactionKind.expense))
+                          .valueOrNull ??
+                      const [];
+                  final incomeSubs = ref
+                          .watch(subCategoriesForTypeProvider(
+                              TransactionKind.income))
+                          .valueOrNull ??
+                      const [];
+                  final subNameById = {
+                    for (final s in [...expenseSubs, ...incomeSubs])
+                      s.subCategory.id: s.subCategory.name,
+                  };
+                  return txAsync.when(
+                    data: (all) {
+                      final results =
+                          _filterForDelete(all, catById, subNameById);
+                      if (results.isEmpty) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 12),
+                          child: Text('Nessun risultato'),
+                        );
+                      }
+                      return Column(
+                        children: [
+                          for (final tx in results)
+                            Card(
+                              margin: const EdgeInsets.only(top: 8),
+                              child: ListTile(
+                                title: Text(tx.note?.isNotEmpty == true
+                                    ? tx.note!
+                                    : (catById[tx.categoryId]?.name ??
+                                        'Senza categoria')),
+                                subtitle: Text(
+                                  '${AppFormatters.signedCurrency(tx.signedAmount)} · '
+                                  '${AppFormatters.shortDate(tx.date)}',
+                                ),
+                                trailing: _hardDeletingId == tx.id
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2),
+                                      )
+                                    : IconButton(
+                                        icon: Icon(
+                                            Icons.delete_forever_outlined,
+                                            color: _destructiveOpInProgress
+                                                ? theme.disabledColor
+                                                : theme.colorScheme.error),
+                                        tooltip: 'Elimina per sempre',
+                                        onPressed: _destructiveOpInProgress
+                                            ? null
+                                            : () => _confirmAndHardDelete(tx),
+                                      ),
                               ),
-                              trailing: _hardDeletingId == tx.id
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : IconButton(
-                                      icon: Icon(Icons.delete_forever_outlined,
-                                          color: _destructiveOpInProgress
-                                              ? theme.disabledColor
-                                              : theme.colorScheme.error),
-                                      tooltip: 'Elimina per sempre',
-                                      onPressed: _destructiveOpInProgress
-                                          ? null
-                                          : () => _confirmAndHardDelete(tx),
-                                    ),
                             ),
-                          ),
-                      ],
-                    );
-                  },
-                  loading: () => const Padding(
-                    padding: EdgeInsets.only(top: 12),
-                    child: Center(child: CircularProgressIndicator()),
-                  ),
-                  error: (e, _) => Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text('Errore: $e'),
-                  ),
-                );
-              },
-            ),
-        ],
+                        ],
+                      );
+                    },
+                    loading: () => const Padding(
+                      padding: EdgeInsets.only(top: 12),
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                    error: (e, _) => Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Text('Errore: $e'),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
       ),
     );
   }
