@@ -1298,8 +1298,25 @@ sottocategoria apre lo Storico filtrato**
   - `flutter analyze` pulito, **178/178 test invariati** (nessuna logica
     di business nuova: solo un parametro passato a cascata e un
     `onDoubleTap` su widget di presentazione).
-
----
+- **Revisione layout (17 ago 2026, richiesta da Mario)**: colonna sinistra
+  ora solo la torta; colonna destra andamento 12 mesi sopra, barre
+  sottocategoria sotto (prima la sottocategoria era affiancata alla torta
+  a sinistra) — v. nota aggiunta a M28 sopra per il dettaglio.
+- **Numeri senza decimali (17 ago 2026, richiesta di Mario)**: tutti gli
+  importi mostrati in Dashboard (torta, legenda, barre sottocategoria,
+  media, le 3 card totali, tooltip dell'andamento 12 mesi) ora arrotondati
+  senza cifre decimali — nuovo `AppFormatters.currencyRounded`/
+  `signedCurrencyRounded` (`decimalDigits: 0`). **Esteso su richiesta
+  esplicita di Mario anche alla card "Riepilogo annuale" del Budget**
+  (`annual_summary_card.dart`, M29): obiettivo di risparmio, le due
+  mini-tabelle Effettive/Previsione (reddito/spese/risparmio), quanto si
+  può spendere al mese e il margine — stesso `currencyRounded`/
+  `signedCurrencyRounded`. **Non** toccato il dialog di modifica
+  dell'obiettivo (`_editGoal`): è un campo di input per un importo
+  preciso, non una cifra mostrata, resta a 2 decimali. Usato **solo** in
+  questi due punti: Home, Storico e il resto del Budget continuano a
+  mostrare i centesimi come prima, non è un cambio globale del formatter
+  valuta esistente.
 
 ### Processo per nuove milestone (da qui in avanti)
 

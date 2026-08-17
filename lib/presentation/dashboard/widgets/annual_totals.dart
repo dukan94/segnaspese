@@ -44,7 +44,8 @@ class AnnualTotals extends StatelessWidget {
             label: 'Entrate',
             amount: income,
             color: green,
-            subtitle: 'risparmio ${AppFormatters.signedCurrency(savings)}',
+            subtitle:
+                'risparmio ${AppFormatters.signedCurrencyRounded(savings)}',
             subtitleColor: savings >= 0 ? green : colorScheme.error,
           ),
         ),
@@ -108,7 +109,7 @@ class _StatCard extends StatelessWidget {
               alignment: Alignment.centerLeft,
               child: AnimatedAmountText(
                 value: amount,
-                formatter: AppFormatters.currency,
+                formatter: AppFormatters.currencyRounded,
                 style: AppTheme.amountStyle(theme.textTheme.titleMedium
                     ?.copyWith(color: color, fontWeight: FontWeight.w700)),
               ),

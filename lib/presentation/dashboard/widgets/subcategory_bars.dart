@@ -67,7 +67,7 @@ class SubcategoryBars extends StatelessWidget {
                             style: theme.textTheme.bodyMedium),
                       ),
                       const SizedBox(width: 8),
-                      Text(AppFormatters.currency(slice.amount),
+                      Text(AppFormatters.currencyRounded(slice.amount),
                           style: AppTheme.amountStyle(theme.textTheme.bodyMedium
                               ?.copyWith(fontWeight: FontWeight.w600))),
                     ],
@@ -98,7 +98,7 @@ class SubcategoryBars extends StatelessWidget {
                         CountBadge(count: slice.count),
                         const SizedBox(width: 6),
                         Text(
-                          'media ${AppFormatters.currency(slice.average)}',
+                          'media ${AppFormatters.currencyRounded(slice.average)}',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: theme.colorScheme.outline),
                         ),

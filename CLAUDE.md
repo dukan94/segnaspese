@@ -747,7 +747,16 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (seleziona la categoria) sia `onDoubleTap` (apre lo Storico) sullo
   stesso `InkWell`, quindi il singolo click lì ha il ritardo standard
   Flutter (~300ms) per disambiguare dal doppio — le barre sottocategoria
-  non hanno questo effetto (nessun altro tap con cui competere). **CI
+  non hanno questo effetto (nessun altro tap con cui competere).
+  Dashboard rivista due volte lo stesso giorno su richiesta di Mario:
+  colonna sinistra ora solo la torta, colonna destra andamento 12 mesi +
+  barre sottocategoria impilate (v. M28 in `progettazione_finance_app.md`
+  per il prima/dopo); e tutti gli importi mostrati in Dashboard (più la
+  card "Riepilogo annuale" del Budget, `annual_summary_card.dart`, M29)
+  arrotondati senza decimali — nuovo `AppFormatters.currencyRounded`/
+  `signedCurrencyRounded`, usato **solo** in questi due punti: il resto
+  dell'app (Home, Storico, Budget salvo quella card) mostra ancora i
+  centesimi, non toccare `AppFormatters.currency` esistente. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
 - Test in `test/` (27 file, 178 test): parser CSV, receipt parser, rule

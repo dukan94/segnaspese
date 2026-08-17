@@ -81,7 +81,7 @@ class CategoryDonut extends StatelessWidget {
                 children: [
                   Text('Uscite', style: theme.textTheme.labelSmall),
                   Text(
-                    AppFormatters.currency(total),
+                    AppFormatters.currencyRounded(total),
                     style: AppTheme.amountStyle(theme.textTheme.titleSmall
                         ?.copyWith(fontWeight: FontWeight.w700)),
                   ),
@@ -173,7 +173,7 @@ class _LegendRow extends StatelessWidget {
                         CountBadge(count: slice.count),
                         const SizedBox(width: 6),
                         Text(
-                          'media ${AppFormatters.currency(slice.average)}',
+                          'media ${AppFormatters.currencyRounded(slice.average)}',
                           style: theme.textTheme.bodySmall
                               ?.copyWith(color: theme.colorScheme.outline),
                         ),
@@ -187,7 +187,7 @@ class _LegendRow extends StatelessWidget {
                 style: theme.textTheme.bodySmall
                     ?.copyWith(color: theme.colorScheme.outline)),
             const SizedBox(width: 10),
-            Text(AppFormatters.currency(slice.amount),
+            Text(AppFormatters.currencyRounded(slice.amount),
                 style: AppTheme.amountStyle(theme.textTheme.bodyMedium)),
           ],
         ),

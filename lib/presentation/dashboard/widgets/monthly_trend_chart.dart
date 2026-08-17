@@ -92,7 +92,7 @@ class MonthlyTrendChart extends StatelessWidget {
                   getTooltipItems: (touchedSpots) => touchedSpots.map((spot) {
                     final label = spot.barIndex == 0 ? 'Uscite' : 'Budget';
                     return LineTooltipItem(
-                      '$label\n${AppFormatters.currency(spot.y)}',
+                      '$label\n${AppFormatters.currencyRounded(spot.y)}',
                       TextStyle(
                         color: spot.bar.color ?? Colors.white,
                         fontWeight: FontWeight.bold,
