@@ -566,30 +566,45 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
     la stessa transazione DOPO quel punto, non c'è modo di riconoscerla come
     duplicata — irrilevante finché quel dispositivo resta non risincronizzato.
 
-## CI — build Android APK, quota storage Artifacts
+## CI — build Android APK, quota storage/minuti Artifacts
 
-`.github/workflows/android-build.yml` builda un APK **debug** a ogni push su
-`main` e lo carica come artifact scaricabile (v. commento nel file per il
-perché del keystore committato). Lo storage Artifacts di GitHub Actions sul
-piano gratuito è **0.5GB totali per il repo**, condiviso con eventuali altri
-workflow — si satura in fretta se gli artifact restano con la retention di
-default (90 giorni).
+`.github/workflows/android-build.yml` builda un APK **debug** e lo carica
+come artifact scaricabile (v. commento nel file per il perché del keystore
+committato) — **solo su richiesta manuale** (`workflow_dispatch`, tab
+Actions > "Build Android APK" > "Run workflow"), non più ad ogni push su
+`main` (v. bug reale sotto, 17 ago 2026). `ci.yml` (`flutter analyze` +
+`flutter test`) resta invece automatico ad ogni push/PR: è il vero
+controllo qualità, e costa molto meno in minuti.
 
 - **Bug reale (5 ago 2026)**: build fallita in fase `actions/upload-artifact`
   con `Artifact storage quota has been hit`. Il job Flutter (`flutter build
   apk --debug`) era andato a buon fine: il fallimento è solo storage, non
   codice — non cercare la causa in un cambiamento di schema/provider/CI se
-  l'errore nei log è questo.
-- **Retention già abbassata** a `retention-days: 3` (commit `27df76e`) per
-  evitare che si riaccumuli, ma questo vale solo per gli artifact **futuri**:
-  non libera subito quelli già esistenti, e GitHub ricalcola l'uso storage
-  ogni 6-12 ore (non istantaneo dopo una cancellazione manuale). Se una run
-  fallisce con questo errore appena dopo aver cancellato gli artifact vecchi
-  a mano, non è un segno che la cancellazione non ha funzionato: va solo
-  aspettato il ricalcolo prima di rilanciare.
-- Se l'errore si ripresenta nonostante `retention-days: 3`: cancellare a
-  mano gli artifact vecchi dalla tab Actions del repo (o "Manage artifacts"
-  nella singola run), aspettare il ricalcolo, poi rilanciare.
+  l'errore nei log è questo. Storage Artifacts sul piano gratuito: **0.5GB
+  totali per il repo**, condiviso con eventuali altri workflow.
+  - Retention abbassata a `retention-days: 3` (commit `27df76e`) per
+    evitare che si riaccumuli, ma vale solo per gli artifact **futuri**: non
+    libera subito quelli già esistenti, e GitHub ricalcola l'uso storage
+    ogni 6-12 ore (non istantaneo dopo una cancellazione manuale). Se una
+    run fallisce con questo errore appena dopo aver cancellato gli artifact
+    vecchi a mano, non è un segno che la cancellazione non ha funzionato:
+    va solo aspettato il ricalcolo prima di rilanciare.
+  - Se l'errore si ripresenta nonostante `retention-days: 3`: cancellare a
+    mano gli artifact vecchi dalla tab Actions del repo (o "Manage
+    artifacts" nella singola run), aspettare il ricalcolo, poi rilanciare.
+- **Bug reale, quota minuti (17 ago 2026)**: entrambi i workflow hanno
+  iniziato a fallire istantaneamente ("Failed in 2 seconds", nessuno step
+  eseguito) su ogni push — non un bug nel codice/YAML: i **2.000 minuti
+  Actions/mese gratuiti** dell'account erano esauriti (notifica GitHub
+  "100% used", si azzera automaticamente a inizio ciclo successivo). Con
+  più push su `main` nella stessa sessione, ogni push faceva scattare
+  *due* workflow completi (`ci.yml` + `android-build.yml`, quest'ultimo il
+  più costoso: `flutter pub get` + `build_runner` + `flutter build apk` da
+  zero ogni volta) — cumulativamente ha esaurito la quota del mese. Fix:
+  `android-build.yml` spostato su `workflow_dispatch` (sopra), riducendo il
+  consumo automatico al solo `ci.yml`. Se ricompare questo tipo di errore
+  ("Failed in 2 seconds" su ogni push, nessuno step eseguito): controllare
+  prima la mail/notifica quota minuti Actions di GitHub, non il codice.
 
 ## Layout desktop-adattivo (M26-M31)
 

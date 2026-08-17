@@ -3,9 +3,15 @@ name: Build Android APK
 # Compila un APK debug installabile su telefono, senza bisogno di Android
 # Studio/SDK in locale (v. sviluppo su dispositivo aziendale senza SDK
 # Android). Scaricabile dalla tab "Actions" della run, sezione "Artifacts".
+#
+# Solo su richiesta manuale (tab Actions > "Build Android APK" > "Run
+# workflow"), non più ad ogni push su main: era il workflow più costoso in
+# minuti Actions (build APK completa da zero ogni volta) e ha contribuito
+# a esaurire la quota gratuita mensile (2.000 min, 17 ago 2026) insieme a
+# `ci.yml`, che invece resta automatico com'è (più leggero, vero controllo
+# qualità). Va lanciato a mano solo quando serve davvero un APK aggiornato
+# da installare sul telefono.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 # Necessario per poter ricommittare il keystore generato la prima volta
