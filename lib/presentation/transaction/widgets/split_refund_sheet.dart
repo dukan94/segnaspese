@@ -45,7 +45,8 @@ class _SplitRefundSheetContentState
   static const _buildSplitRefund = BuildSplitRefund();
 
   final _divisorController = TextEditingController();
-  final _noteController = TextEditingController();
+  late final _noteController =
+      TextEditingController(text: widget.expense.note ?? '');
   String? _divisorError;
   bool _saving = false;
 

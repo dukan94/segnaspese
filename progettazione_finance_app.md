@@ -945,6 +945,14 @@ in un messaggio d'errore**
     rimborsare più del dovuto sommando eventuali rimborsi già collegati
     alla stessa spesa — il flusso manuale esistente non ha questo
     controllo, quindi non è una regressione ometterlo qui.
+- **Estensione post-M25** *(17 ago 2026, richiesta da Mario)*: il campo
+  "Note" del bottom sheet si apre precompilato con la nota della spesa
+  originale (se presente), invece che vuoto — resta modificabile, per poter
+  aggiungere di seguito chi ha restituito la quota (es. nota spesa
+  "Carburante per viaggio" → precompilato uguale, Mario aggiunge "Nicola" o
+  "Famiglia" per sapere chi ha fatto il rimborso). Fix in
+  `split_refund_sheet.dart`: `_noteController` inizializzato con
+  `widget.expense.note ?? ''` invece che vuoto.
 
 **M26 — ✅ Completata — Fondamenta layout desktop-adattivo**
 *(richiesta da Mario, 16 ago 2026 — l'app "è scomoda da usare da pc")*
