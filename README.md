@@ -105,7 +105,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M32 sono completate. Integrazione
+milestone M0-M33 sono completate. Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -144,6 +144,7 @@ continua attiva
 | **M30** | Storico adattivo: lista centrata (niente master-detail), card ridisegnata (data isolata, sottocategoria sotto la Nota), sfondo verde per le entrate, badge colorato per le spese con rimborso collegato | ✅ Completata |
 | **M31** | Form e Impostazioni adattivi: `ContentWidthLimiter` ovunque (niente griglie, scelta di Mario), icona info nelle Regole di classificazione | ✅ Completata |
 | **M32** | Sync Turso immediata su inserimento/modifica/cancellazione transazione (oltre al timer ogni 5 minuti, invariato) | ✅ Completata |
+| **M33** | Conteggio e media per categoria/sottocategoria in Dashboard (al netto dei rimborsi) | ✅ Completata |
 
 ## Struttura del database
 

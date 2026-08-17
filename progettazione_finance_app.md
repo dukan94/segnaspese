@@ -1205,6 +1205,61 @@ cancellazione transazione**
 - `flutter analyze` pulito, **169/169 test invariati** (nessuna logica di
   business toccata, solo layout/presentazione + un testo informativo).
 
+**M33 — ✅ Completata (17 ago 2026) — Conteggio e media per categoria/
+sottocategoria in Dashboard**
+*(richiesta da Mario dopo una domanda aperta "cosa proponi di
+implementare o migliorare?")*
+- Problema/richiesta: nella torta e nelle barre sottocategoria della
+  Dashboard si vede solo l'importo totale — utile sapere anche **quante
+  volte** è ricorsa una spesa in quella categoria/sottocategoria e il suo
+  **valore medio**. Vincolo esplicito di Mario, con esempio concreto: una
+  spesa di 50€ con un rimborso collegato di 25€ deve contare come **1**
+  occorrenza con media **25€** (l'importo netto), non 2 occorrenze né una
+  media che pesa il rimborso come spesa a sé (es. non `(50-25)/2`).
+- **Fatto**: la logica esisteva già in parte — `netExpense` su
+  `TransactionEntity` (spesa normale = +importo, rimborso = -importo) è
+  già usata per sommare gli importi per categoria/sottocategoria in
+  `dashboard_providers.dart`, quindi il netting del rimborso era già
+  corretto. Serviva solo aggiungere il **conteggio**: un nuovo contatore
+  che si incrementa solo per transazioni con `isRefund == false` (un
+  rimborso non è mai una nuova occorrenza, sempre e solo la rettifica di
+  una spesa già contata nella stessa categoria) — verificato che
+  combaci esattamente con l'esempio di Mario (conteggio 1, media 25€).
+  - `CategorySlice`/`SubcategorySlice` (`dashboard_providers.dart`): nuovo
+    campo `count` + getter `average` (`amount / count`, 0 se count è 0 —
+    mai il caso per una fetta effettivamente mostrata, dato che il filtro
+    esistente "solo importi > 0" implica almeno una spesa non-rimborso).
+  - **Refactor di supporto**: la logica di aggregazione (prima una
+    closure anonima dentro il provider, non testabile senza Riverpod/
+    Drift) è stata estratta in `buildDashboardData(...)`, funzione pura a
+    livello di file — permette un test diretto senza dover simulare
+    stream/DB. Il provider resta un sottile wrapper che chiama questa
+    funzione. Nessun cambio di comportamento, solo spostamento di codice.
+  - `category_donut.dart`/`subcategory_bars.dart`: seconda riga sotto il
+    nome (si allinea da sola con o senza icona, grazie a un `Column`
+    dentro l'`Expanded` invece di un `Text` semplice) con un badge
+    arrotondato col conteggio (`CountBadge`, nuovo widget dedicato — Mario
+    ha chiesto esplicitamente un "box" invece di un testo tipo "12
+    transazioni") + "media X €" attenuato accanto. Riga mostrata solo se
+    `count > 0`. `crossAxisAlignment: start` sulla riga esterna: senza,
+    pallino/percentuale/importo si sarebbero centrati sull'intero blocco a
+    due righe invece di restare allineati alla prima (il nome).
+  - Applicato **sia** alla torta per categoria **sia** alle barre per
+    sottocategoria (scelta esplicita di Mario tra le due opzioni proposte:
+    stessa logica, nessuno sforzo aggiuntivo a farlo su entrambi i
+    livelli).
+  - **Nuovo test dedicato** `test/dashboard_data_test.dart` (9 test):
+    l'esempio esatto di Mario (50€ spesa + 25€ rimborso stessa categoria →
+    1/25€), più occorrenze senza rimborso, netting a livello di
+    sottocategoria, inclusione/esclusione delle straordinarie
+    (`includeExtra`), categoria con solo un rimborso e nessuna spesa reale
+    (non deve comparire), filtro mese, e il caso vuoto (nessuna divisione
+    per zero). Prima di questo M33, `dashboard_providers.dart` non aveva
+    alcun test dedicato (aggregazione intrecciata al provider Riverpod) —
+    il refactor in funzione pura sopra è ciò che ha reso possibile
+    scriverli.
+  - `flutter analyze` pulito, **178/178 test** (169 + 9 nuovi).
+
 ---
 
 ### Processo per nuove milestone (da qui in avanti)
@@ -1246,36 +1301,40 @@ sempre questi passi, in ordine:
 
 ---
 
-**Stato attuale (16 ago 2026):** tutte le milestone **M0-M29 completate**
-(M30-M31, Storico e Form/Impostazioni adattivi, restano da progettare — v.
-sezione 6 per il dettaglio di ciascuna). M9-M24: Admin e manutenzione
-dati, icona/splash "Tally", robustezza doppioni transazioni, build Android
-release, blocco doppioni categoria + strumento "Unisci con...", ricorrenze a
-numero di occorrenze finito, import estratto conto bancario, rifiniture
+**Stato attuale (17 ago 2026):** tutte le milestone **M0-M33 completate**
+(M31, Form/Impostazioni adattivi, resta da progettare — v. sezione 6 per il
+dettaglio di ciascuna). M9-M24: Admin e manutenzione dati, icona/splash
+"Tally", robustezza doppioni transazioni, build Android release, blocco
+doppioni categoria + strumento "Unisci con...", ricorrenze a numero di
+occorrenze finito, import estratto conto bancario, rifiniture
 ricerca/dashboard/CI, migrazione schema locale idempotente, fix sicurezza
 API key Gemini, gestione errori cancellazione transazione, verifica
 `sqlite3_flutter_libs`, timeout Google Sheets, isolamento errori avvio,
 copertura test logica critica, aggiornamento dipendenze. M25: rimborso con
-divisore (quota di una spesa condivisa). M26-M29: refactor desktop-adattivo
-(densità, `NavigationRail`, `ContentWidthLimiter`, Home/Dashboard/Budget
-riorganizzate su finestra larga — v. sezione dedicata in CLAUDE.md). Schema
-DB Drift alla **versione 7**, ora su **`sqlite3` 3.x nativo** (M24:
-`sqlite3_flutter_libs` rimosso, v. sezione dedicata in CLAUDE.md — non
-reintrodurlo). **CI attiva** (`.github/workflows/ci.yml`): `flutter
-analyze` + `flutter test` su ogni push e PR (con rigenerazione del
-codice). Test: **26 file, 169 test** in `test/` (parser CSV, receipt
-parser, rule matcher, duplicate finder, motore di sync Turso (incluso
-rientranza `syncNow()`, verifica remota puntuale e migrazione schema
-remoto), repair sottocategorie orfane, widget animati, DAO
-ricorrenze/categorie/budget/transazioni (incluso hard delete/purge,
-riemissione live del riordino, unione categorie/sottocategorie, numero di
-occorrenze finito), formatter e servizio Google Sheets (header matching),
-`SafeTransactionDeletionService`, parser estratto conto BancoPosta e
-duplicate matcher, migrazione locale idempotente (M17), servizio Gemini
-incluso il regression test di sicurezza M18, seed runner, dedupe
-tassonomia, client HTTP Turso con encoding/decoding reale (M23), export
-CSV (M24), **rimborso con divisore (M25)** + 1 smoke widget test).
-Repository impl e usecase restano senza test dedicati:
+divisore (quota di una spesa condivisa). M26-M31: refactor desktop-adattivo
+(densità, `NavigationRail`, `ContentWidthLimiter`, tutte le pagine
+riorganizzate/centrate su finestra larga, icona info Regole di
+classificazione — v. sezione dedicata in CLAUDE.md). M32: sync Turso
+immediata su inserimento/modifica/cancellazione transazione, oltre al
+timer ogni 5 minuti. M33: conteggio e media per categoria/sottocategoria
+in Dashboard, al netto dei rimborsi. Schema DB Drift alla **versione 7**,
+ora su **`sqlite3` 3.x nativo** (M24: `sqlite3_flutter_libs` rimosso, v.
+sezione dedicata in CLAUDE.md — non reintrodurlo). **CI attiva**
+(`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` su ogni
+push e PR (con rigenerazione del codice). Test: **27 file, 178 test** in
+`test/` (parser CSV, receipt parser, rule matcher, duplicate finder,
+motore di sync Turso (incluso rientranza `syncNow()`, verifica remota
+puntuale e migrazione schema remoto), repair sottocategorie orfane,
+widget animati, DAO ricorrenze/categorie/budget/transazioni (incluso hard
+delete/purge, riemissione live del riordino, unione
+categorie/sottocategorie, numero di occorrenze finito), formatter e
+servizio Google Sheets (header matching), `SafeTransactionDeletionService`,
+parser estratto conto BancoPosta e duplicate matcher, migrazione locale
+idempotente (M17), servizio Gemini incluso il regression test di
+sicurezza M18, seed runner, dedupe tassonomia, client HTTP Turso con
+encoding/decoding reale (M23), export CSV (M24), rimborso con divisore
+(M25), **conteggio/media Dashboard (M33, `dashboard_data_test.dart`)** + 1
+smoke widget test). Repository impl e usecase restano senza test dedicati:
 delega pura, nessuna logica propria. Da qui in avanti, ogni nuova modifica
 non banale segue il processo descritto in fondo alla sezione 6 (categorizza
 → documenta come milestone qui, in attesa di ok → sviluppa → propaga lo
