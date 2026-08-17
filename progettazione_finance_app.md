@@ -1087,8 +1087,7 @@ transazione**
   o in background non bloccante; come gestire l'affidabilità alla chiusura
   reale dell'app (oggi fire-and-forget) senza introdurre un blocco della UI.
 
-**M30 — 🔧 Proposta (design confermato con Mario, 17 ago 2026, da
-implementare) — Storico adattivo**
+**M30 — ✅ Completata (17 ago 2026) — Storico adattivo**
 - **Layout**: niente master-detail — stessa lista di oggi, solo centrata con
   larghezza massima tramite `ContentWidthLimiter` (stesso pattern di
   Home/Dashboard/Budget in M26-M29). Il tap continua ad aprire
@@ -1106,41 +1105,55 @@ implementare) — Storico adattivo**
   divisore/elimina). Da capire in fase di sviluppo dove riposizionare i tag
   "Rimborso"/"Straordinaria" (oggi in testa al subtitle unito) in questo
   nuovo schema — probabile accanto alla sottocategoria.
-- **Sfondo card colorato per tipo di movimento** (vale ugualmente su
-  **Android e desktop**, non legato alla larghezza):
-  - Spesa (uscita non rimborso): colore invariato (`cardTheme` di oggi,
-    `surfaceContainerHigh`).
-  - Entrata: verde naturale.
-  - Rimborso (`tx.isRefund`): verde acqua/teal, stessa famiglia
-    dell'entrata ma nettamente distinguibile (non la stessa tonalità).
-  - Confermato con Mario: coppia di verdi "naturale + verde acqua/teal"
-    (chiaro `#DCEFDC`/scuro `#1F3D24` per l'entrata, chiaro `#D5EDE7`/scuro
-    `#173A33` per il rimborso — indicativi, da rifinire in sviluppo per
-    contrasto testo/leggibilità reale, non solo teorica).
+- **Sfondo card colorato solo per le entrate** (vale ugualmente su
+  **Android e desktop**, non legato alla larghezza) — **rivisto da Mario
+  dopo aver visto a schermo la prima versione con anche il rimborso
+  colorato**: un rimborso (`tx.isRefund`) non ha più uno sfondo dedicato,
+  resta identico a una spesa normale (`cardTheme` di oggi,
+  `surfaceContainerHigh`). Solo:
+  - Spesa (uscita non rimborso) e rimborso: colore invariato.
+  - Entrata: verde. Colore chiaro scelto direttamente da Mario (17 ago
+    2026): `#C9E59D`. Scuro derivato (non scelto da Mario, stesso criterio
+    HSL: stessa tonalità/saturazione del chiaro, solo più scuro):
+    `#344913`. Testo (`onIncomeContainer`): chiaro con una versione scura/
+    satura della stessa tonalità (`#436B06`); scuro riusando il colore
+    chiaro stesso scelto da Mario come testo sul fondo scuro (`#C9E59D`),
+    che garantisce automaticamente la stessa armonia tra chiaro e scuro
+    invece di introdurre una quarta tonalità scollegata.
   - **Vincolo esplicito di Mario**: i colori (e in generale le scelte
     grafiche) vanno scritti come **costanti/variabili centralizzate**,
     modificabili da un solo punto — stesso pattern già in uso in
     `app_theme.dart` per `warningContainer`/`onWarningContainer`
-    (indipendenti dal seed, fissi per chiaro/scuro). Nuovi metodi previsti:
-    `AppTheme.incomeContainer`/`onIncomeContainer` e
-    `AppTheme.refundContainer`/`onRefundContainer`, stesso schema. Non
+    (indipendenti dal seed, fissi per chiaro/scuro). Nuovo metodo:
+    `AppTheme.incomeContainer`/`onIncomeContainer`, stesso schema. Non
     sparpagliare i colori come literal `Color(0x...)` dentro
     `history_page.dart`.
 - **Icona "spesa con rimborso collegato"**: le card di una spesa con almeno
   un rimborso collegato (`refundOfId` di una o più transazioni uguale
   all'id di questa spesa — non è detto sia una sola, v. M25 "nessun tetto
-  sui rimborsi collegati") mostrano un'icona accanto alla Nota — riuso di
-  `Icons.link`, già usato oggi con lo stesso significato ma nella direzione
-  opposta (`onShowLinked` sulla card del RIMBORSO, per risalire alla spesa
+  sui rimborsi collegati") mostrano un **cerchietto colorato** (badge)
+  accanto alla Nota con dentro l'icona `Icons.link` — richiesto da Mario
+  (17 ago 2026, seconda revisione) al posto della sola icona piatta usata
+  nella prima versione, una volta tolto lo sfondo colorato del rimborso.
+  Colore del badge scelto da Mario, fisso (non differenziato chiaro/scuro,
+  a differenza dello sfondo entrata sopra — è un cerchietto piccolo, non
+  un'intera card): `#E5E39F` (`AppTheme.refundedBadgeColor`), icona
+  `#6B6806` (`AppTheme.onRefundedBadgeColor`) per contrasto. Stesso
+  significato di `Icons.link` già in uso oggi ma nella direzione opposta
+  (`onShowLinked` sulla card del RIMBORSO, per risalire alla spesa
   originale). Al tap, mostra il/i rimborsi collegati a QUESTA spesa (nuovo:
   oggi esiste solo la direzione rimborso→spesa via
   `linked_expense_sheet.dart`; serve un'estensione o un widget analogo per
   la direzione spesa→rimborsi, che gestisca anche il caso di più di un
   rimborso collegato). Vale ugualmente su Android e desktop.
-- **Prossimo passo**: implementazione (branch dedicato, `flutter analyze` +
-  `flutter test` in locale prima del merge su `main` — v. workflow
-  concordato), poi passaggio a ✅ Completata con eventuali scostamenti dal
-  piano.
+- **Fatto**: implementato su branch `feature/history-adaptive-m30`
+  (`_HistoryTile` in `history_page.dart`, nuovi colori in `app_theme.dart`,
+  nuovo `linked_refunds_sheet.dart`), verificato con build Windows reale a
+  ogni iterazione (2 revisioni sui colori dopo aver visto l'app a schermo,
+  v. sopra) prima del merge su `main`. `flutter analyze` pulito, **169/169
+  test** invariati (nessun test nuovo: la logica toccata è solo
+  presentazione/tema, senza calcoli o casi limite da coprire — stesso
+  principio già seguito per M26-M29).
 
 **M31 — 🔧 Proposta (da progettare) — Form e Impostazioni adattivi**
 - Nuova Operazione, Impostazioni e sottopagine (Categorie, Regole Merchant,

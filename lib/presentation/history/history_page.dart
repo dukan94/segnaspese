@@ -10,9 +10,11 @@ import '../../data/local/database/app_database.dart';
 import '../../data/local/database/tables/categories_table.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
+import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/empty_state.dart';
 import '../shared_widgets/fade_in_item.dart';
 import '../shared_widgets/linked_expense_sheet.dart';
+import '../shared_widgets/linked_refunds_sheet.dart';
 import '../transaction/add_transaction_page.dart';
 import '../transaction/widgets/split_refund_sheet.dart';
 
@@ -93,6 +95,15 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   for (final t in all)
                     if (t.id != null) t.id!: t,
                 };
+                // Direzione opposta: spesa → rimborsi collegati (una spesa
+                // può averne più di uno, v. M25 "nessun tetto sui rimborsi").
+                final refundsByExpenseId = <int, List<TransactionEntity>>{};
+                for (final t in all) {
+                  final expenseId = t.refundOfId;
+                  if (expenseId != null) {
+                    refundsByExpenseId.putIfAbsent(expenseId, () => []).add(t);
+                  }
+                }
                 if (filtered.isEmpty) {
                   return EmptyState(
                     icon: all.isEmpty
@@ -103,41 +114,60 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         : 'Nessun risultato per "${_searchController.text}"',
                   );
                 }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final tx = filtered[i];
-                    final linked =
-                        tx.refundOfId != null ? byId[tx.refundOfId] : null;
-                    final canRefund =
-                        tx.type == TransactionType.expense && !tx.isRefund;
-                    return FadeInItem(
-                      key: ValueKey(tx.id),
-                      child: _HistoryTile(
-                        tx: tx,
-                        category: catById[tx.categoryId],
-                        onEdit: () => _edit(tx),
-                        onDelete: () => _confirmDelete(tx),
-                        onRefund: canRefund ? () => _refund(tx) : null,
-                        onSplitRefund: canRefund
-                            ? () => showSplitRefundSheet(
-                                  context,
-                                  tx,
-                                  catById[tx.categoryId],
-                                )
-                            : null,
-                        linkedExpense: linked,
-                        onShowLinked: linked == null
-                            ? null
-                            : () => showLinkedExpenseSheet(
-                                  context,
-                                  linked,
-                                  catById[linked.categoryId],
-                                ),
-                      ),
-                    );
-                  },
+                return ContentWidthLimiter(
+                  // Stessa larghezza di Home (760): lista a colonna singola,
+                  // niente master-detail (deciso con Mario per M30).
+                  maxWidth: 760,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, i) {
+                      final tx = filtered[i];
+                      final linked =
+                          tx.refundOfId != null ? byId[tx.refundOfId] : null;
+                      final linkedRefunds =
+                          tx.id != null ? refundsByExpenseId[tx.id!] : null;
+                      final canRefund =
+                          tx.type == TransactionType.expense && !tx.isRefund;
+                      return FadeInItem(
+                        key: ValueKey(tx.id),
+                        child: _HistoryTile(
+                          tx: tx,
+                          category: catById[tx.categoryId],
+                          subCategoryName: tx.subCategoryId != null
+                              ? subNameById[tx.subCategoryId]
+                              : null,
+                          onEdit: () => _edit(tx),
+                          onDelete: () => _confirmDelete(tx),
+                          onRefund: canRefund ? () => _refund(tx) : null,
+                          onSplitRefund: canRefund
+                              ? () => showSplitRefundSheet(
+                                    context,
+                                    tx,
+                                    catById[tx.categoryId],
+                                  )
+                              : null,
+                          linkedExpense: linked,
+                          onShowLinked: linked == null
+                              ? null
+                              : () => showLinkedExpenseSheet(
+                                    context,
+                                    linked,
+                                    catById[linked.categoryId],
+                                  ),
+                          linkedRefunds: linkedRefunds,
+                          onShowLinkedRefunds: (linkedRefunds == null ||
+                                  linkedRefunds.isEmpty)
+                              ? null
+                              : () => showLinkedRefundsSheet(
+                                    context,
+                                    linkedRefunds,
+                                    catById[tx.categoryId],
+                                  ),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -219,14 +249,21 @@ class _HistoryTile extends StatelessWidget {
     required this.category,
     required this.onEdit,
     required this.onDelete,
+    this.subCategoryName,
     this.onRefund,
     this.onSplitRefund,
     this.linkedExpense,
     this.onShowLinked,
+    this.linkedRefunds,
+    this.onShowLinkedRefunds,
   });
 
   final TransactionEntity tx;
   final Category? category;
+
+  /// Nome della sottocategoria, se impostata (mostrato sotto la Nota, M30).
+  final String? subCategoryName;
+
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -244,6 +281,14 @@ class _HistoryTile extends StatelessWidget {
   /// Mostra i dettagli della spesa collegata (icona 🔗).
   final VoidCallback? onShowLinked;
 
+  /// Rimborsi già collegati a questa spesa (direzione opposta di
+  /// [linkedExpense]), se presenti — una spesa può averne più di uno (M25).
+  final List<TransactionEntity>? linkedRefunds;
+
+  /// Mostra il/i rimborsi collegati a questa spesa (icona 🔗 accanto alla
+  /// Nota, M30) — non null solo se [linkedRefunds] non è vuota.
+  final VoidCallback? onShowLinkedRefunds;
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -255,22 +300,80 @@ class _HistoryTile extends StatelessWidget {
       if (tx.isRefund) 'Rimborso',
       if (tx.isExtraordinary) 'Straordinaria',
     ];
-    final subtitle = [
-      if (tags.isNotEmpty) tags.join(' · '),
-      catName,
-      AppFormatters.shortDate(tx.date),
-    ].join(' · ');
+    // Sottocategoria sotto la Nota (M30): se non impostata, il nome
+    // categoria resta un'informazione di ripiego valida (l'icona a sinistra
+    // già comunica la categoria, ma il testo non deve restare vuoto).
+    final secondLine = [subCategoryName ?? catName, ...tags].join(' · ');
+
+    // Un rimborso non ha più uno sfondo dedicato (deciso da Mario dopo aver
+    // visto la prima versione a schermo): resta identico a una spesa
+    // normale, solo il badge sotto su "spesa già rimborsata" usa un colore.
+    Color? cardColor;
+    Color? onCardColor;
+    if (tx.type == TransactionType.income) {
+      cardColor = AppTheme.incomeContainer(context);
+      onCardColor = AppTheme.onIncomeContainer(context);
+    }
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      color: cardColor,
       child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.surfaceContainerHighest,
-          child: Text(category?.icon ?? '💶',
-              style: const TextStyle(fontSize: 18)),
+        leading: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+              child: Text(category?.icon ?? '💶',
+                  style: const TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(width: 8),
+            // Data isolata dal resto del testo (M30): prima era dentro la
+            // stringa di subtitle unita con "·", qui ha un suo spazio
+            // dedicato invece di essere annegata nel resto.
+            Text(
+              AppFormatters.dayMonth(tx.date),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: onCardColor ?? theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         ),
-        title: Text(hasNote ? tx.note! : catName),
-        subtitle: Text(subtitle),
+        title: Row(
+          children: [
+            Flexible(
+              child: Text(
+                hasNote ? tx.note! : catName,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: onCardColor),
+              ),
+            ),
+            if (onShowLinkedRefunds != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 6),
+                child: Tooltip(
+                  message: 'Rimborsi collegati',
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onShowLinkedRefunds,
+                    child: const CircleAvatar(
+                      radius: 11,
+                      backgroundColor: AppTheme.refundedBadgeColor,
+                      child: Icon(
+                        Icons.link,
+                        size: 14,
+                        color: AppTheme.onRefundedBadgeColor,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        subtitle: Text(
+          secondLine,
+          style: TextStyle(color: onCardColor),
+        ),
         onTap: onEdit,
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

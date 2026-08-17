@@ -51,6 +51,36 @@ class AppTheme {
         : const Color(0xFF6B4E00);
   }
 
+  /// Sfondo card di un'entrata in Storico (M30): verde, fisso indipendente
+  /// dal seed — stesso principio di [warningContainer]. Non riusare
+  /// `ColorScheme.tertiary` (deriva dal seed arancione, non è un verde
+  /// riconoscibile). Chiaro (`0xFFC9E59D`) scelto da Mario (17 ago 2026);
+  /// scuro derivato mantenendone tonalità/saturazione (stessa armonia),
+  /// solo più scuro — v. [onIncomeContainer] per il testo abbinato.
+  static Color incomeContainer(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF344913)
+        : const Color(0xFFC9E59D);
+  }
+
+  static Color onIncomeContainer(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        // Sul container scuro, il colore chiaro scelto da Mario stesso torna
+        // utile come testo (stessa armonia, contrasto alto sul fondo scuro).
+        ? const Color(0xFFC9E59D)
+        : const Color(0xFF436B06);
+  }
+
+  /// Badge "spesa già rimborsata" in Storico (M30, icona accanto alla Nota
+  /// di una spesa con almeno un rimborso collegato): un rimborso in sé non
+  /// ha più uno sfondo card dedicato (deciso da Mario dopo aver visto la
+  /// card colorata a schermo — resta identica a una spesa normale), solo
+  /// questo cerchietto. Colore fisso scelto da Mario (17 ago 2026), non
+  /// differenziato chiaro/scuro: è un badge piccolo, non un intero sfondo
+  /// card, la stessa tonalità resta leggibile su entrambi i temi.
+  static const Color refundedBadgeColor = Color(0xFFE5E39F);
+  static const Color onRefundedBadgeColor = Color(0xFF6B6806);
+
   static ThemeData get light {
     // "medium contrast" M3 (testo più leggibile) come base per secondary/
     // tertiary/error, ma la scala di superficie e il primary generati dal
