@@ -170,7 +170,16 @@ toolchain Rust/cargo per compilare a ogni build, non disponibile su questa
 macchina. Non reintrodurre `libsql_dart`.
 
 - Offline-first: si scrive sempre in locale; la sync gira in background, alla
-  chiusura, al ritorno in foreground e su richiesta manuale.
+  chiusura, al ritorno in foreground, ogni 5 minuti, su richiesta manuale e
+  (M32, 17 ago 2026) **subito dopo ogni inserimento/modifica/cancellazione
+  di una transazione** (`addTransactionProvider`/`updateTransactionProvider`/
+  `deleteTransactionProvider` in `core/di/transaction_providers.dart`,
+  `unawaited(syncService.syncNow().catchError(...))` — stesso pattern
+  fire-and-forget del resto, nessun blocco della UI, nessun errore mostrato
+  all'utente). Fuori da questo trigger: l'import CSV bulk (Admin) e le
+  transazioni generate dalle ricorrenze all'avvio, che chiamano
+  repository/DAO direttamente — stesso perimetro già escluso dal bridge
+  Google Sheets sotto.
 - Ogni tabella sincronizzata ha campi `updatedAt`, `isDeleted` (soft delete) e
   `syncId` (UUID stabile tra dispositivi). Le FK intere locali diventano
   colonne testuali `*_sync_id` lato remoto.
@@ -667,8 +676,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M30 completate** (M31, Form/Impostazioni adattivi, e M32, sync
-  Turso immediata su inserimento/modifica transazione, restano da
+- **M0–M30 e M32 completate** (M31, Form/Impostazioni adattivi, resta da
   progettare — v. `progettazione_finance_app.md` sezione 6 per il
   dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
@@ -697,7 +705,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (M30, v. sezione dedicata sopra)**: card ridisegnata (data isolata,
   sottocategoria sotto la Nota), sfondo verde per le entrate, badge
   colorato per le spese con rimborso collegato — niente master-detail,
-  scelta esplicita di Mario. **CI
+  scelta esplicita di Mario. **Sync immediata su salvataggio (M32, v.
+  sezione Sync sopra)**: inserimento/modifica/cancellazione transazione
+  lanciano subito una sync in background, oltre al timer ogni 5 minuti
+  (invariato). **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
 - Test in `test/` (26 file, 169 test): parser CSV, receipt parser, rule

@@ -1068,24 +1068,43 @@ in un messaggio d'errore**
     Modalità lista (sotto la soglia) invariata: lì c'è spazio a sufficienza
     per la riga singola originale.
 
-**M32 — 🔧 Proposta (da progettare) — Sync immediata su inserimento/modifica
-transazione**
+**M32 — ✅ Completata (17 ago 2026) — Sync immediata su inserimento/modifica/
+cancellazione transazione**
 *(richiesta da Mario, 17 ago 2026)*
-- Problema: oggi `TursoSyncService.syncNow()` parte all'avvio, ogni 5 minuti,
-  al cambio di stato dell'app (`didChangeAppLifecycleState` in `app.dart`:
-  `paused`/`detached`/`resumed`) e su richiesta manuale (Impostazioni >
-  Sync) — mai subito dopo che `addTransactionProvider`/l'update di una
-  transazione esistente vanno a buon fine. La sync di chiusura, inoltre, è
-  "fire-and-forget" (`syncNow().catchError(...)`, mai atteso): su Windows il
-  processo potrebbe terminare prima che la chiamata di rete completi
-  davvero, lasciando l'ultima modifica solo locale più a lungo di quanto
-  sembri (nessuna eccezione visibile, il flusso continua a chiudersi).
-- Non ancora progettato nel dettaglio (da fare prima di scrivere codice):
-  se il trigger va agganciato a `addTransactionProvider` stesso (inserimento
-  + modifica) o più in generale a ogni scrittura utente; se deve essere
-  sincrono/atteso (rischio: rallenta il salvataggio percepito dall'utente)
-  o in background non bloccante; come gestire l'affidabilità alla chiusura
-  reale dell'app (oggi fire-and-forget) senza introdurre un blocco della UI.
+- Problema: `TursoSyncService.syncNow()` partiva solo all'avvio, ogni 5
+  minuti, al cambio di stato dell'app (`didChangeAppLifecycleState` in
+  `app.dart`: `paused`/`detached`/`resumed`) e su richiesta manuale
+  (Impostazioni > Sync) — mai subito dopo che una transazione veniva
+  salvata/modificata/cancellata durante la sessione: un inserimento poteva
+  restare solo locale fino al prossimo tick.
+- **Fatto**: `addTransactionProvider`/`updateTransactionProvider`/
+  `deleteTransactionProvider` (`core/di/transaction_providers.dart`) —
+  prima solo `addTransactionProvider` era una funzione avvolta (per il
+  bridge Google Sheets), gli altri due esponevano l'usecase "nudo" — ora
+  tutti e tre lanciano `syncService.syncNow()` in background
+  (`unawaited` + `catchError` → `debugPrint`, stesso identico pattern già
+  in `main.dart`/`app.dart`: nessun errore mostrato all'utente, resta
+  visibile solo da icona/banner di sync esistenti) subito dopo che il
+  salvataggio locale è andato a buon fine. Nessun blocco della UI: il
+  salvataggio resta istantaneo, la sync parte alle spalle: grazie al
+  design "queue-and-refresh" di `syncNow()` (M9), più salvataggi ravvicinati
+  non si accavallano.
+  - **Cancellazione inclusa** (non solo inserimento/modifica come nella
+    richiesta iniziale): stesso rischio, una cancellazione non
+    sincronizzata prima di chiudere l'app potrebbe "ricomparire" da un
+    altro dispositivo — confermato da Mario.
+  - **Il timer ogni 5 minuti resta invariato** (richiesto esplicitamente da
+    Mario): questo trigger si aggiunge, non lo sostituisce.
+  - **Fuori scope, deliberatamente**: l'import CSV bulk (Admin, chiama
+    `repository.addAll` direttamente) e le transazioni generate dalle
+    ricorrenze all'avvio (`RecurringDao.generateDue`, chiama il DAO
+    direttamente) non passano da questi provider — stesso perimetro già
+    escluso dal bridge Google Sheets, e le ricorrenze sono comunque coperte
+    dalla sync che parte subito dopo la loro generazione in `main.dart`.
+  - `flutter analyze` pulito, **169/169 test invariati** (nessun test
+    nuovo: il cambiamento aggiunge solo una chiamata fire-and-forget già
+    ampiamente coperta dai test esistenti di `TursoSyncService`, senza
+    nuova logica di business da verificare).
 
 **M30 — ✅ Completata (17 ago 2026) — Storico adattivo**
 - **Layout**: niente master-detail — stessa lista di oggi, solo centrata con

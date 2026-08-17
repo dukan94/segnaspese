@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database/daos/transaction_dao.dart';
@@ -28,25 +29,49 @@ final transactionRepositoryProvider = Provider<TransactionRepository>((ref) {
   return TransactionRepositoryImpl(dao);
 });
 
+/// Logga un fallimento della sync scatenata dopo un salvataggio (M32): stesso
+/// pattern fire-and-forget già usato in `main.dart`/`app.dart` — mai
+/// mostrato all'utente, resta visibile solo dall'icona/banner di sync
+/// esistenti.
+void _logPostSaveSyncError(Object error, StackTrace stackTrace) {
+  debugPrint('Sync Turso fallita (dopo salvataggio transazione): $error\n$stackTrace');
+}
+
 /// Oltre a salvare la transazione, se il bridge Google Sheet (Impostazioni >
 /// Admin) è attivo ne invia in background una copia al foglio "Copia di
 /// Spese" configurato — bridge temporaneo finché l'app non lo sostituisce
 /// del tutto (v. CLAUDE.md). Un fallimento lì non tocca il salvataggio
 /// locale, già andato a buon fine a quel punto.
+///
+/// M32: dopo il salvataggio locale, lancia anche una sync Turso in
+/// background (oltre a quella già periodica ogni 5 minuti e a quella sui
+/// cambi di stato dell'app) — un inserimento/modifica non aspetta più fino
+/// al prossimo tick per arrivare sugli altri dispositivi.
 final addTransactionProvider =
     Provider<Future<int> Function(TransactionEntity)>((ref) {
   final useCase = AddTransaction(ref.watch(transactionRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
   return (transaction) async {
     final id = await useCase.call(transaction);
     unawaited(
       pushTransactionToGoogleSheet(ref, transaction.copyWith(id: id)),
     );
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
     return id;
   };
 });
 
-final deleteTransactionProvider = Provider<DeleteTransaction>((ref) {
-  return DeleteTransaction(ref.watch(transactionRepositoryProvider));
+/// M32: stesso trattamento di [addTransactionProvider] — una cancellazione
+/// non sincronizzata prima di chiudere l'app potrebbe "ricomparire" da un
+/// altro dispositivo che non l'ha ancora vista.
+final deleteTransactionProvider =
+    Provider<Future<void> Function(int)>((ref) {
+  final useCase = DeleteTransaction(ref.watch(transactionRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (transactionId) async {
+    await useCase.call(transactionId);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
 /// Solo pannello Admin: unico punto d'accesso per eliminare per sempre una
@@ -60,8 +85,15 @@ final safeTransactionDeletionServiceProvider =
   );
 });
 
-final updateTransactionProvider = Provider<UpdateTransaction>((ref) {
-  return UpdateTransaction(ref.watch(transactionRepositoryProvider));
+/// M32: stesso trattamento di [addTransactionProvider]/[deleteTransactionProvider].
+final updateTransactionProvider =
+    Provider<Future<void> Function(TransactionEntity)>((ref) {
+  final useCase = UpdateTransaction(ref.watch(transactionRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (transaction) async {
+    await useCase.call(transaction);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
 final searchTransactionsProvider = Provider<SearchTransactions>((ref) {
