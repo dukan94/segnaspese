@@ -1084,6 +1084,15 @@ in un messaggio d'errore**
   - Da progettare nel dettaglio quando si arriva a questa milestone (toni
     esatti da validare con un mockup, coerenti col tema chiaro/scuro
     esistente — v. `app_theme.dart`).
+- **Richiesta aggiuntiva (Mario, 17 ago 2026)**: le card di una spesa che ha
+  già un rimborso collegato (una o più transazioni con `refundOfId` uguale
+  all'id di quella spesa) devono riconoscersi a colpo d'occhio — un'icona
+  accanto alla Nota già visibile sulla card (es. simbolo di rimborso/link,
+  coerente con le icone già in uso in Storico per "Rimborsa"/"Rimborso con
+  divisore"), non solo aprendo il dettaglio. Vale ugualmente su Android e
+  desktop. Da progettare nel dettaglio insieme al punto sopra (query per
+  sapere se una spesa ha rimborsi collegati, icona esatta, comportamento al
+  tap se previsto).
 
 **M31 — 🔧 Proposta (da progettare) — Form e Impostazioni adattivi**
 - Nuova Operazione, Impostazioni e sottopagine (Categorie, Regole Merchant,
