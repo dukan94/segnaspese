@@ -150,9 +150,11 @@ già → `SqliteException("duplicate column name")`.
   v. sezione dedicata sotto). Una migrazione interrotta a metà, su questo o
   qualunque altro dispositivo, non blocca più l'avvio.
 - Test di regressione: `test/app_database_migration_test.dart` — crea un DB
-  v7 completo, riporta `user_version` a 6 lasciando le colonne fisicamente
+  completo, riporta `user_version` a 6 lasciando le colonne fisicamente
   presenti (stesso stato di una migrazione interrotta), poi riapre e verifica
-  che non lanci eccezioni e che `user_version` torni a 7.
+  che non lanci eccezioni e che `user_version` torni a quello corrente (8 —
+  era 7 quando questo test è stato scritto per il bug M17, aggiornato con
+  lo schema bump di M35 sotto, lo scenario/la guardia testata non cambiano).
 - Se in futuro un'app desktop Windows sembra "non aprirsi" senza errori
   visibili: non fidarsi di `Get-Process`/`Responding=True` da solo (il
   processo nativo può essere vivo col messaggio loop attivo pur con
@@ -160,6 +162,56 @@ già → `SqliteException("duplicate column name")`.
   (`MainWindowTitle` vuoto = nessun frame mai renderizzato) e, se serve
   diagnosticare, rilanciare con `flutter run -d windows --release` invece
   dell'exe per vedere lo stack trace reale.
+- **Eliminare una colonna/tabella (M35, 17 ago 2026)**: `addColumn`
+  (sopra) non basta se serve invece **rimuovere** qualcosa. Un
+  `ALTER TABLE ... DROP COLUMN` diretto fallisce se la colonna è soggetta
+  a un vincolo FOREIGN KEY (SQLite lo rifiuta) — serve
+  `Migrator.alterTable(TableMigration(tabella))`, che ricrea la tabella
+  secondo la definizione Dart **corrente** (già senza quella colonna)
+  copiando le righe esistenti per nome colonna. Per una tabella intera,
+  `m.deleteTable('nome_tabella')`. Idempotenza sullo stesso principio di
+  `_columnExists`: nuovo `_tableExists(tabella)` (query `sqlite_master`),
+  entrambi gli step in `onUpgrade` controllano prima di agire (una
+  migrazione interrotta a metà non deve ritentare un `deleteTable` su una
+  tabella già sparita). Caso reale: rimozione della tabella `Merchants` e
+  della colonna `merchantId` da `Transactions` (v. sezione dedicata sotto
+  e `progettazione_finance_app.md` M35) — `merchantId` referenziava
+  `Merchants.id`, da qui la necessità di `TableMigration` invece di un
+  `DROP COLUMN` semplice.
+
+## Rimozione tabella Merchants (M35)
+
+*(17 ago 2026)* Tabella `Merchants` (pensata per un futuro campo "Negozio"
+con autocompletamento, categoria di default per negozio, stat "Top negozi"
+in Dashboard) **mai collegata a un DAO/repository/UI/sync in circa un anno
+di sviluppo** — sempre 0 righe. Il flusso scontrini reale (M3) ha preso
+un'altra strada: nome negozio come testo libero in Nota, categorizzato da
+**Regole Merchant** (regex), mai toccando questa tabella. Valutata con
+Mario l'implementazione completa vs la rimozione (dopo una domanda aperta
+"cosa manca?"): costo (nuovo DAO/repository/mapper, campo "Negozio",
+collegamento anche a scontrini/import estratto conto, supporto sync
+nuovo, nessun backfill sensato per lo storico) non giustificato dal
+beneficio — Regole Merchant + ricerca full-text su Nota già coprono
+categorizzazione e ricerca. Scelta: **rimozione** (schema v8), non
+abbandono silenzioso.
+
+- Rimossi `merchants_table.dart`, `merchantId` da `Transactions`/
+  `TransactionEntity`/`transaction_mapper.dart`/`add_transaction_page.dart`.
+  Rimosso anche `merchantQuery` (parametro mai realmente passato da
+  nessun chiamante su `TransactionRepository.search`/
+  `SearchTransactionsParams` — stesso piano abbandonato).
+- **Se serve reintrodurre un concetto di "negozio ricordato"**: non
+  riesumare questa tabella senza un piano concreto per collegarla anche a
+  scontrini/import estratto conto (altrimenti si ripete lo stesso
+  problema — dati sempre vuoti) e per il supporto sync (mai stato
+  presente, da costruire da zero: `sync_merchants`, push/pull, traduzione
+  FK, stesso principio delle altre tabelle sincronizzate sopra).
+- **Verificato anche sul database vero di Mario** (backup preventivo
+  `finance_app.sqlite.backup-2026-08-17-pre-m35-merchants-removal`):
+  migrazione applicata prima su una copia (0 righe in `merchants`, 0
+  transazioni con `merchantId` valorizzato — coerente con l'indagine),
+  poi sul file vero via build Windows reale: 1908 transazioni invariate,
+  colonna/tabella sparite, `PRAGMA integrity_check` → `ok`.
 
 ## Sync (Turso) — dettaglio critico
 
@@ -207,8 +259,6 @@ macchina. Non reintrodurre `libsql_dart`.
   clock-skew, accettato per uso personale).
 - Ogni push/pull di tabella è isolato: un errore su una tabella non blocca le
   altre. Banner di avviso in Home se la sync non è configurata o è in errore.
-- Tabella `Merchants`: schema pronto (`syncId`) ma nessun DAO/flusso UI ancora
-  collegato — non ha ancora dati.
 - **Storico locale con doppioni preesistenti** (scoperto 31 lug 2026, v.
   memoria `project_transaction_duplicates_pre_sync`): sul dispositivo di
   Mario ~94% delle transazioni (749/796) avevano un duplicato di contenuto
@@ -700,7 +750,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M34 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M35 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -756,10 +806,14 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   arrotondati senza decimali — nuovo `AppFormatters.currencyRounded`/
   `signedCurrencyRounded`, usato **solo** in questi due punti: il resto
   dell'app (Home, Storico, Budget salvo quella card) mostra ancora i
-  centesimi, non toccare `AppFormatters.currency` esistente. **CI
+  centesimi, non toccare `AppFormatters.currency` esistente. **Rimozione
+  tabella Merchants (M35, v. sezione dedicata sopra)**: mai collegata a
+  DAO/UI/sync in un anno, rimossa con schema v8 (`TableMigration`, non un
+  `DROP COLUMN` diretto — vincolo FK). **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
-  su ogni push/PR con rigenerazione del codice.
-- Test in `test/` (27 file, 178 test): parser CSV, receipt parser, rule
+  su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
+  su richiesta manuale, v. sezione dedicata sotto).
+- Test in `test/` (27 file, 180 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -769,7 +823,8 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   SafeTransactionDeletionService (con `FakeTursoHttpClient` + test double
   ufficiale di `FlutterSecureStorage`), parser estratto conto BancoPosta e
   duplicate matcher (fixture xlsx sintetiche), migrazione locale
-  idempotente (`app_database_migration_test.dart`, M17), servizio
+  idempotente (`app_database_migration_test.dart`, M17 **+ rimozione
+  tabella Merchants M35**), servizio
   Gemini incluso il regression test di sicurezza M18
   (`gemini_vision_service_test.dart`), seed runner
   (`seed_runner_test.dart`), dedupe tassonomia

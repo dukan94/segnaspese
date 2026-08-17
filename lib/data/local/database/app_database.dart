@@ -8,7 +8,6 @@ import 'package:uuid/uuid.dart';
 
 import 'tables/categories_table.dart';
 import 'tables/subcategories_table.dart';
-import 'tables/merchants_table.dart';
 import 'tables/merchant_rules_table.dart';
 import 'tables/transactions_table.dart';
 import 'tables/budgets_table.dart';
@@ -32,7 +31,6 @@ part 'app_database.g.dart';
   tables: [
     Categories,
     SubCategories,
-    Merchants,
     MerchantRules,
     Transactions,
     Budgets,
@@ -54,7 +52,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -88,9 +86,10 @@ class AppDatabase extends _$AppDatabase {
             if (!await _columnExists('sub_categories', 'sync_id')) {
               await m.addColumn(subCategories, subCategories.syncId);
             }
-            if (!await _columnExists('merchants', 'sync_id')) {
-              await m.addColumn(merchants, merchants.syncId);
-            }
+            // La tabella Merchants aveva questo stesso step qui in origine
+            // (v5): rimossa insieme alla tabella stessa in v8 (M35, mai
+            // usata) — non serve più aggiungerle una colonna che non esiste
+            // già più nello schema Dart corrente.
             if (!await _columnExists('merchant_rules', 'sync_id')) {
               await m.addColumn(merchantRules, merchantRules.syncId);
             }
@@ -153,6 +152,29 @@ class AppDatabase extends _$AppDatabase {
                   recurringTransactions.occurrencesGenerated);
             }
           }
+          // v8: rimozione della tabella Merchants (mai collegata a un
+          // DAO/repository/UI/sync in ~un anno di sviluppo, sempre 0 righe —
+          // valutata l'implementazione completa vs la rimozione con Mario,
+          // 17 ago 2026, scelta la rimozione: v. progettazione, M35) e della
+          // colonna "merchantId" su Transactions che la referenziava.
+          //
+          // Niente `ALTER TABLE ... DROP COLUMN` diretto per merchantId:
+          // SQLite non permette di eliminare una colonna soggetta a un
+          // vincolo FOREIGN KEY (merchantId referenziava Merchants.id).
+          // `TableMigration` ricrea invece la tabella secondo la definizione
+          // Dart attuale (già senza merchantId), copiando le righe esistenti
+          // per nome colonna — stesso approccio consigliato da Drift per
+          // questo tipo di modifica. Guardie di idempotenza sullo stesso
+          // principio delle altre migrazioni sopra (migrazione interrotta a
+          // metà, v. `_columnExists`).
+          if (from < 8) {
+            if (await _columnExists('transactions', 'merchant_id')) {
+              await m.alterTable(TableMigration(transactions));
+            }
+            if (await _tableExists('merchants')) {
+              await m.deleteTable('merchants');
+            }
+          }
         },
         // NOTA: l'ordine manuale (drag & drop) di categorie/sottocategorie
         // (v. CategoryDao) è salvato nella tabella Settings già esistente,
@@ -168,7 +190,6 @@ class AppDatabase extends _$AppDatabase {
           for (final table in [
             'categories',
             'sub_categories',
-            'merchants',
             'merchant_rules',
             'budgets',
             'recurring_transactions',
@@ -215,6 +236,18 @@ class AppDatabase extends _$AppDatabase {
     return rows.any((row) => row.data['name'] == column);
   }
 
+  /// Vero se `table` esiste ancora nello schema. Usato in `onUpgrade` per
+  /// rendere idempotente un `deleteTable` (v8, rimozione tabella Merchants):
+  /// stesso principio di [_columnExists], per una migrazione interrotta a
+  /// metà che avesse già eliminato la tabella senza aggiornare schemaVersion.
+  Future<bool> _tableExists(String table) async {
+    final rows = await customSelect(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name = ?",
+      variables: [Variable.withString(table)],
+    ).get();
+    return rows.isNotEmpty;
+  }
+
   /// Assegna un UUID v4 a ogni riga senza `syncId`: sia in migrazione (v5)
   /// sia a ogni avvio (v. beforeOpen, per riparare righe create in seguito da
   /// codice che bypassa il mapper). Una query + un update per riga, volumi
@@ -252,16 +285,6 @@ class AppDatabase extends _$AppDatabase {
     for (final id in subCategoryIds) {
       await (update(subCategories)..where((t) => t.id.equals(id)))
           .write(SubCategoriesCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
-    }
-
-    final merchantIds = await (selectOnly(merchants)
-          ..addColumns([merchants.id])
-          ..where(merchants.syncId.isNull()))
-        .map((row) => row.read(merchants.id)!)
-        .get();
-    for (final id in merchantIds) {
-      await (update(merchants)..where((t) => t.id.equals(id)))
-          .write(MerchantsCompanion(syncId: Value(uuid.v4()), updatedAt: Value(now)));
     }
 
     final merchantRuleIds = await (selectOnly(merchantRules)

@@ -108,7 +108,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M34 sono completate. Integrazione
+milestone M0-M35 sono completate. Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -149,12 +149,13 @@ continua attiva
 | **M32** | Sync Turso immediata su inserimento/modifica/cancellazione transazione (oltre al timer ogni 5 minuti, invariato) | ✅ Completata |
 | **M33** | Conteggio e media per categoria/sottocategoria in Dashboard (al netto dei rimborsi) | ✅ Completata |
 | **M34** | Doppio click su categoria/sottocategoria in Dashboard apre lo Storico con la ricerca già filtrata | ✅ Completata |
+| **M35** | Rimossa la tabella `Merchants` (mai collegata a DAO/UI/sync, sempre 0 righe) e la colonna `merchantId` | ✅ Completata |
 
 ## Struttura del database
 
-Schema Drift con le tabelle: `Categories`, `SubCategories`, `Merchants`,
-`MerchantRules`, `Transactions`, `Budgets`, `RecurringTransactions`,
-`Settings`. Ogni tabella include i campi `updatedAt`, `isDeleted` e `syncId`
+Schema Drift con le tabelle: `Categories`, `SubCategories`, `MerchantRules`,
+`Transactions`, `Budgets`, `RecurringTransactions`, `Settings`. Ogni
+tabella include i campi `updatedAt`, `isDeleted` e `syncId`
 per la sincronizzazione su Turso (M7). `Transactions` include inoltre
 `refundOfId` (collegamento rimborso→spesa) e `receiptImagePath` (foto dello
 scontrino scansionato).

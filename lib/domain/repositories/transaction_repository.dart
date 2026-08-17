@@ -15,7 +15,6 @@ abstract class TransactionRepository {
   });
 
   Future<List<TransactionEntity>> search({
-    String? merchantQuery,
     String? note,
     int? categoryId,
     double? amount,

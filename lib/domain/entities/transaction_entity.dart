@@ -12,7 +12,6 @@ class TransactionEntity {
   final TransactionType type;
   final int categoryId;
   final int? subCategoryId;
-  final int? merchantId;
   final String? note;
   final String? receiptImagePath;
   final int? recurringId;
@@ -34,7 +33,6 @@ class TransactionEntity {
     required this.type,
     required this.categoryId,
     this.subCategoryId,
-    this.merchantId,
     this.note,
     this.receiptImagePath,
     this.recurringId,
@@ -61,7 +59,6 @@ class TransactionEntity {
     TransactionType? type,
     int? categoryId,
     int? subCategoryId,
-    int? merchantId,
     String? note,
     String? receiptImagePath,
     int? recurringId,
@@ -76,7 +73,6 @@ class TransactionEntity {
       type: type ?? this.type,
       categoryId: categoryId ?? this.categoryId,
       subCategoryId: subCategoryId ?? this.subCategoryId,
-      merchantId: merchantId ?? this.merchantId,
       note: note ?? this.note,
       receiptImagePath: receiptImagePath ?? this.receiptImagePath,
       recurringId: recurringId ?? this.recurringId,

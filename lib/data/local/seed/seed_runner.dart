@@ -43,7 +43,6 @@ Future<void> runSeed(AppDatabase db) async {
       await db.delete(db.transactions).go();
       await db.delete(db.recurringTransactions).go();
       await db.delete(db.merchantRules).go();
-      await db.delete(db.merchants).go();
       await db.delete(db.subCategories).go();
       await db.delete(db.categories).go();
       // Ordinamenti manuali salvati (riferivano i vecchi id).

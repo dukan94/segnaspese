@@ -303,7 +303,6 @@ class _AddTransactionPageState extends ConsumerState<AddTransactionPage> {
       isRefund: _isRefund,
       // Il collegamento vale solo per i rimborsi.
       refundOfId: _isRefund ? _refundOfId : null,
-      merchantId: widget.existing?.merchantId,
       receiptImagePath: widget.existing?.receiptImagePath,
       recurringId: widget.existing?.recurringId,
     );

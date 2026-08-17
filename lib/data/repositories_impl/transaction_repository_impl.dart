@@ -32,15 +32,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<List<TransactionEntity>> search({
-    String? merchantQuery,
     String? note,
     int? categoryId,
     double? amount,
     DateTime? date,
   }) async {
-    // NOTA: il filtro per negozio (merchantQuery) richiede un join con la
-    // tabella Merchants, che verrà aggiunto quando il repository/DAO Merchant
-    // sarà disponibile (M6 - Ricerca). Per ora viene ignorato.
     final rows = await _dao.search(
       categoryId: categoryId,
       amount: amount,

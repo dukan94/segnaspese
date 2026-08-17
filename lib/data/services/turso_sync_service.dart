@@ -28,20 +28,18 @@ class TursoSyncPartialFailureException implements Exception {
 }
 
 /// Implementazione di [SyncService] basata sull'API HTTP di Turso (v.
-/// turso_http_client.dart). Sincronizza 6 delle 7 tabelle sincronizzabili:
+/// turso_http_client.dart). Sincronizza tutte le tabelle sincronizzabili:
 /// Categories, SubCategories, MerchantRules, Budgets, RecurringTransactions,
-/// Transactions. La tabella Merchants ha lo schema pronto (`syncId`) ma
-/// nessun DAO/repository/flusso UI ancora collegato (in attesa di M3/M6:
-/// scansione scontrini), quindi non ha ancora dati da sincronizzare.
+/// Transactions (la tabella Merchants, mai collegata a un DAO/UI/sync in un
+/// anno di sviluppo, è stata rimossa in M35 — v. progettazione).
 ///
 /// Ogni tabella locale ha una controparte remota `sync_<tabella>` con schema
 /// "sync-friendly": stesse colonne, ma le foreign key intere locali (es.
 /// `categoryId`) diventano colonne testuali (`category_sync_id`) valorizzate
 /// con lo `syncId` della riga referenziata — gli id interi autoincrementali
 /// locali NON sono validi tra dispositivi diversi (v. Transactions.syncId
-/// per i dettagli). `receiptImagePath` (path locale di una foto) e
-/// `merchantId` (tabella Merchants non ancora popolata) sono volutamente
-/// esclusi dalla sincronizzazione.
+/// per i dettagli). `receiptImagePath` (path locale di una foto) è
+/// volutamente escluso dalla sincronizzazione.
 ///
 /// Risoluzione conflitti: last-write-wins basato su `updatedAt`, applicata
 /// sia lato server (upsert push con `WHERE excluded.updated_at > ...`) sia
