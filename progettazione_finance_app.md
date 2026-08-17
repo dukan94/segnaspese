@@ -1073,6 +1073,17 @@ in un messaggio d'errore**
   (lista a sinistra, dettaglio/modifica a destra invece di navigare a
   schermo intero) sfruttando la larghezza, ma è una decisione strutturale
   da confermare con un mockup dedicato, non assunta qui.
+- **Richiesta aggiuntiva (Mario, 17 ago 2026)**: sfondo delle card delle
+  righe colorato in base al tipo di movimento, non solo su finestra larga
+  — vale allo stesso modo su **Android e desktop**, non è legata
+  all'adattività della larghezza (a differenza del punto sopra):
+  - Spesa: colore invariato (comportamento odierno).
+  - Entrata: sfondo tendente al verde.
+  - Rimborso: un'altra tonalità, sempre sul verde ma distinguibile da
+    quella delle entrate (due sfondi verdi diversi, non lo stesso).
+  - Da progettare nel dettaglio quando si arriva a questa milestone (toni
+    esatti da validare con un mockup, coerenti col tema chiaro/scuro
+    esistente — v. `app_theme.dart`).
 
 **M31 — 🔧 Proposta (da progettare) — Form e Impostazioni adattivi**
 - Nuova Operazione, Impostazioni e sottopagine (Categorie, Regole Merchant,
