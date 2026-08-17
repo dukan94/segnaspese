@@ -613,7 +613,53 @@ schema — riusarlo per coerenza invece di inventarne uno nuovo:
   invece globale, non per-pagina: non serve ripeterlo.
 - Ogni pagina è stata prima discussa con un mockup HTML (non genera
   codice, solo per concordare la direzione) e approvata da Mario prima di
-  scrivere il codice Flutter — se si riprende M30/M31, stesso metodo.
+  scrivere il codice Flutter — se si riprende M31, stesso metodo.
+
+## Storico — card ridisegnata, colori entrata/badge rimborso (M30)
+
+*(17 ago 2026)* A differenza di M26-M29, qui **niente master-detail**:
+Mario ha scelto esplicitamente la lista di sempre, solo centrata con
+`ContentWidthLimiter(maxWidth: 760)` — stesso principio "lo spazio in più
+resta respiro" delle altre pagine, nessun nuovo pattern di navigazione.
+
+- `_HistoryTile` (`history_page.dart`) ridisegnata: icona categoria +
+  **data isolata** (`AppFormatters.dayMonth`) nel `leading` (prima la data
+  era dentro la stringa `subtitle` unita con "·", ora ha un suo spazio
+  dedicato), Nota come `title`, **sottocategoria sotto la Nota** come
+  `subtitle` (prima mostrava il nome categoria — l'icona a sinistra già la
+  comunica, la sottocategoria è testo più specifico). Importo e icone
+  azione a destra invariati.
+- **Sfondo colorato solo per le entrate** (`AppTheme.incomeContainer`/
+  `onIncomeContainer` in `app_theme.dart`, stesso principio di
+  `warningContainer`: colori fissi indipendenti dal seed, non derivati da
+  `ColorScheme.tertiary`). **Un rimborso NON ha uno sfondo dedicato** —
+  prima versione mostrata a Mario ne aveva uno (verde acqua/teal), scartato
+  dopo revisione: resta identico a una spesa normale.
+- **Colori scelti da Mario, non dedotti dal seed dell'app**: entrata chiaro
+  `#C9E59D` → scuro `#344913` (stessa tonalità/saturazione HSL, solo più
+  scuro — criterio applicato per derivare lo scuro, non scelto a mano da
+  Mario). Testo chiaro `#436B06`; testo scuro: **riusa il colore chiaro
+  scelto da Mario stesso** (`#C9E59D`) invece di una quarta tonalità
+  scollegata, così l'armonia resta la stessa tra i due temi.
+- **Badge "spesa già rimborsata"**: cerchietto colorato (non solo icona
+  piatta) accanto alla Nota sulle spese con almeno un rimborso collegato
+  (`refundOfId` di una o più righe = id di questa spesa — mai assunto un
+  solo rimborso, v. M25 "nessun tetto"). Colore fisso scelto da Mario,
+  **non differenziato chiaro/scuro** (a differenza dell'entrata sopra: un
+  cerchietto piccolo resta leggibile sia su chiaro sia su scuro):
+  `AppTheme.refundedBadgeColor` (`#E5E39F`) / `onRefundedBadgeColor`
+  (`#6B6806`). Al tap, nuovo `linked_refunds_sheet.dart` (direzione
+  opposta di `linked_expense_sheet.dart`, che risale dal rimborso alla
+  spesa): mostra tutti i rimborsi collegati a questa spesa, non solo il
+  primo.
+- **Iterazione sui colori**: prima proposta con sfondo colorato anche per
+  il rimborso (verde acqua/teal calcolato, non scelto da Mario) — bocciata
+  a schermo. Poi Mario ha fornito lui i due esadecimali chiari (entrata/
+  rimborso) da usare — bocciata di nuovo la parte "rimborso", tenuta solo
+  l'entrata; il colore rimborso è stato spostato sul badge. **Se si
+  ritocca ancora questa palette**: i colori sono solo in
+  `app_theme.dart` (un punto solo, per richiesta esplicita di Mario — non
+  aggiungere `Color(0x...)` sparsi in `history_page.dart`).
 
 ## Stato attuale (16 ago 2026)
 
@@ -621,9 +667,10 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M29 completate** (M30-M31, Storico e Form/Impostazioni adattivi,
-  restano da progettare — v. `progettazione_finance_app.md` sezione 6 per
-  il dettaglio completo). M0-M8:
+- **M0–M30 completate** (M31, Form/Impostazioni adattivi, e M32, sync
+  Turso immediata su inserimento/modifica transazione, restano da
+  progettare — v. `progettazione_finance_app.md` sezione 6 per il
+  dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
@@ -646,7 +693,11 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   più sqlite3_flutter_libs (M24). Rimborso con divisore (M25). **Refactor
   desktop-adattivo (M26-M29, v. sezione dedicata sopra)**: fondamenta
   (densità, `NavigationRail`, `ContentWidthLimiter`, M26), Home (M27),
-  Dashboard (M28), Budget (M29) riorganizzate su finestra larga. **CI
+  Dashboard (M28), Budget (M29) riorganizzate su finestra larga. **Storico
+  (M30, v. sezione dedicata sopra)**: card ridisegnata (data isolata,
+  sottocategoria sotto la Nota), sfondo verde per le entrate, badge
+  colorato per le spese con rimborso collegato — niente master-detail,
+  scelta esplicita di Mario. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
 - Test in `test/` (26 file, 169 test): parser CSV, receipt parser, rule
