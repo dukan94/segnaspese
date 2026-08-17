@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart';
 import 'categories_table.dart';
 import 'subcategories_table.dart';
-import 'merchants_table.dart';
 import 'recurring_table.dart';
 
 /// Ogni entrata/uscita registrata dall'utente, manualmente o da scontrino.
@@ -18,8 +17,6 @@ class Transactions extends Table {
   IntColumn get categoryId => integer().references(Categories, #id)();
   IntColumn get subCategoryId =>
       integer().nullable().references(SubCategories, #id)();
-  IntColumn get merchantId =>
-      integer().nullable().references(Merchants, #id)();
 
   TextColumn get note => text().nullable()();
 

@@ -845,422 +845,6 @@ class SubCategoriesCompanion extends UpdateCompanion<SubCategory> {
   }
 }
 
-class $MerchantsTable extends Merchants
-    with TableInfo<$MerchantsTable, Merchant> {
-  @override
-  final GeneratedDatabase attachedDatabase;
-  final String? _alias;
-  $MerchantsTable(this.attachedDatabase, [this._alias]);
-  static const VerificationMeta _idMeta = const VerificationMeta('id');
-  @override
-  late final GeneratedColumn<int> id = GeneratedColumn<int>(
-      'id', aliasedName, false,
-      hasAutoIncrement: true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
-  static const VerificationMeta _nameMeta = const VerificationMeta('name');
-  @override
-  late final GeneratedColumn<String> name = GeneratedColumn<String>(
-      'name', aliasedName, false,
-      additionalChecks:
-          GeneratedColumn.checkTextLength(minTextLength: 1, maxTextLength: 120),
-      type: DriftSqlType.string,
-      requiredDuringInsert: true);
-  static const VerificationMeta _defaultCategoryIdMeta =
-      const VerificationMeta('defaultCategoryId');
-  @override
-  late final GeneratedColumn<int> defaultCategoryId = GeneratedColumn<int>(
-      'default_category_id', aliasedName, true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('REFERENCES categories (id)'));
-  static const VerificationMeta _defaultSubCategoryIdMeta =
-      const VerificationMeta('defaultSubCategoryId');
-  @override
-  late final GeneratedColumn<int> defaultSubCategoryId = GeneratedColumn<int>(
-      'default_sub_category_id', aliasedName, true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('REFERENCES sub_categories (id)'));
-  static const VerificationMeta _updatedAtMeta =
-      const VerificationMeta('updatedAt');
-  @override
-  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
-      'updated_at', aliasedName, false,
-      type: DriftSqlType.dateTime,
-      requiredDuringInsert: false,
-      defaultValue: currentDateAndTime);
-  static const VerificationMeta _isDeletedMeta =
-      const VerificationMeta('isDeleted');
-  @override
-  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
-      'is_deleted', aliasedName, false,
-      type: DriftSqlType.bool,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
-      defaultValue: const Constant(false));
-  static const VerificationMeta _syncIdMeta = const VerificationMeta('syncId');
-  @override
-  late final GeneratedColumn<String> syncId = GeneratedColumn<String>(
-      'sync_id', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
-  @override
-  List<GeneratedColumn> get $columns => [
-        id,
-        name,
-        defaultCategoryId,
-        defaultSubCategoryId,
-        updatedAt,
-        isDeleted,
-        syncId
-      ];
-  @override
-  String get aliasedName => _alias ?? actualTableName;
-  @override
-  String get actualTableName => $name;
-  static const String $name = 'merchants';
-  @override
-  VerificationContext validateIntegrity(Insertable<Merchant> instance,
-      {bool isInserting = false}) {
-    final context = VerificationContext();
-    final data = instance.toColumns(true);
-    if (data.containsKey('id')) {
-      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
-    }
-    if (data.containsKey('name')) {
-      context.handle(
-          _nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
-    } else if (isInserting) {
-      context.missing(_nameMeta);
-    }
-    if (data.containsKey('default_category_id')) {
-      context.handle(
-          _defaultCategoryIdMeta,
-          defaultCategoryId.isAcceptableOrUnknown(
-              data['default_category_id']!, _defaultCategoryIdMeta));
-    }
-    if (data.containsKey('default_sub_category_id')) {
-      context.handle(
-          _defaultSubCategoryIdMeta,
-          defaultSubCategoryId.isAcceptableOrUnknown(
-              data['default_sub_category_id']!, _defaultSubCategoryIdMeta));
-    }
-    if (data.containsKey('updated_at')) {
-      context.handle(_updatedAtMeta,
-          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
-    }
-    if (data.containsKey('is_deleted')) {
-      context.handle(_isDeletedMeta,
-          isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
-    }
-    if (data.containsKey('sync_id')) {
-      context.handle(_syncIdMeta,
-          syncId.isAcceptableOrUnknown(data['sync_id']!, _syncIdMeta));
-    }
-    return context;
-  }
-
-  @override
-  Set<GeneratedColumn> get $primaryKey => {id};
-  @override
-  List<Set<GeneratedColumn>> get uniqueKeys => [
-        {name},
-      ];
-  @override
-  Merchant map(Map<String, dynamic> data, {String? tablePrefix}) {
-    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return Merchant(
-      id: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
-      name: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
-      defaultCategoryId: attachedDatabase.typeMapping.read(
-          DriftSqlType.int, data['${effectivePrefix}default_category_id']),
-      defaultSubCategoryId: attachedDatabase.typeMapping.read(
-          DriftSqlType.int, data['${effectivePrefix}default_sub_category_id']),
-      updatedAt: attachedDatabase.typeMapping
-          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
-      isDeleted: attachedDatabase.typeMapping
-          .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
-      syncId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}sync_id']),
-    );
-  }
-
-  @override
-  $MerchantsTable createAlias(String alias) {
-    return $MerchantsTable(attachedDatabase, alias);
-  }
-}
-
-class Merchant extends DataClass implements Insertable<Merchant> {
-  final int id;
-  final String name;
-  final int? defaultCategoryId;
-  final int? defaultSubCategoryId;
-  final DateTime updatedAt;
-  final bool isDeleted;
-
-  /// Id stabile tra dispositivi per il SyncService Turso (v. Transactions.syncId).
-  /// NOTA: tabella non ancora collegata a un DAO/repository (in attesa del
-  /// flusso OCR/merchant di M3-M6): colonna presente per coerenza di schema,
-  /// ma non ancora inclusa nel motore di sync.
-  /// Unicità imposta da un indice separato (app_database.dart, beforeOpen):
-  /// SQLite non permette ALTER TABLE ADD COLUMN con vincolo UNIQUE inline.
-  final String? syncId;
-  const Merchant(
-      {required this.id,
-      required this.name,
-      this.defaultCategoryId,
-      this.defaultSubCategoryId,
-      required this.updatedAt,
-      required this.isDeleted,
-      this.syncId});
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    map['id'] = Variable<int>(id);
-    map['name'] = Variable<String>(name);
-    if (!nullToAbsent || defaultCategoryId != null) {
-      map['default_category_id'] = Variable<int>(defaultCategoryId);
-    }
-    if (!nullToAbsent || defaultSubCategoryId != null) {
-      map['default_sub_category_id'] = Variable<int>(defaultSubCategoryId);
-    }
-    map['updated_at'] = Variable<DateTime>(updatedAt);
-    map['is_deleted'] = Variable<bool>(isDeleted);
-    if (!nullToAbsent || syncId != null) {
-      map['sync_id'] = Variable<String>(syncId);
-    }
-    return map;
-  }
-
-  MerchantsCompanion toCompanion(bool nullToAbsent) {
-    return MerchantsCompanion(
-      id: Value(id),
-      name: Value(name),
-      defaultCategoryId: defaultCategoryId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(defaultCategoryId),
-      defaultSubCategoryId: defaultSubCategoryId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(defaultSubCategoryId),
-      updatedAt: Value(updatedAt),
-      isDeleted: Value(isDeleted),
-      syncId:
-          syncId == null && nullToAbsent ? const Value.absent() : Value(syncId),
-    );
-  }
-
-  factory Merchant.fromJson(Map<String, dynamic> json,
-      {ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return Merchant(
-      id: serializer.fromJson<int>(json['id']),
-      name: serializer.fromJson<String>(json['name']),
-      defaultCategoryId: serializer.fromJson<int?>(json['defaultCategoryId']),
-      defaultSubCategoryId:
-          serializer.fromJson<int?>(json['defaultSubCategoryId']),
-      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
-      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
-      syncId: serializer.fromJson<String?>(json['syncId']),
-    );
-  }
-  @override
-  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
-    serializer ??= driftRuntimeOptions.defaultSerializer;
-    return <String, dynamic>{
-      'id': serializer.toJson<int>(id),
-      'name': serializer.toJson<String>(name),
-      'defaultCategoryId': serializer.toJson<int?>(defaultCategoryId),
-      'defaultSubCategoryId': serializer.toJson<int?>(defaultSubCategoryId),
-      'updatedAt': serializer.toJson<DateTime>(updatedAt),
-      'isDeleted': serializer.toJson<bool>(isDeleted),
-      'syncId': serializer.toJson<String?>(syncId),
-    };
-  }
-
-  Merchant copyWith(
-          {int? id,
-          String? name,
-          Value<int?> defaultCategoryId = const Value.absent(),
-          Value<int?> defaultSubCategoryId = const Value.absent(),
-          DateTime? updatedAt,
-          bool? isDeleted,
-          Value<String?> syncId = const Value.absent()}) =>
-      Merchant(
-        id: id ?? this.id,
-        name: name ?? this.name,
-        defaultCategoryId: defaultCategoryId.present
-            ? defaultCategoryId.value
-            : this.defaultCategoryId,
-        defaultSubCategoryId: defaultSubCategoryId.present
-            ? defaultSubCategoryId.value
-            : this.defaultSubCategoryId,
-        updatedAt: updatedAt ?? this.updatedAt,
-        isDeleted: isDeleted ?? this.isDeleted,
-        syncId: syncId.present ? syncId.value : this.syncId,
-      );
-  Merchant copyWithCompanion(MerchantsCompanion data) {
-    return Merchant(
-      id: data.id.present ? data.id.value : this.id,
-      name: data.name.present ? data.name.value : this.name,
-      defaultCategoryId: data.defaultCategoryId.present
-          ? data.defaultCategoryId.value
-          : this.defaultCategoryId,
-      defaultSubCategoryId: data.defaultSubCategoryId.present
-          ? data.defaultSubCategoryId.value
-          : this.defaultSubCategoryId,
-      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
-      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
-      syncId: data.syncId.present ? data.syncId.value : this.syncId,
-    );
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('Merchant(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('defaultCategoryId: $defaultCategoryId, ')
-          ..write('defaultSubCategoryId: $defaultSubCategoryId, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted, ')
-          ..write('syncId: $syncId')
-          ..write(')'))
-        .toString();
-  }
-
-  @override
-  int get hashCode => Object.hash(id, name, defaultCategoryId,
-      defaultSubCategoryId, updatedAt, isDeleted, syncId);
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      (other is Merchant &&
-          other.id == this.id &&
-          other.name == this.name &&
-          other.defaultCategoryId == this.defaultCategoryId &&
-          other.defaultSubCategoryId == this.defaultSubCategoryId &&
-          other.updatedAt == this.updatedAt &&
-          other.isDeleted == this.isDeleted &&
-          other.syncId == this.syncId);
-}
-
-class MerchantsCompanion extends UpdateCompanion<Merchant> {
-  final Value<int> id;
-  final Value<String> name;
-  final Value<int?> defaultCategoryId;
-  final Value<int?> defaultSubCategoryId;
-  final Value<DateTime> updatedAt;
-  final Value<bool> isDeleted;
-  final Value<String?> syncId;
-  const MerchantsCompanion({
-    this.id = const Value.absent(),
-    this.name = const Value.absent(),
-    this.defaultCategoryId = const Value.absent(),
-    this.defaultSubCategoryId = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-    this.isDeleted = const Value.absent(),
-    this.syncId = const Value.absent(),
-  });
-  MerchantsCompanion.insert({
-    this.id = const Value.absent(),
-    required String name,
-    this.defaultCategoryId = const Value.absent(),
-    this.defaultSubCategoryId = const Value.absent(),
-    this.updatedAt = const Value.absent(),
-    this.isDeleted = const Value.absent(),
-    this.syncId = const Value.absent(),
-  }) : name = Value(name);
-  static Insertable<Merchant> custom({
-    Expression<int>? id,
-    Expression<String>? name,
-    Expression<int>? defaultCategoryId,
-    Expression<int>? defaultSubCategoryId,
-    Expression<DateTime>? updatedAt,
-    Expression<bool>? isDeleted,
-    Expression<String>? syncId,
-  }) {
-    return RawValuesInsertable({
-      if (id != null) 'id': id,
-      if (name != null) 'name': name,
-      if (defaultCategoryId != null) 'default_category_id': defaultCategoryId,
-      if (defaultSubCategoryId != null)
-        'default_sub_category_id': defaultSubCategoryId,
-      if (updatedAt != null) 'updated_at': updatedAt,
-      if (isDeleted != null) 'is_deleted': isDeleted,
-      if (syncId != null) 'sync_id': syncId,
-    });
-  }
-
-  MerchantsCompanion copyWith(
-      {Value<int>? id,
-      Value<String>? name,
-      Value<int?>? defaultCategoryId,
-      Value<int?>? defaultSubCategoryId,
-      Value<DateTime>? updatedAt,
-      Value<bool>? isDeleted,
-      Value<String?>? syncId}) {
-    return MerchantsCompanion(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      defaultCategoryId: defaultCategoryId ?? this.defaultCategoryId,
-      defaultSubCategoryId: defaultSubCategoryId ?? this.defaultSubCategoryId,
-      updatedAt: updatedAt ?? this.updatedAt,
-      isDeleted: isDeleted ?? this.isDeleted,
-      syncId: syncId ?? this.syncId,
-    );
-  }
-
-  @override
-  Map<String, Expression> toColumns(bool nullToAbsent) {
-    final map = <String, Expression>{};
-    if (id.present) {
-      map['id'] = Variable<int>(id.value);
-    }
-    if (name.present) {
-      map['name'] = Variable<String>(name.value);
-    }
-    if (defaultCategoryId.present) {
-      map['default_category_id'] = Variable<int>(defaultCategoryId.value);
-    }
-    if (defaultSubCategoryId.present) {
-      map['default_sub_category_id'] =
-          Variable<int>(defaultSubCategoryId.value);
-    }
-    if (updatedAt.present) {
-      map['updated_at'] = Variable<DateTime>(updatedAt.value);
-    }
-    if (isDeleted.present) {
-      map['is_deleted'] = Variable<bool>(isDeleted.value);
-    }
-    if (syncId.present) {
-      map['sync_id'] = Variable<String>(syncId.value);
-    }
-    return map;
-  }
-
-  @override
-  String toString() {
-    return (StringBuffer('MerchantsCompanion(')
-          ..write('id: $id, ')
-          ..write('name: $name, ')
-          ..write('defaultCategoryId: $defaultCategoryId, ')
-          ..write('defaultSubCategoryId: $defaultSubCategoryId, ')
-          ..write('updatedAt: $updatedAt, ')
-          ..write('isDeleted: $isDeleted, ')
-          ..write('syncId: $syncId')
-          ..write(')'))
-        .toString();
-  }
-}
-
 class $MerchantRulesTable extends MerchantRules
     with TableInfo<$MerchantRulesTable, MerchantRule> {
   @override
@@ -2555,15 +2139,6 @@ class $TransactionsTable extends Transactions
       requiredDuringInsert: false,
       defaultConstraints:
           GeneratedColumn.constraintIsAlways('REFERENCES sub_categories (id)'));
-  static const VerificationMeta _merchantIdMeta =
-      const VerificationMeta('merchantId');
-  @override
-  late final GeneratedColumn<int> merchantId = GeneratedColumn<int>(
-      'merchant_id', aliasedName, true,
-      type: DriftSqlType.int,
-      requiredDuringInsert: false,
-      defaultConstraints:
-          GeneratedColumn.constraintIsAlways('REFERENCES merchants (id)'));
   static const VerificationMeta _noteMeta = const VerificationMeta('note');
   @override
   late final GeneratedColumn<String> note = GeneratedColumn<String>(
@@ -2649,7 +2224,6 @@ class $TransactionsTable extends Transactions
         type,
         categoryId,
         subCategoryId,
-        merchantId,
         note,
         isExtraordinary,
         isRefund,
@@ -2699,12 +2273,6 @@ class $TransactionsTable extends Transactions
           _subCategoryIdMeta,
           subCategoryId.isAcceptableOrUnknown(
               data['sub_category_id']!, _subCategoryIdMeta));
-    }
-    if (data.containsKey('merchant_id')) {
-      context.handle(
-          _merchantIdMeta,
-          merchantId.isAcceptableOrUnknown(
-              data['merchant_id']!, _merchantIdMeta));
     }
     if (data.containsKey('note')) {
       context.handle(
@@ -2776,8 +2344,6 @@ class $TransactionsTable extends Transactions
           .read(DriftSqlType.int, data['${effectivePrefix}category_id'])!,
       subCategoryId: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}sub_category_id']),
-      merchantId: attachedDatabase.typeMapping
-          .read(DriftSqlType.int, data['${effectivePrefix}merchant_id']),
       note: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}note']),
       isExtraordinary: attachedDatabase.typeMapping
@@ -2819,7 +2385,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
   final TransactionKind type;
   final int categoryId;
   final int? subCategoryId;
-  final int? merchantId;
   final String? note;
 
   /// Spesa/entrata "una tantum" (straordinaria): esclusa di default dalle
@@ -2863,7 +2428,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       required this.type,
       required this.categoryId,
       this.subCategoryId,
-      this.merchantId,
       this.note,
       required this.isExtraordinary,
       required this.isRefund,
@@ -2887,9 +2451,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
     map['category_id'] = Variable<int>(categoryId);
     if (!nullToAbsent || subCategoryId != null) {
       map['sub_category_id'] = Variable<int>(subCategoryId);
-    }
-    if (!nullToAbsent || merchantId != null) {
-      map['merchant_id'] = Variable<int>(merchantId);
     }
     if (!nullToAbsent || note != null) {
       map['note'] = Variable<String>(note);
@@ -2924,9 +2485,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       subCategoryId: subCategoryId == null && nullToAbsent
           ? const Value.absent()
           : Value(subCategoryId),
-      merchantId: merchantId == null && nullToAbsent
-          ? const Value.absent()
-          : Value(merchantId),
       note: note == null && nullToAbsent ? const Value.absent() : Value(note),
       isExtraordinary: Value(isExtraordinary),
       isRefund: Value(isRefund),
@@ -2958,7 +2516,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           .fromJson(serializer.fromJson<int>(json['type'])),
       categoryId: serializer.fromJson<int>(json['categoryId']),
       subCategoryId: serializer.fromJson<int?>(json['subCategoryId']),
-      merchantId: serializer.fromJson<int?>(json['merchantId']),
       note: serializer.fromJson<String?>(json['note']),
       isExtraordinary: serializer.fromJson<bool>(json['isExtraordinary']),
       isRefund: serializer.fromJson<bool>(json['isRefund']),
@@ -2982,7 +2539,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           .toJson<int>($TransactionsTable.$convertertype.toJson(type)),
       'categoryId': serializer.toJson<int>(categoryId),
       'subCategoryId': serializer.toJson<int?>(subCategoryId),
-      'merchantId': serializer.toJson<int?>(merchantId),
       'note': serializer.toJson<String?>(note),
       'isExtraordinary': serializer.toJson<bool>(isExtraordinary),
       'isRefund': serializer.toJson<bool>(isRefund),
@@ -3003,7 +2559,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           TransactionKind? type,
           int? categoryId,
           Value<int?> subCategoryId = const Value.absent(),
-          Value<int?> merchantId = const Value.absent(),
           Value<String?> note = const Value.absent(),
           bool? isExtraordinary,
           bool? isRefund,
@@ -3022,7 +2577,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
         categoryId: categoryId ?? this.categoryId,
         subCategoryId:
             subCategoryId.present ? subCategoryId.value : this.subCategoryId,
-        merchantId: merchantId.present ? merchantId.value : this.merchantId,
         note: note.present ? note.value : this.note,
         isExtraordinary: isExtraordinary ?? this.isExtraordinary,
         isRefund: isRefund ?? this.isRefund,
@@ -3047,8 +2601,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       subCategoryId: data.subCategoryId.present
           ? data.subCategoryId.value
           : this.subCategoryId,
-      merchantId:
-          data.merchantId.present ? data.merchantId.value : this.merchantId,
       note: data.note.present ? data.note.value : this.note,
       isExtraordinary: data.isExtraordinary.present
           ? data.isExtraordinary.value
@@ -3077,7 +2629,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           ..write('type: $type, ')
           ..write('categoryId: $categoryId, ')
           ..write('subCategoryId: $subCategoryId, ')
-          ..write('merchantId: $merchantId, ')
           ..write('note: $note, ')
           ..write('isExtraordinary: $isExtraordinary, ')
           ..write('isRefund: $isRefund, ')
@@ -3100,7 +2651,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
       type,
       categoryId,
       subCategoryId,
-      merchantId,
       note,
       isExtraordinary,
       isRefund,
@@ -3121,7 +2671,6 @@ class Transaction extends DataClass implements Insertable<Transaction> {
           other.type == this.type &&
           other.categoryId == this.categoryId &&
           other.subCategoryId == this.subCategoryId &&
-          other.merchantId == this.merchantId &&
           other.note == this.note &&
           other.isExtraordinary == this.isExtraordinary &&
           other.isRefund == this.isRefund &&
@@ -3141,7 +2690,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
   final Value<TransactionKind> type;
   final Value<int> categoryId;
   final Value<int?> subCategoryId;
-  final Value<int?> merchantId;
   final Value<String?> note;
   final Value<bool> isExtraordinary;
   final Value<bool> isRefund;
@@ -3159,7 +2707,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     this.type = const Value.absent(),
     this.categoryId = const Value.absent(),
     this.subCategoryId = const Value.absent(),
-    this.merchantId = const Value.absent(),
     this.note = const Value.absent(),
     this.isExtraordinary = const Value.absent(),
     this.isRefund = const Value.absent(),
@@ -3178,7 +2725,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     required TransactionKind type,
     required int categoryId,
     this.subCategoryId = const Value.absent(),
-    this.merchantId = const Value.absent(),
     this.note = const Value.absent(),
     this.isExtraordinary = const Value.absent(),
     this.isRefund = const Value.absent(),
@@ -3200,7 +2746,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     Expression<int>? type,
     Expression<int>? categoryId,
     Expression<int>? subCategoryId,
-    Expression<int>? merchantId,
     Expression<String>? note,
     Expression<bool>? isExtraordinary,
     Expression<bool>? isRefund,
@@ -3219,7 +2764,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       if (type != null) 'type': type,
       if (categoryId != null) 'category_id': categoryId,
       if (subCategoryId != null) 'sub_category_id': subCategoryId,
-      if (merchantId != null) 'merchant_id': merchantId,
       if (note != null) 'note': note,
       if (isExtraordinary != null) 'is_extraordinary': isExtraordinary,
       if (isRefund != null) 'is_refund': isRefund,
@@ -3240,7 +2784,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       Value<TransactionKind>? type,
       Value<int>? categoryId,
       Value<int?>? subCategoryId,
-      Value<int?>? merchantId,
       Value<String?>? note,
       Value<bool>? isExtraordinary,
       Value<bool>? isRefund,
@@ -3258,7 +2801,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
       type: type ?? this.type,
       categoryId: categoryId ?? this.categoryId,
       subCategoryId: subCategoryId ?? this.subCategoryId,
-      merchantId: merchantId ?? this.merchantId,
       note: note ?? this.note,
       isExtraordinary: isExtraordinary ?? this.isExtraordinary,
       isRefund: isRefund ?? this.isRefund,
@@ -3293,9 +2835,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
     }
     if (subCategoryId.present) {
       map['sub_category_id'] = Variable<int>(subCategoryId.value);
-    }
-    if (merchantId.present) {
-      map['merchant_id'] = Variable<int>(merchantId.value);
     }
     if (note.present) {
       map['note'] = Variable<String>(note.value);
@@ -3339,7 +2878,6 @@ class TransactionsCompanion extends UpdateCompanion<Transaction> {
           ..write('type: $type, ')
           ..write('categoryId: $categoryId, ')
           ..write('subCategoryId: $subCategoryId, ')
-          ..write('merchantId: $merchantId, ')
           ..write('note: $note, ')
           ..write('isExtraordinary: $isExtraordinary, ')
           ..write('isRefund: $isRefund, ')
@@ -4018,7 +3556,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
   late final $SubCategoriesTable subCategories = $SubCategoriesTable(this);
-  late final $MerchantsTable merchants = $MerchantsTable(this);
   late final $MerchantRulesTable merchantRules = $MerchantRulesTable(this);
   late final $RecurringTransactionsTable recurringTransactions =
       $RecurringTransactionsTable(this);
@@ -4039,7 +3576,6 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
         categories,
         subCategories,
-        merchants,
         merchantRules,
         recurringTransactions,
         transactions,
@@ -4085,20 +3621,6 @@ final class $$CategoriesTableReferences
         .filter((f) => f.categoryId.id.sqlEquals($_itemColumn<int>('id')!));
 
     final cache = $_typedResult.readTableOrNull(_subCategoriesRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
-  }
-
-  static MultiTypedResultKey<$MerchantsTable, List<Merchant>>
-      _merchantsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.merchants,
-              aliasName: 'categories__id__merchants__default_category_id');
-
-  $$MerchantsTableProcessedTableManager get merchantsRefs {
-    final manager = $$MerchantsTableTableManager($_db, $_db.merchants).filter(
-        (f) => f.defaultCategoryId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_merchantsRefsTable($_db));
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: cache));
   }
@@ -4215,27 +3737,6 @@ class $$CategoriesTableFilterComposer
             $$SubCategoriesTableFilterComposer(
               $db: $db,
               $table: $db.subCategories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-
-  Expression<bool> merchantsRefs(
-      Expression<bool> Function($$MerchantsTableFilterComposer f) f) {
-    final $$MerchantsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.merchants,
-        getReferencedColumn: (t) => t.defaultCategoryId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MerchantsTableFilterComposer(
-              $db: $db,
-              $table: $db.merchants,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -4425,27 +3926,6 @@ class $$CategoriesTableAnnotationComposer
     return f(composer);
   }
 
-  Expression<T> merchantsRefs<T extends Object>(
-      Expression<T> Function($$MerchantsTableAnnotationComposer a) f) {
-    final $$MerchantsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.merchants,
-        getReferencedColumn: (t) => t.defaultCategoryId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MerchantsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.merchants,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-
   Expression<T> merchantRulesRefs<T extends Object>(
       Expression<T> Function($$MerchantRulesTableAnnotationComposer a) f) {
     final $$MerchantRulesTableAnnotationComposer composer = $composerBuilder(
@@ -4546,7 +4026,6 @@ class $$CategoriesTableTableManager extends RootTableManager<
     Category,
     PrefetchHooks Function(
         {bool subCategoriesRefs,
-        bool merchantsRefs,
         bool merchantRulesRefs,
         bool recurringTransactionsRefs,
         bool transactionsRefs,
@@ -4613,7 +4092,6 @@ class $$CategoriesTableTableManager extends RootTableManager<
               .toList(),
           prefetchHooksCallback: (
               {subCategoriesRefs = false,
-              merchantsRefs = false,
               merchantRulesRefs = false,
               recurringTransactionsRefs = false,
               transactionsRefs = false,
@@ -4622,7 +4100,6 @@ class $$CategoriesTableTableManager extends RootTableManager<
               db: db,
               explicitlyWatchedTables: [
                 if (subCategoriesRefs) db.subCategories,
-                if (merchantsRefs) db.merchants,
                 if (merchantRulesRefs) db.merchantRules,
                 if (recurringTransactionsRefs) db.recurringTransactions,
                 if (transactionsRefs) db.transactions,
@@ -4643,19 +4120,6 @@ class $$CategoriesTableTableManager extends RootTableManager<
                         referencedItemsForCurrentItem:
                             (item, referencedItems) => referencedItems
                                 .where((e) => e.categoryId == item.id),
-                        typedResults: items),
-                  if (merchantsRefs)
-                    await $_getPrefetchedData<Category, $CategoriesTable,
-                            Merchant>(
-                        currentTable: table,
-                        referencedTable:
-                            $$CategoriesTableReferences._merchantsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$CategoriesTableReferences(db, table, p0)
-                                .merchantsRefs,
-                        referencedItemsForCurrentItem:
-                            (item, referencedItems) => referencedItems
-                                .where((e) => e.defaultCategoryId == item.id),
                         typedResults: items),
                   if (merchantRulesRefs)
                     await $_getPrefetchedData<Category, $CategoriesTable,
@@ -4729,7 +4193,6 @@ typedef $$CategoriesTableProcessedTableManager = ProcessedTableManager<
     Category,
     PrefetchHooks Function(
         {bool subCategoriesRefs,
-        bool merchantsRefs,
         bool merchantRulesRefs,
         bool recurringTransactionsRefs,
         bool transactionsRefs,
@@ -4772,20 +4235,6 @@ final class $$SubCategoriesTableReferences
     if (item == null) return manager;
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
-  }
-
-  static MultiTypedResultKey<$MerchantsTable, List<Merchant>>
-      _merchantsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
-          db.merchants,
-          aliasName: 'sub_categories__id__merchants__default_sub_category_id');
-
-  $$MerchantsTableProcessedTableManager get merchantsRefs {
-    final manager = $$MerchantsTableTableManager($_db, $_db.merchants).filter(
-        (f) => f.defaultSubCategoryId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_merchantsRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
   }
 
   static MultiTypedResultKey<$MerchantRulesTable, List<MerchantRule>>
@@ -4881,27 +4330,6 @@ class $$SubCategoriesTableFilterComposer
                   $removeJoinBuilderFromRootComposer,
             ));
     return composer;
-  }
-
-  Expression<bool> merchantsRefs(
-      Expression<bool> Function($$MerchantsTableFilterComposer f) f) {
-    final $$MerchantsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.merchants,
-        getReferencedColumn: (t) => t.defaultSubCategoryId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MerchantsTableFilterComposer(
-              $db: $db,
-              $table: $db.merchants,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
   }
 
   Expression<bool> merchantRulesRefs(
@@ -5065,27 +4493,6 @@ class $$SubCategoriesTableAnnotationComposer
     return composer;
   }
 
-  Expression<T> merchantsRefs<T extends Object>(
-      Expression<T> Function($$MerchantsTableAnnotationComposer a) f) {
-    final $$MerchantsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.merchants,
-        getReferencedColumn: (t) => t.defaultSubCategoryId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MerchantsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.merchants,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-
   Expression<T> merchantRulesRefs<T extends Object>(
       Expression<T> Function($$MerchantRulesTableAnnotationComposer a) f) {
     final $$MerchantRulesTableAnnotationComposer composer = $composerBuilder(
@@ -5165,7 +4572,6 @@ class $$SubCategoriesTableTableManager extends RootTableManager<
     SubCategory,
     PrefetchHooks Function(
         {bool categoryId,
-        bool merchantsRefs,
         bool merchantRulesRefs,
         bool recurringTransactionsRefs,
         bool transactionsRefs})> {
@@ -5223,14 +4629,12 @@ class $$SubCategoriesTableTableManager extends RootTableManager<
               .toList(),
           prefetchHooksCallback: (
               {categoryId = false,
-              merchantsRefs = false,
               merchantRulesRefs = false,
               recurringTransactionsRefs = false,
               transactionsRefs = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [
-                if (merchantsRefs) db.merchants,
                 if (merchantRulesRefs) db.merchantRules,
                 if (recurringTransactionsRefs) db.recurringTransactions,
                 if (transactionsRefs) db.transactions
@@ -5263,19 +4667,6 @@ class $$SubCategoriesTableTableManager extends RootTableManager<
               },
               getPrefetchedDataCallback: (items) async {
                 return [
-                  if (merchantsRefs)
-                    await $_getPrefetchedData<SubCategory, $SubCategoriesTable,
-                            Merchant>(
-                        currentTable: table,
-                        referencedTable: $$SubCategoriesTableReferences
-                            ._merchantsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$SubCategoriesTableReferences(db, table, p0)
-                                .merchantsRefs,
-                        referencedItemsForCurrentItem:
-                            (item, referencedItems) => referencedItems.where(
-                                (e) => e.defaultSubCategoryId == item.id),
-                        typedResults: items),
                   if (merchantRulesRefs)
                     await $_getPrefetchedData<SubCategory, $SubCategoriesTable,
                             MerchantRule>(
@@ -5335,464 +4726,8 @@ typedef $$SubCategoriesTableProcessedTableManager = ProcessedTableManager<
     SubCategory,
     PrefetchHooks Function(
         {bool categoryId,
-        bool merchantsRefs,
         bool merchantRulesRefs,
         bool recurringTransactionsRefs,
-        bool transactionsRefs})>;
-typedef $$MerchantsTableCreateCompanionBuilder = MerchantsCompanion Function({
-  Value<int> id,
-  required String name,
-  Value<int?> defaultCategoryId,
-  Value<int?> defaultSubCategoryId,
-  Value<DateTime> updatedAt,
-  Value<bool> isDeleted,
-  Value<String?> syncId,
-});
-typedef $$MerchantsTableUpdateCompanionBuilder = MerchantsCompanion Function({
-  Value<int> id,
-  Value<String> name,
-  Value<int?> defaultCategoryId,
-  Value<int?> defaultSubCategoryId,
-  Value<DateTime> updatedAt,
-  Value<bool> isDeleted,
-  Value<String?> syncId,
-});
-
-final class $$MerchantsTableReferences
-    extends BaseReferences<_$AppDatabase, $MerchantsTable, Merchant> {
-  $$MerchantsTableReferences(super.$_db, super.$_table, super.$_typedResult);
-
-  static $CategoriesTable _defaultCategoryIdTable(_$AppDatabase db) =>
-      db.categories
-          .createAlias('merchants__default_category_id__categories__id');
-
-  $$CategoriesTableProcessedTableManager? get defaultCategoryId {
-    final $_column = $_itemColumn<int>('default_category_id');
-    if ($_column == null) return null;
-    final manager = $$CategoriesTableTableManager($_db, $_db.categories)
-        .filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_defaultCategoryIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
-  }
-
-  static $SubCategoriesTable _defaultSubCategoryIdTable(_$AppDatabase db) => db
-      .subCategories
-      .createAlias('merchants__default_sub_category_id__sub_categories__id');
-
-  $$SubCategoriesTableProcessedTableManager? get defaultSubCategoryId {
-    final $_column = $_itemColumn<int>('default_sub_category_id');
-    if ($_column == null) return null;
-    final manager = $$SubCategoriesTableTableManager($_db, $_db.subCategories)
-        .filter((f) => f.id.sqlEquals($_column));
-    final item =
-        $_typedResult.readTableOrNull(_defaultSubCategoryIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
-  }
-
-  static MultiTypedResultKey<$TransactionsTable, List<Transaction>>
-      _transactionsRefsTable(_$AppDatabase db) =>
-          MultiTypedResultKey.fromTable(db.transactions,
-              aliasName: 'merchants__id__transactions__merchant_id');
-
-  $$TransactionsTableProcessedTableManager get transactionsRefs {
-    final manager = $$TransactionsTableTableManager($_db, $_db.transactions)
-        .filter((f) => f.merchantId.id.sqlEquals($_itemColumn<int>('id')!));
-
-    final cache = $_typedResult.readTableOrNull(_transactionsRefsTable($_db));
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: cache));
-  }
-}
-
-class $$MerchantsTableFilterComposer
-    extends Composer<_$AppDatabase, $MerchantsTable> {
-  $$MerchantsTableFilterComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnFilters<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get name => $composableBuilder(
-      column: $table.name, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
-      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<bool> get isDeleted => $composableBuilder(
-      column: $table.isDeleted, builder: (column) => ColumnFilters(column));
-
-  ColumnFilters<String> get syncId => $composableBuilder(
-      column: $table.syncId, builder: (column) => ColumnFilters(column));
-
-  $$CategoriesTableFilterComposer get defaultCategoryId {
-    final $$CategoriesTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.defaultCategoryId,
-        referencedTable: $db.categories,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$CategoriesTableFilterComposer(
-              $db: $db,
-              $table: $db.categories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
-  $$SubCategoriesTableFilterComposer get defaultSubCategoryId {
-    final $$SubCategoriesTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.defaultSubCategoryId,
-        referencedTable: $db.subCategories,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$SubCategoriesTableFilterComposer(
-              $db: $db,
-              $table: $db.subCategories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
-  Expression<bool> transactionsRefs(
-      Expression<bool> Function($$TransactionsTableFilterComposer f) f) {
-    final $$TransactionsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.transactions,
-        getReferencedColumn: (t) => t.merchantId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TransactionsTableFilterComposer(
-              $db: $db,
-              $table: $db.transactions,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-}
-
-class $$MerchantsTableOrderingComposer
-    extends Composer<_$AppDatabase, $MerchantsTable> {
-  $$MerchantsTableOrderingComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  ColumnOrderings<int> get id => $composableBuilder(
-      column: $table.id, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get name => $composableBuilder(
-      column: $table.name, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
-      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<bool> get isDeleted => $composableBuilder(
-      column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
-
-  ColumnOrderings<String> get syncId => $composableBuilder(
-      column: $table.syncId, builder: (column) => ColumnOrderings(column));
-
-  $$CategoriesTableOrderingComposer get defaultCategoryId {
-    final $$CategoriesTableOrderingComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.defaultCategoryId,
-        referencedTable: $db.categories,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$CategoriesTableOrderingComposer(
-              $db: $db,
-              $table: $db.categories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
-  $$SubCategoriesTableOrderingComposer get defaultSubCategoryId {
-    final $$SubCategoriesTableOrderingComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.defaultSubCategoryId,
-        referencedTable: $db.subCategories,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$SubCategoriesTableOrderingComposer(
-              $db: $db,
-              $table: $db.subCategories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-}
-
-class $$MerchantsTableAnnotationComposer
-    extends Composer<_$AppDatabase, $MerchantsTable> {
-  $$MerchantsTableAnnotationComposer({
-    required super.$db,
-    required super.$table,
-    super.joinBuilder,
-    super.$addJoinBuilderToRootComposer,
-    super.$removeJoinBuilderFromRootComposer,
-  });
-  GeneratedColumn<int> get id =>
-      $composableBuilder(column: $table.id, builder: (column) => column);
-
-  GeneratedColumn<String> get name =>
-      $composableBuilder(column: $table.name, builder: (column) => column);
-
-  GeneratedColumn<DateTime> get updatedAt =>
-      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
-
-  GeneratedColumn<bool> get isDeleted =>
-      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
-
-  GeneratedColumn<String> get syncId =>
-      $composableBuilder(column: $table.syncId, builder: (column) => column);
-
-  $$CategoriesTableAnnotationComposer get defaultCategoryId {
-    final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.defaultCategoryId,
-        referencedTable: $db.categories,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$CategoriesTableAnnotationComposer(
-              $db: $db,
-              $table: $db.categories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
-  $$SubCategoriesTableAnnotationComposer get defaultSubCategoryId {
-    final $$SubCategoriesTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.defaultSubCategoryId,
-        referencedTable: $db.subCategories,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$SubCategoriesTableAnnotationComposer(
-              $db: $db,
-              $table: $db.subCategories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
-  Expression<T> transactionsRefs<T extends Object>(
-      Expression<T> Function($$TransactionsTableAnnotationComposer a) f) {
-    final $$TransactionsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.id,
-        referencedTable: $db.transactions,
-        getReferencedColumn: (t) => t.merchantId,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$TransactionsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.transactions,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return f(composer);
-  }
-}
-
-class $$MerchantsTableTableManager extends RootTableManager<
-    _$AppDatabase,
-    $MerchantsTable,
-    Merchant,
-    $$MerchantsTableFilterComposer,
-    $$MerchantsTableOrderingComposer,
-    $$MerchantsTableAnnotationComposer,
-    $$MerchantsTableCreateCompanionBuilder,
-    $$MerchantsTableUpdateCompanionBuilder,
-    (Merchant, $$MerchantsTableReferences),
-    Merchant,
-    PrefetchHooks Function(
-        {bool defaultCategoryId,
-        bool defaultSubCategoryId,
-        bool transactionsRefs})> {
-  $$MerchantsTableTableManager(_$AppDatabase db, $MerchantsTable table)
-      : super(TableManagerState(
-          db: db,
-          table: table,
-          createFilteringComposer: () =>
-              $$MerchantsTableFilterComposer($db: db, $table: table),
-          createOrderingComposer: () =>
-              $$MerchantsTableOrderingComposer($db: db, $table: table),
-          createComputedFieldComposer: () =>
-              $$MerchantsTableAnnotationComposer($db: db, $table: table),
-          updateCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            Value<String> name = const Value.absent(),
-            Value<int?> defaultCategoryId = const Value.absent(),
-            Value<int?> defaultSubCategoryId = const Value.absent(),
-            Value<DateTime> updatedAt = const Value.absent(),
-            Value<bool> isDeleted = const Value.absent(),
-            Value<String?> syncId = const Value.absent(),
-          }) =>
-              MerchantsCompanion(
-            id: id,
-            name: name,
-            defaultCategoryId: defaultCategoryId,
-            defaultSubCategoryId: defaultSubCategoryId,
-            updatedAt: updatedAt,
-            isDeleted: isDeleted,
-            syncId: syncId,
-          ),
-          createCompanionCallback: ({
-            Value<int> id = const Value.absent(),
-            required String name,
-            Value<int?> defaultCategoryId = const Value.absent(),
-            Value<int?> defaultSubCategoryId = const Value.absent(),
-            Value<DateTime> updatedAt = const Value.absent(),
-            Value<bool> isDeleted = const Value.absent(),
-            Value<String?> syncId = const Value.absent(),
-          }) =>
-              MerchantsCompanion.insert(
-            id: id,
-            name: name,
-            defaultCategoryId: defaultCategoryId,
-            defaultSubCategoryId: defaultSubCategoryId,
-            updatedAt: updatedAt,
-            isDeleted: isDeleted,
-            syncId: syncId,
-          ),
-          withReferenceMapper: (p0) => p0
-              .map((e) => (
-                    e.readTable(table),
-                    $$MerchantsTableReferences(db, table, e)
-                  ))
-              .toList(),
-          prefetchHooksCallback: (
-              {defaultCategoryId = false,
-              defaultSubCategoryId = false,
-              transactionsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [if (transactionsRefs) db.transactions],
-              addJoins: <
-                  T extends TableManagerState<
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic,
-                      dynamic>>(state) {
-                if (defaultCategoryId) {
-                  state = state.withJoin(
-                    currentTable: table,
-                    currentColumn: table.defaultCategoryId,
-                    referencedTable:
-                        $$MerchantsTableReferences._defaultCategoryIdTable(db),
-                    referencedColumn: $$MerchantsTableReferences
-                        ._defaultCategoryIdTable(db)
-                        .id,
-                  ) as T;
-                }
-                if (defaultSubCategoryId) {
-                  state = state.withJoin(
-                    currentTable: table,
-                    currentColumn: table.defaultSubCategoryId,
-                    referencedTable: $$MerchantsTableReferences
-                        ._defaultSubCategoryIdTable(db),
-                    referencedColumn: $$MerchantsTableReferences
-                        ._defaultSubCategoryIdTable(db)
-                        .id,
-                  ) as T;
-                }
-
-                return state;
-              },
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (transactionsRefs)
-                    await $_getPrefetchedData<Merchant, $MerchantsTable,
-                            Transaction>(
-                        currentTable: table,
-                        referencedTable: $$MerchantsTableReferences
-                            ._transactionsRefsTable(db),
-                        managerFromTypedResult: (p0) =>
-                            $$MerchantsTableReferences(db, table, p0)
-                                .transactionsRefs,
-                        referencedItemsForCurrentItem:
-                            (item, referencedItems) => referencedItems
-                                .where((e) => e.merchantId == item.id),
-                        typedResults: items)
-                ];
-              },
-            );
-          },
-        ));
-}
-
-typedef $$MerchantsTableProcessedTableManager = ProcessedTableManager<
-    _$AppDatabase,
-    $MerchantsTable,
-    Merchant,
-    $$MerchantsTableFilterComposer,
-    $$MerchantsTableOrderingComposer,
-    $$MerchantsTableAnnotationComposer,
-    $$MerchantsTableCreateCompanionBuilder,
-    $$MerchantsTableUpdateCompanionBuilder,
-    (Merchant, $$MerchantsTableReferences),
-    Merchant,
-    PrefetchHooks Function(
-        {bool defaultCategoryId,
-        bool defaultSubCategoryId,
         bool transactionsRefs})>;
 typedef $$MerchantRulesTableCreateCompanionBuilder = MerchantRulesCompanion
     Function({
@@ -6797,7 +5732,6 @@ typedef $$TransactionsTableCreateCompanionBuilder = TransactionsCompanion
   required TransactionKind type,
   required int categoryId,
   Value<int?> subCategoryId,
-  Value<int?> merchantId,
   Value<String?> note,
   Value<bool> isExtraordinary,
   Value<bool> isRefund,
@@ -6817,7 +5751,6 @@ typedef $$TransactionsTableUpdateCompanionBuilder = TransactionsCompanion
   Value<TransactionKind> type,
   Value<int> categoryId,
   Value<int?> subCategoryId,
-  Value<int?> merchantId,
   Value<String?> note,
   Value<bool> isExtraordinary,
   Value<bool> isRefund,
@@ -6858,20 +5791,6 @@ final class $$TransactionsTableReferences
     final manager = $$SubCategoriesTableTableManager($_db, $_db.subCategories)
         .filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_subCategoryIdTable($_db));
-    if (item == null) return manager;
-    return ProcessedTableManager(
-        manager.$state.copyWith(prefetchedData: [item]));
-  }
-
-  static $MerchantsTable _merchantIdTable(_$AppDatabase db) =>
-      db.merchants.createAlias('transactions__merchant_id__merchants__id');
-
-  $$MerchantsTableProcessedTableManager? get merchantId {
-    final $_column = $_itemColumn<int>('merchant_id');
-    if ($_column == null) return null;
-    final manager = $$MerchantsTableTableManager($_db, $_db.merchants)
-        .filter((f) => f.id.sqlEquals($_column));
-    final item = $_typedResult.readTableOrNull(_merchantIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
         manager.$state.copyWith(prefetchedData: [item]));
@@ -6978,26 +5897,6 @@ class $$TransactionsTableFilterComposer
             $$SubCategoriesTableFilterComposer(
               $db: $db,
               $table: $db.subCategories,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
-  $$MerchantsTableFilterComposer get merchantId {
-    final $$MerchantsTableFilterComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.merchantId,
-        referencedTable: $db.merchants,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MerchantsTableFilterComposer(
-              $db: $db,
-              $table: $db.merchants,
               $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
               joinBuilder: joinBuilder,
               $removeJoinBuilderFromRootComposer:
@@ -7118,26 +6017,6 @@ class $$TransactionsTableOrderingComposer
     return composer;
   }
 
-  $$MerchantsTableOrderingComposer get merchantId {
-    final $$MerchantsTableOrderingComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.merchantId,
-        referencedTable: $db.merchants,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MerchantsTableOrderingComposer(
-              $db: $db,
-              $table: $db.merchants,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
   $$RecurringTransactionsTableOrderingComposer get recurringId {
     final $$RecurringTransactionsTableOrderingComposer composer =
         $composerBuilder(
@@ -7248,26 +6127,6 @@ class $$TransactionsTableAnnotationComposer
     return composer;
   }
 
-  $$MerchantsTableAnnotationComposer get merchantId {
-    final $$MerchantsTableAnnotationComposer composer = $composerBuilder(
-        composer: this,
-        getCurrentColumn: (t) => t.merchantId,
-        referencedTable: $db.merchants,
-        getReferencedColumn: (t) => t.id,
-        builder: (joinBuilder,
-                {$addJoinBuilderToRootComposer,
-                $removeJoinBuilderFromRootComposer}) =>
-            $$MerchantsTableAnnotationComposer(
-              $db: $db,
-              $table: $db.merchants,
-              $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
-              joinBuilder: joinBuilder,
-              $removeJoinBuilderFromRootComposer:
-                  $removeJoinBuilderFromRootComposer,
-            ));
-    return composer;
-  }
-
   $$RecurringTransactionsTableAnnotationComposer get recurringId {
     final $$RecurringTransactionsTableAnnotationComposer composer =
         $composerBuilder(
@@ -7302,10 +6161,7 @@ class $$TransactionsTableTableManager extends RootTableManager<
     (Transaction, $$TransactionsTableReferences),
     Transaction,
     PrefetchHooks Function(
-        {bool categoryId,
-        bool subCategoryId,
-        bool merchantId,
-        bool recurringId})> {
+        {bool categoryId, bool subCategoryId, bool recurringId})> {
   $$TransactionsTableTableManager(_$AppDatabase db, $TransactionsTable table)
       : super(TableManagerState(
           db: db,
@@ -7323,7 +6179,6 @@ class $$TransactionsTableTableManager extends RootTableManager<
             Value<TransactionKind> type = const Value.absent(),
             Value<int> categoryId = const Value.absent(),
             Value<int?> subCategoryId = const Value.absent(),
-            Value<int?> merchantId = const Value.absent(),
             Value<String?> note = const Value.absent(),
             Value<bool> isExtraordinary = const Value.absent(),
             Value<bool> isRefund = const Value.absent(),
@@ -7342,7 +6197,6 @@ class $$TransactionsTableTableManager extends RootTableManager<
             type: type,
             categoryId: categoryId,
             subCategoryId: subCategoryId,
-            merchantId: merchantId,
             note: note,
             isExtraordinary: isExtraordinary,
             isRefund: isRefund,
@@ -7361,7 +6215,6 @@ class $$TransactionsTableTableManager extends RootTableManager<
             required TransactionKind type,
             required int categoryId,
             Value<int?> subCategoryId = const Value.absent(),
-            Value<int?> merchantId = const Value.absent(),
             Value<String?> note = const Value.absent(),
             Value<bool> isExtraordinary = const Value.absent(),
             Value<bool> isRefund = const Value.absent(),
@@ -7380,7 +6233,6 @@ class $$TransactionsTableTableManager extends RootTableManager<
             type: type,
             categoryId: categoryId,
             subCategoryId: subCategoryId,
-            merchantId: merchantId,
             note: note,
             isExtraordinary: isExtraordinary,
             isRefund: isRefund,
@@ -7401,7 +6253,6 @@ class $$TransactionsTableTableManager extends RootTableManager<
           prefetchHooksCallback: (
               {categoryId = false,
               subCategoryId = false,
-              merchantId = false,
               recurringId = false}) {
             return PrefetchHooks(
               db: db,
@@ -7440,16 +6291,6 @@ class $$TransactionsTableTableManager extends RootTableManager<
                         .id,
                   ) as T;
                 }
-                if (merchantId) {
-                  state = state.withJoin(
-                    currentTable: table,
-                    currentColumn: table.merchantId,
-                    referencedTable:
-                        $$TransactionsTableReferences._merchantIdTable(db),
-                    referencedColumn:
-                        $$TransactionsTableReferences._merchantIdTable(db).id,
-                  ) as T;
-                }
                 if (recurringId) {
                   state = state.withJoin(
                     currentTable: table,
@@ -7483,10 +6324,7 @@ typedef $$TransactionsTableProcessedTableManager = ProcessedTableManager<
     (Transaction, $$TransactionsTableReferences),
     Transaction,
     PrefetchHooks Function(
-        {bool categoryId,
-        bool subCategoryId,
-        bool merchantId,
-        bool recurringId})>;
+        {bool categoryId, bool subCategoryId, bool recurringId})>;
 typedef $$BudgetsTableCreateCompanionBuilder = BudgetsCompanion Function({
   Value<int> id,
   Value<int?> categoryId,
@@ -7941,8 +6779,6 @@ class $AppDatabaseManager {
       $$CategoriesTableTableManager(_db, _db.categories);
   $$SubCategoriesTableTableManager get subCategories =>
       $$SubCategoriesTableTableManager(_db, _db.subCategories);
-  $$MerchantsTableTableManager get merchants =>
-      $$MerchantsTableTableManager(_db, _db.merchants);
   $$MerchantRulesTableTableManager get merchantRules =>
       $$MerchantRulesTableTableManager(_db, _db.merchantRules);
   $$RecurringTransactionsTableTableManager get recurringTransactions =>

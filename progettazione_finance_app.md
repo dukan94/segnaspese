@@ -49,7 +49,6 @@ Pattern **offline-first**, realizzato così com'è stato effettivamente costruit
 - Un banner in Home avvisa se la sync non è configurata o è in errore persistente (oltre alla sola icona in AppBar).
 - Il layer `domain/` non cambia: i repository restano le stesse interfacce astratte già progettate.
 - **Costo:** piano Free di Turso, ampiamente sufficiente per i volumi di un'app di finanza personale.
-- **Tabella `Merchants`**: ha lo schema pronto (`syncId`) ma nessun DAO/repository/flusso UI collegato — non ha ancora dati da sincronizzare.
 
 **State management:** Riverpod (generatore di codice, gratuito, si integra bene con Drift per gli stream reattivi delle query).
 
@@ -71,9 +70,11 @@ Pattern **offline-first**, realizzato così com'è stato effettivamente costruit
 > proposta iniziale sotto, alcune astrazioni previste non sono mai state
 > necessarie in pratica: niente `Failure`/`Result<T>` (gli errori arrivano
 > come eccezioni fino alla UI, che li mostra via snackbar), niente
-> `merchant_repository`/`import_export_repository` (CSV e Merchant non hanno
-> bisogno di un repository dedicato, v. sotto), niente cartella `constants/`
-> (icone e regex vivono accanto a chi le usa).
+> `import_export_repository` (il CSV non ha bisogno di un repository
+> dedicato, v. sotto), niente cartella `constants/` (icone e regex vivono
+> accanto a chi le usa). La tabella `Merchants` (schema pronto ma mai
+> collegata a un DAO/repository/UI/sync in un anno di sviluppo) è stata
+> rimossa in M35 — v. sezione 6.
 
 ```
 lib/
@@ -90,8 +91,7 @@ lib/
 │
 ├── domain/
 │   ├── entities/                     # transaction, category, merchant_rule,
-│   │                                  # budget, recurring (niente Merchant:
-│   │                                  # tabella pronta ma non ancora usata)
+│   │                                  # budget, recurring
 │   ├── repositories/                  # interfacce astratte: transaction,
 │   │                                  # category, merchant_rule, budget, recurring
 │   ├── services/                     # receipt_parser_service (OCR+regex),
@@ -109,10 +109,10 @@ lib/
 ├── data/
 │   ├── local/
 │   │   ├── database/
-│   │   │   ├── app_database.dart     # Drift @DriftDatabase (schemaVersion 7)
+│   │   │   ├── app_database.dart     # Drift @DriftDatabase (schemaVersion 8)
 │   │   │   ├── tables/               # transactions, categories, subcategories,
-│   │   │   │                         # merchants, merchant_rules, budgets,
-│   │   │   │                         # recurring, settings
+│   │   │   │                         # merchant_rules, budgets, recurring,
+│   │   │   │                         # settings (niente merchants, M35)
 │   │   │   └── daos/                 # transaction, category, merchant_rule,
 │   │   │                              # budget, recurring
 │   │   └── seed/                     # default_categories/subcategories/
@@ -198,14 +198,6 @@ Schema normalizzato in 3NF. Tutte le tabelle usano `id` autoincrementale come PK
 | name | text | es. "Spesa" |
 | icon | text | |
 
-### Merchants
-| Campo | Tipo | Note |
-|---|---|---|
-| id | int (PK) | |
-| name | text (unique) | nome normalizzato es. "Esselunga" |
-| defaultCategoryId | int (FK, nullable) | |
-| defaultSubCategoryId | int (FK, nullable) | |
-
 ### MerchantRules
 | Campo | Tipo | Note |
 |---|---|---|
@@ -225,7 +217,6 @@ Schema normalizzato in 3NF. Tutte le tabelle usano `id` autoincrementale come PK
 | type | enum(income, expense) | |
 | categoryId | int (FK) | |
 | subCategoryId | int (FK, nullable) | |
-| merchantId | int (FK, nullable) | riservato: tabella Merchants non ancora popolata |
 | note | text (nullable) | |
 | isExtraordinary | bool | esclusa di default da statistiche/previsione Dashboard |
 | isRefund | bool | rimborso ricevuto: resta nella categoria di spesa ma sottratto dal totale netto |
@@ -280,8 +271,6 @@ Per supportare la sincronizzazione multi-dispositivo via Turso, ogni tabella ric
 Categories 1—N SubCategories
 Categories 1—N Transactions
 SubCategories 1—N Transactions
-Merchants 1—N Transactions
-Merchants 1—N MerchantRules (indiretto via categoria proposta)
 Categories 1—N Budgets
 RecurringTransactions 1—N Transactions (generate)
 ```
@@ -1318,6 +1307,61 @@ sottocategoria apre lo Storico filtrato**
   mostrare i centesimi come prima, non è un cambio globale del formatter
   valuta esistente.
 
+**M35 — ✅ Completata (17 ago 2026) — Rimozione tabella Merchants**
+*(valutata l'implementazione completa vs la rimozione con Mario, dopo una
+domanda aperta "cosa manca?" sulle possibili migliorie)*
+- **Indagine, prima di decidere**: la tabella `Merchants` (schema pronto
+  con `syncId` fin dall'inizio, pensata per un futuro campo "Negozio" con
+  autocompletamento in Nuova Operazione, categoria di default per negozio,
+  e uno stat "Top negozi" in Dashboard) non è mai stata collegata a un
+  DAO/repository/mapper/UI in circa un anno di sviluppo — sempre 0 righe.
+  Il flusso scontrini (M3) ha preso un'altra strada, che funziona bene: il
+  nome negozio finisce come testo libero nella Nota, categorizzato
+  automaticamente da **Regole Merchant** (regex sul testo) — mai toccando
+  la tabella Merchants. `merchantId` su Transactions è sempre rimasto
+  `null` ovunque (anche scansione scontrini e import estratto conto non lo
+  popolano). Non collegata nemmeno alla sync Turso (avrebbe richiesto
+  supporto nuovo di zecca: `sync_merchants`, push/pull, traduzione FK).
+- **Decisione**: costo (nuovo DAO/repository/mapper/provider, campo
+  "Negozio" con autocompletamento, collegamento anche a scontrini/import
+  estratto conto per non lasciare "Top negozi" parziale, supporto sync
+  nuovo, nessun backfill sensato per le transazioni storiche) non
+  giustificato dal beneficio, con Regole Merchant + ricerca full-text su
+  Nota già a coprire categorizzazione e ricerca. Scelta: **rimozione**,
+  non abbandono silenzioso (la tabella/colonna non costavano nulla a
+  restare, ma un `DROP` esplicito chiude la questione invece di lasciarla
+  a metà per sempre).
+- **Fatto**: schema v8. Rimossi `merchants_table.dart`, il campo
+  `merchantId` da `Transactions` (tabelle Drift), `TransactionEntity`,
+  `transaction_mapper.dart`, `add_transaction_page.dart`; rimosso anche il
+  parametro `merchantQuery` mai realmente passato da nessun chiamante
+  (`TransactionRepository.search`, `SearchTransactionsParams`) — stessa
+  pulizia, stesso piano abbandonato.
+  - **Niente `DROP COLUMN` diretto** per `merchantId`: SQLite non permette
+    di eliminare una colonna soggetta a un vincolo FOREIGN KEY (referenziava
+    `Merchants.id`). Usato invece `Migrator.alterTable(TableMigration(...))`
+    di Drift, che ricrea la tabella secondo la definizione Dart corrente
+    (già senza `merchantId`) copiando le righe esistenti per nome colonna.
+    Poi `m.deleteTable('merchants')` per la tabella stessa. Guardie di
+    idempotenza sullo stesso principio di `_columnExists` (M17): nuovo
+    `_tableExists`, entrambi gli step in `onUpgrade` controllano prima di
+    agire, per una migrazione interrotta a metà.
+  - **Test nuovi** in `test/app_database_migration_test.dart` (2 test): un
+    DB v7 reale ricostruito con Merchants popolata + una transazione con
+    `merchantId` valorizzato → riaperto con lo schema corrente, verifica
+    che entrambe spariscano senza eccezioni e senza perdere le altre
+    colonne della transazione; più un test di idempotenza (riapertura
+    ripetuta). Il test esistente per il bug M17 aggiornato (asseriva
+    `user_version` 7, ora 8 con lo schema bump).
+  - **Verificato anche sul database vero di Mario** (backup preventivo
+    `finance_app.sqlite.backup-2026-08-17-pre-m35-merchants-removal`):
+    migrazione applicata su una copia prima di toccare il file vero (0
+    righe in `merchants`, 0 transazioni con `merchantId` valorizzato,
+    confermato — coerente con l'indagine), poi sull'app reale via build
+    Windows: 1908 transazioni invariate, `merchant_id`/tabella `merchants`
+    spariti, `PRAGMA integrity_check` → `ok`.
+  - `flutter analyze` pulito, **180/180 test** (178 + 2 nuovi).
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
@@ -1357,39 +1401,47 @@ sempre questi passi, in ordine:
 
 ---
 
-**Stato attuale (17 ago 2026):** tutte le milestone **M0-M33 completate**
-(M31, Form/Impostazioni adattivi, resta da progettare — v. sezione 6 per il
-dettaglio di ciascuna). M9-M24: Admin e manutenzione dati, icona/splash
-"Tally", robustezza doppioni transazioni, build Android release, blocco
-doppioni categoria + strumento "Unisci con...", ricorrenze a numero di
-occorrenze finito, import estratto conto bancario, rifiniture
-ricerca/dashboard/CI, migrazione schema locale idempotente, fix sicurezza
-API key Gemini, gestione errori cancellazione transazione, verifica
-`sqlite3_flutter_libs`, timeout Google Sheets, isolamento errori avvio,
-copertura test logica critica, aggiornamento dipendenze. M25: rimborso con
-divisore (quota di una spesa condivisa). M26-M31: refactor desktop-adattivo
-(densità, `NavigationRail`, `ContentWidthLimiter`, tutte le pagine
+**Stato attuale (17 ago 2026):** tutte le milestone **M0-M35 completate**,
+nessuna proposta aperta al momento (v. sezione 6 per il dettaglio di
+ciascuna). M9-M24: Admin e manutenzione dati, icona/splash "Tally",
+robustezza doppioni transazioni, build Android release, blocco doppioni
+categoria + strumento "Unisci con...", ricorrenze a numero di occorrenze
+finito, import estratto conto bancario, rifiniture ricerca/dashboard/CI,
+migrazione schema locale idempotente, fix sicurezza API key Gemini,
+gestione errori cancellazione transazione, verifica `sqlite3_flutter_libs`,
+timeout Google Sheets, isolamento errori avvio, copertura test logica
+critica, aggiornamento dipendenze. M25: rimborso con divisore (quota di una
+spesa condivisa). M26-M31: refactor desktop-adattivo (densità,
+`NavigationRail`, `ContentWidthLimiter`, tutte le pagine
 riorganizzate/centrate su finestra larga, icona info Regole di
 classificazione — v. sezione dedicata in CLAUDE.md). M32: sync Turso
 immediata su inserimento/modifica/cancellazione transazione, oltre al
 timer ogni 5 minuti. M33: conteggio e media per categoria/sottocategoria
-in Dashboard, al netto dei rimborsi. Schema DB Drift alla **versione 7**,
-ora su **`sqlite3` 3.x nativo** (M24: `sqlite3_flutter_libs` rimosso, v.
+in Dashboard, al netto dei rimborsi. M34: doppio click su
+categoria/sottocategoria in Dashboard apre lo Storico filtrato, più
+riordino colonne Dashboard e numeri senza decimali (Dashboard + Riepilogo
+annuale). M35: rimossa la tabella `Merchants` (mai collegata a un
+DAO/UI/sync in un anno di sviluppo, sempre 0 righe) e la colonna
+`merchantId` da Transactions — valutata l'implementazione completa vs la
+rimozione, scelta la rimozione. Schema DB Drift alla **versione 8**, ora
+su **`sqlite3` 3.x nativo** (M24: `sqlite3_flutter_libs` rimosso, v.
 sezione dedicata in CLAUDE.md — non reintrodurlo). **CI attiva**
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` su ogni
-push e PR (con rigenerazione del codice). Test: **27 file, 178 test** in
-`test/` (parser CSV, receipt parser, rule matcher, duplicate finder,
-motore di sync Turso (incluso rientranza `syncNow()`, verifica remota
-puntuale e migrazione schema remoto), repair sottocategorie orfane,
-widget animati, DAO ricorrenze/categorie/budget/transazioni (incluso hard
-delete/purge, riemissione live del riordino, unione
-categorie/sottocategorie, numero di occorrenze finito), formatter e
-servizio Google Sheets (header matching), `SafeTransactionDeletionService`,
-parser estratto conto BancoPosta e duplicate matcher, migrazione locale
-idempotente (M17), servizio Gemini incluso il regression test di
+push e PR (con rigenerazione del codice; `android-build.yml` invece solo
+su richiesta manuale da M35/17 ago 2026, v. CLAUDE.md — quota minuti
+Actions/mese esaurita). Test: **27 file, 180 test** in `test/` (parser
+CSV, receipt parser, rule matcher, duplicate finder, motore di sync Turso
+(incluso rientranza `syncNow()`, verifica remota puntuale e migrazione
+schema remoto), repair sottocategorie orfane, widget animati, DAO
+ricorrenze/categorie/budget/transazioni (incluso hard delete/purge,
+riemissione live del riordino, unione categorie/sottocategorie, numero di
+occorrenze finito), formatter e servizio Google Sheets (header matching),
+`SafeTransactionDeletionService`, parser estratto conto BancoPosta e
+duplicate matcher, migrazione locale idempotente (M17) **+ rimozione
+tabella Merchants (M35)**, servizio Gemini incluso il regression test di
 sicurezza M18, seed runner, dedupe tassonomia, client HTTP Turso con
 encoding/decoding reale (M23), export CSV (M24), rimborso con divisore
-(M25), **conteggio/media Dashboard (M33, `dashboard_data_test.dart`)** + 1
+(M25), conteggio/media Dashboard (M33, `dashboard_data_test.dart`) + 1
 smoke widget test). Repository impl e usecase restano senza test dedicati:
 delega pura, nessuna logica propria. Da qui in avanti, ogni nuova modifica
 non banale segue il processo descritto in fondo alla sezione 6 (categorizza
@@ -1404,8 +1456,13 @@ stato a README/CLAUDE.md).
 
 > NOTA BUILD: modifiche allo schema Drift o ai provider Riverpod richiedono
 > `dart run build_runner build --delete-conflicting-outputs`. Lo schema DB è
-> alla versione **7** (v. `AppDatabase.schemaVersion` in `app_database.dart`).
+> alla versione **8** (v. `AppDatabase.schemaVersion` in `app_database.dart`).
 > Ogni `addColumn`/ALTER TABLE in `onUpgrade` deve controllare che la colonna
 > non esista già (`_columnExists`, v. sezione 6 M17) prima di aggiungerla:
 > una migrazione interrotta a metà può lasciare la colonna già presente
-> fisicamente con la versione vecchia ancora registrata.
+> fisicamente con la versione vecchia ancora registrata. Per eliminare una
+> colonna soggetta a un vincolo FOREIGN KEY, `DROP COLUMN` diretto non è
+> possibile: serve `TableMigration` (v. sezione 6 M35), che ricrea la
+> tabella secondo la definizione Dart corrente copiando le righe per nome
+> colonna — stessa idempotenza garantita da una guardia `_tableExists`
+> prima di un `deleteTable`.

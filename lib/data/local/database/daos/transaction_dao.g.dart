@@ -6,7 +6,6 @@ part of 'transaction_dao.dart';
 mixin _$TransactionDaoMixin on DatabaseAccessor<AppDatabase> {
   $CategoriesTable get categories => attachedDatabase.categories;
   $SubCategoriesTable get subCategories => attachedDatabase.subCategories;
-  $MerchantsTable get merchants => attachedDatabase.merchants;
   $RecurringTransactionsTable get recurringTransactions =>
       attachedDatabase.recurringTransactions;
   $TransactionsTable get transactions => attachedDatabase.transactions;
@@ -20,8 +19,6 @@ class TransactionDaoManager {
       $$CategoriesTableTableManager(_db.attachedDatabase, _db.categories);
   $$SubCategoriesTableTableManager get subCategories =>
       $$SubCategoriesTableTableManager(_db.attachedDatabase, _db.subCategories);
-  $$MerchantsTableTableManager get merchants =>
-      $$MerchantsTableTableManager(_db.attachedDatabase, _db.merchants);
   $$RecurringTransactionsTableTableManager get recurringTransactions =>
       $$RecurringTransactionsTableTableManager(
           _db.attachedDatabase, _db.recurringTransactions);
