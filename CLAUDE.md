@@ -612,9 +612,12 @@ coerenza invece di inventarne uno nuovo:
 - Nessuna nuova "famiglia di card" per desktop: le card continuano a usare
   il `CardTheme` globale già esistente (`app_theme.dart`), che garantisce
   raggio/padding coerenti da solo. L'omogeneità va cercata raggruppando
-  per **relazione funzionale** (es. Dashboard: torta+barre sottocategoria
-  insieme perché rispondono alla stessa selezione, non "sono entrambi
-  grafici") o riconoscendo **elementi ripetuti e comparabili** (es. Budget:
+  per **relazione funzionale**, non per "sono entrambi grafici" (es.
+  Dashboard: torta sola a sinistra, andamento 12 mesi + barre
+  sottocategoria impilate a destra — **revisionato 17 ago 2026**, prima
+  era torta+barre a sinistra e andamento a destra, v. M28 in
+  `progettazione_finance_app.md` per il dettaglio) o riconoscendo
+  **elementi ripetuti e comparabili** (es. Budget:
   12 mesi/N categorie → griglia `GridView` a 4 colonne con `mainAxisExtent`
   fisso, non una lista; un blocco singolo come `AnnualSummaryCard` non
   entra nella griglia, resta a piena larghezza sopra).

@@ -184,12 +184,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 }
 
-/// Torta "Spese per categoria" e barre sottocategoria raggruppate insieme
-/// (rispondono entrambe alla fetta selezionata) in una colonna; l'andamento
-/// 12 mesi in un'altra colonna più larga (un grafico a linee legge meglio
-/// con più spazio orizzontale) — solo su finestra larga (M28, mockup
-/// discusso e approvato con Mario il 16 ago 2026). Sotto la soglia, tutto
-/// impilato come oggi.
+/// Colonna sinistra: solo la torta "Spese per categoria" (con la sua
+/// legenda). Colonna destra: andamento 12 mesi sopra, barre sottocategoria
+/// sotto — riordinato su richiesta di Mario (17 ago 2026, prima la
+/// sottocategoria stava affiancata alla torta a sinistra, sotto l'andamento
+/// annuale a destra). Solo su finestra larga; sotto la soglia, tutto
+/// impilato come oggi (torta, sottocategoria, andamento).
 class _ChartsSection extends StatelessWidget {
   const _ChartsSection({
     required this.donut,
@@ -212,30 +212,27 @@ class _ChartsSection extends StatelessWidget {
         ],
       );
     }
-    if (trend == null) {
-      // Vista "Mese": nessun andamento da affiancare, resta tutto in colonna
-      // (affiancare la sola torta a un vuoto non avrebbe senso).
-      return Column(
-        children: [
-          donut,
-          if (subcategory != null) subcategory!,
-        ],
-      );
+    if (trend == null && subcategory == null) {
+      // Nessuna categoria selezionata e vista "Mese" (niente andamento):
+      // niente da affiancare alla torta, resta da sola.
+      return donut;
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Expanded(flex: 85, child: donut),
+        const SizedBox(width: 12),
         Expanded(
-          flex: 85,
+          flex: 115,
           child: Column(
             children: [
-              donut,
+              if (trend != null) trend!,
+              if (trend != null && subcategory != null)
+                const SizedBox(height: 12),
               if (subcategory != null) subcategory!,
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(flex: 115, child: trend!),
       ],
     );
   }

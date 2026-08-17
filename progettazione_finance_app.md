@@ -1018,6 +1018,16 @@ in un messaggio d'errore**
   avrebbe senso. `AnnualTotals` (già una riga di 3 stat card) e il resto
   invariati, tutto in `ContentWidthLimiter(maxWidth: 960)`. Sotto la
   soglia, tutto impilato come oggi.
+- **Revisione (17 ago 2026, richiesta da Mario)**: raggruppamento
+  ribaltato — colonna sinistra ora **solo** la torta con la sua legenda;
+  colonna destra **andamento 12 mesi sopra, barre sottocategoria sotto**
+  (prima erano affiancate alla torta a sinistra). La sottocategoria segue
+  comunque l'andamento nella stessa colonna quando c'è, non da sola a
+  fianco della torta. Caso vuoto aggiornato di conseguenza: la torta resta
+  da sola solo se **sia** l'andamento **sia** la sottocategoria mancano
+  (vista "Mese" senza categoria selezionata) — se anche solo una delle due
+  è presente, la torta viene comunque affiancata (prima serviva
+  specificamente l'andamento per giustificare la riga).
 
 **M29 — ✅ Completata — Budget adattivo**
 *(mockup discusso e approvato con Mario, 16 ago 2026)*
