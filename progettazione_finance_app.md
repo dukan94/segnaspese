@@ -1068,31 +1068,79 @@ in un messaggio d'errore**
     Modalità lista (sotto la soglia) invariata: lì c'è spazio a sufficienza
     per la riga singola originale.
 
-**M30 — 🔧 Proposta (da progettare) — Storico adattivo**
-- Non ancora progettata nel dettaglio. Possibile pattern master-detail
-  (lista a sinistra, dettaglio/modifica a destra invece di navigare a
-  schermo intero) sfruttando la larghezza, ma è una decisione strutturale
-  da confermare con un mockup dedicato, non assunta qui.
-- **Richiesta aggiuntiva (Mario, 17 ago 2026)**: sfondo delle card delle
-  righe colorato in base al tipo di movimento, non solo su finestra larga
-  — vale allo stesso modo su **Android e desktop**, non è legata
-  all'adattività della larghezza (a differenza del punto sopra):
-  - Spesa: colore invariato (comportamento odierno).
-  - Entrata: sfondo tendente al verde.
-  - Rimborso: un'altra tonalità, sempre sul verde ma distinguibile da
-    quella delle entrate (due sfondi verdi diversi, non lo stesso).
-  - Da progettare nel dettaglio quando si arriva a questa milestone (toni
-    esatti da validare con un mockup, coerenti col tema chiaro/scuro
-    esistente — v. `app_theme.dart`).
-- **Richiesta aggiuntiva (Mario, 17 ago 2026)**: le card di una spesa che ha
-  già un rimborso collegato (una o più transazioni con `refundOfId` uguale
-  all'id di quella spesa) devono riconoscersi a colpo d'occhio — un'icona
-  accanto alla Nota già visibile sulla card (es. simbolo di rimborso/link,
-  coerente con le icone già in uso in Storico per "Rimborsa"/"Rimborso con
-  divisore"), non solo aprendo il dettaglio. Vale ugualmente su Android e
-  desktop. Da progettare nel dettaglio insieme al punto sopra (query per
-  sapere se una spesa ha rimborsi collegati, icona esatta, comportamento al
-  tap se previsto).
+**M32 — 🔧 Proposta (da progettare) — Sync immediata su inserimento/modifica
+transazione**
+*(richiesta da Mario, 17 ago 2026)*
+- Problema: oggi `TursoSyncService.syncNow()` parte all'avvio, ogni 5 minuti,
+  al cambio di stato dell'app (`didChangeAppLifecycleState` in `app.dart`:
+  `paused`/`detached`/`resumed`) e su richiesta manuale (Impostazioni >
+  Sync) — mai subito dopo che `addTransactionProvider`/l'update di una
+  transazione esistente vanno a buon fine. La sync di chiusura, inoltre, è
+  "fire-and-forget" (`syncNow().catchError(...)`, mai atteso): su Windows il
+  processo potrebbe terminare prima che la chiamata di rete completi
+  davvero, lasciando l'ultima modifica solo locale più a lungo di quanto
+  sembri (nessuna eccezione visibile, il flusso continua a chiudersi).
+- Non ancora progettato nel dettaglio (da fare prima di scrivere codice):
+  se il trigger va agganciato a `addTransactionProvider` stesso (inserimento
+  + modifica) o più in generale a ogni scrittura utente; se deve essere
+  sincrono/atteso (rischio: rallenta il salvataggio percepito dall'utente)
+  o in background non bloccante; come gestire l'affidabilità alla chiusura
+  reale dell'app (oggi fire-and-forget) senza introdurre un blocco della UI.
+
+**M30 — 🔧 Proposta (design confermato con Mario, 17 ago 2026, da
+implementare) — Storico adattivo**
+- **Layout**: niente master-detail — stessa lista di oggi, solo centrata con
+  larghezza massima tramite `ContentWidthLimiter` (stesso pattern di
+  Home/Dashboard/Budget in M26-M29). Il tap continua ad aprire
+  `AddTransactionPage` a schermo intero come oggi, nessun nuovo pattern di
+  navigazione. Deciso esplicitamente da Mario tra le due opzioni proposte.
+- **Contenuto della card ridisegnato** (vale sia sotto sia sopra la soglia
+  larghezza — non è una differenza desktop/mobile, tocca `_HistoryTile` in
+  generale): icona categoria a sinistra come oggi, poi la **data isolata**
+  dal resto del testo (oggi è dentro la stringa `subtitle` unita con dei
+  "·", va spostata in un suo spazio dedicato), poi la **Nota** come oggi,
+  e **sotto la Nota la sottocategoria** (oggi il subtitle mostra il nome
+  categoria, non sottocategoria — la sottocategoria è testo più specifico,
+  l'icona a sinistra già comunica la categoria). A destra resta come oggi
+  l'importo con segno + le icone di azione (modifica/rimborsa/rimborso con
+  divisore/elimina). Da capire in fase di sviluppo dove riposizionare i tag
+  "Rimborso"/"Straordinaria" (oggi in testa al subtitle unito) in questo
+  nuovo schema — probabile accanto alla sottocategoria.
+- **Sfondo card colorato per tipo di movimento** (vale ugualmente su
+  **Android e desktop**, non legato alla larghezza):
+  - Spesa (uscita non rimborso): colore invariato (`cardTheme` di oggi,
+    `surfaceContainerHigh`).
+  - Entrata: verde naturale.
+  - Rimborso (`tx.isRefund`): verde acqua/teal, stessa famiglia
+    dell'entrata ma nettamente distinguibile (non la stessa tonalità).
+  - Confermato con Mario: coppia di verdi "naturale + verde acqua/teal"
+    (chiaro `#DCEFDC`/scuro `#1F3D24` per l'entrata, chiaro `#D5EDE7`/scuro
+    `#173A33` per il rimborso — indicativi, da rifinire in sviluppo per
+    contrasto testo/leggibilità reale, non solo teorica).
+  - **Vincolo esplicito di Mario**: i colori (e in generale le scelte
+    grafiche) vanno scritti come **costanti/variabili centralizzate**,
+    modificabili da un solo punto — stesso pattern già in uso in
+    `app_theme.dart` per `warningContainer`/`onWarningContainer`
+    (indipendenti dal seed, fissi per chiaro/scuro). Nuovi metodi previsti:
+    `AppTheme.incomeContainer`/`onIncomeContainer` e
+    `AppTheme.refundContainer`/`onRefundContainer`, stesso schema. Non
+    sparpagliare i colori come literal `Color(0x...)` dentro
+    `history_page.dart`.
+- **Icona "spesa con rimborso collegato"**: le card di una spesa con almeno
+  un rimborso collegato (`refundOfId` di una o più transazioni uguale
+  all'id di questa spesa — non è detto sia una sola, v. M25 "nessun tetto
+  sui rimborsi collegati") mostrano un'icona accanto alla Nota — riuso di
+  `Icons.link`, già usato oggi con lo stesso significato ma nella direzione
+  opposta (`onShowLinked` sulla card del RIMBORSO, per risalire alla spesa
+  originale). Al tap, mostra il/i rimborsi collegati a QUESTA spesa (nuovo:
+  oggi esiste solo la direzione rimborso→spesa via
+  `linked_expense_sheet.dart`; serve un'estensione o un widget analogo per
+  la direzione spesa→rimborsi, che gestisca anche il caso di più di un
+  rimborso collegato). Vale ugualmente su Android e desktop.
+- **Prossimo passo**: implementazione (branch dedicato, `flutter analyze` +
+  `flutter test` in locale prima del merge su `main` — v. workflow
+  concordato), poi passaggio a ✅ Completata con eventuali scostamenti dal
+  piano.
 
 **M31 — 🔧 Proposta (da progettare) — Form e Impostazioni adattivi**
 - Nuova Operazione, Impostazioni e sottopagine (Categorie, Regole Merchant,
