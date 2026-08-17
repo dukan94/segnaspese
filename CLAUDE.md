@@ -759,7 +759,7 @@ resta respiro" delle altre pagine, nessun nuovo pattern di navigazione.
   `app_theme.dart` (un punto solo, per richiesta esplicita di Mario — non
   aggiungere `Color(0x...)` sparsi in `history_page.dart`).
 
-## Stato attuale (16 ago 2026)
+## Stato attuale (17 ago 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
