@@ -697,7 +697,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M32 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M33 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -731,10 +731,14 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   classificazione. **Sync immediata su salvataggio (M32, v.
   sezione Sync sopra)**: inserimento/modifica/cancellazione transazione
   lanciano subito una sync in background, oltre al timer ogni 5 minuti
-  (invariato). **CI
+  (invariato). **Conteggio/media Dashboard (M33)**: torta per categoria e
+  barre sottocategoria mostrano ora anche quante volte è ricorsa una
+  spesa e il suo valore medio, al netto dei rimborsi (badge col numero +
+  "media X €") — logica di aggregazione estratta in `buildDashboardData`
+  (funzione pura, testabile) da `dashboard_providers.dart`. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
-- Test in `test/` (26 file, 169 test): parser CSV, receipt parser, rule
+- Test in `test/` (27 file, 178 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -753,7 +757,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (`turso_http_client_test.dart`) — tutti e 4 aggiunti in M23, export CSV
   (`transaction_export_service_test.dart`, M24 — non esisteva prima
   dell'upgrade di `csv`), **rimborso con divisore
-  (`build_split_refund_test.dart`, M25)** + 1 smoke
+  (`build_split_refund_test.dart`, M25)**, conteggio/media Dashboard
+  (`dashboard_data_test.dart`, M33 — logica di aggregazione estratta in
+  una funzione pura apposta per essere testabile) + 1 smoke
   widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)

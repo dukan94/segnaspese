@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../dashboard_providers.dart';
+import 'count_badge.dart';
 
 /// Torta (ciambella) delle spese per categoria, con legenda tappabile: al tap
 /// su una fetta o su una voce di legenda si seleziona la categoria (per il
@@ -52,7 +53,8 @@ class CategoryDonut extends StatelessWidget {
                       PieChartSectionData(
                         value: slice.amount,
                         color: Color(slice.color),
-                        radius: slice.categoryId == selectedCategoryId ? 46 : 38,
+                        radius:
+                            slice.categoryId == selectedCategoryId ? 46 : 38,
                         showTitle: false,
                       ),
                   ],
@@ -120,8 +122,14 @@ class _LegendRow extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
         child: Row(
+          // start, non center (default): con la seconda riga
+          // badge/media sotto il nome, il pallino/pct/importo devono
+          // restare allineati alla prima riga, non centrati sull'intero
+          // blocco a due righe.
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
+              margin: const EdgeInsets.only(top: 5),
               width: 12,
               height: 12,
               decoration: BoxDecoration(
@@ -135,12 +143,33 @@ class _LegendRow extends StatelessWidget {
               const SizedBox(width: 6),
             ],
             Expanded(
-              child: Text(
-                slice.name,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    slice.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                  if (slice.count > 0) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CountBadge(count: slice.count),
+                        const SizedBox(width: 6),
+                        Text(
+                          'media ${AppFormatters.currency(slice.average)}',
+                          style: theme.textTheme.bodySmall
+                              ?.copyWith(color: theme.colorScheme.outline),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
             Text('${pct.toStringAsFixed(0)}%',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../dashboard_providers.dart';
+import 'count_badge.dart';
 
 /// Barre orizzontali "classiche" della ripartizione per sottocategoria della
 /// categoria selezionata nella torta.
@@ -26,8 +27,8 @@ class SubcategoryBars extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 16),
         child: Text(
           'Nessuna spesa per "$categoryName" nel periodo.',
-          style:
-              theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.outline),
+          style: theme.textTheme.bodyMedium
+              ?.copyWith(color: theme.colorScheme.outline),
         ),
       );
     }
@@ -80,6 +81,21 @@ class SubcategoryBars extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (slice.count > 0) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CountBadge(count: slice.count),
+                      const SizedBox(width: 6),
+                      Text(
+                        'media ${AppFormatters.currency(slice.average)}',
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: theme.colorScheme.outline),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
