@@ -21,15 +21,21 @@ import '../transaction/widgets/split_refund_sheet.dart';
 /// Storico: elenco completo delle operazioni con ricerca, modifica ed
 /// eliminazione. Raggiungibile dalla barra di navigazione.
 class HistoryPage extends ConsumerStatefulWidget {
-  const HistoryPage({super.key});
+  const HistoryPage({super.key, this.initialQuery});
+
+  /// Precompila la ricerca (es. doppio click su una categoria/sottocategoria
+  /// in Dashboard, M34) — l'utente può comunque modificarla o cancellarla
+  /// come una ricerca digitata a mano.
+  final String? initialQuery;
 
   @override
   ConsumerState<HistoryPage> createState() => _HistoryPageState();
 }
 
 class _HistoryPageState extends ConsumerState<HistoryPage> {
-  final _searchController = TextEditingController();
-  String _query = '';
+  late final _searchController =
+      TextEditingController(text: widget.initialQuery ?? '');
+  late String _query = (widget.initialQuery ?? '').trim().toLowerCase();
 
   @override
   void dispose() {

@@ -1260,6 +1260,35 @@ implementare o migliorare?")*
     scriverli.
   - `flutter analyze` pulito, **178/178 test** (169 + 9 nuovi).
 
+**M34 — ✅ Completata (17 ago 2026) — Doppio click su categoria/
+sottocategoria apre lo Storico filtrato**
+- Richiesta: doppio click su una categoria o sottocategoria in Dashboard
+  deve portare allo Storico con la ricerca testuale già impostata sul nome
+  cliccato.
+- **Fatto**:
+  - `HistoryPage` accetta un `initialQuery` opzionale che precompila
+    `_searchController`/`_query` (resta comunque modificabile/cancellabile
+    come una ricerca digitata a mano). Route `/history`
+    (`app_router.dart`) legge `state.extra as String?` e lo passa.
+  - `CategoryDonut`/`SubcategoryBars`: nuovo callback `onOpenHistory`,
+    agganciato con `InkWell(onDoubleTap: ...)` sulle righe di legenda
+    (categoria) e sulle righe delle barre (sottocategoria) — non sulle
+    fette della torta stesse (nessun testo lì, l'informazione "nome
+    cliccato" vive solo nelle righe). `dashboard_page.dart` fa da
+    tramite verso `context.push('/history', extra: name)` (nessuna delle
+    due card conosce go_router direttamente, restano presentazionali).
+  - **Compromesso da sapere**: sulla legenda categoria, che aveva già un
+    `onTap` (seleziona la categoria per il dettaglio sottocategorie),
+    aggiungere `onDoubleTap` sullo stesso `InkWell` introduce il ritardo
+    standard di Flutter (~300ms) prima che scatti il singolo click, perché
+    il framework deve aspettare per capire se arriva un secondo tap. Sulle
+    barre sottocategoria, che non avevano nessun tap esistente, non c'è
+    questo effetto collaterale (nessun altro riconoscitore con cui
+    competere sulla stessa riga).
+  - `flutter analyze` pulito, **178/178 test invariati** (nessuna logica
+    di business nuova: solo un parametro passato a cascata e un
+    `onDoubleTap` su widget di presentazione).
+
 ---
 
 ### Processo per nuove milestone (da qui in avanti)

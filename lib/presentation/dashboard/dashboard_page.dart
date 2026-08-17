@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/utils/formatters.dart';
 import '../../core/utils/responsive.dart';
@@ -50,6 +51,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
   }
 
+  /// Doppio click su una categoria/sottocategoria (M34): apre lo Storico con
+  /// la ricerca testuale già impostata sul nome cliccato.
+  void _openHistory(BuildContext context, String name) {
+    context.push('/history', extra: name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final dataAsync = ref.watch(
@@ -90,6 +97,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         total: data.totalExpense,
         selectedCategoryId: selectedId,
         onSelect: (id) => setState(() => _selectedCategoryId = id),
+        onOpenHistory: (name) => _openHistory(context, name),
       ),
     );
 
@@ -100,6 +108,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               categoryName: selectedSlice.name,
               color: selectedSlice.color,
               slices: data.subByCategory[selectedId] ?? const [],
+              onOpenHistory: (name) => _openHistory(context, name),
             ),
           );
 
@@ -252,9 +261,8 @@ class _PeriodSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMonth = month != null;
-    final label = isMonth
-        ? _capitalize(AppFormatters.monthYear(year, month!))
-        : '$year';
+    final label =
+        isMonth ? _capitalize(AppFormatters.monthYear(year, month!)) : '$year';
 
     return Column(
       children: [

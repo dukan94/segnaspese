@@ -9,6 +9,9 @@ import 'count_badge.dart';
 /// Torta (ciambella) delle spese per categoria, con legenda tappabile: al tap
 /// su una fetta o su una voce di legenda si seleziona la categoria (per il
 /// dettaglio sottocategorie sotto). Al centro il totale delle uscite.
+///
+/// Doppio click su una voce di legenda (M34): apre lo Storico con la
+/// ricerca testuale già impostata sul nome della categoria.
 class CategoryDonut extends StatelessWidget {
   const CategoryDonut({
     super.key,
@@ -16,12 +19,14 @@ class CategoryDonut extends StatelessWidget {
     required this.total,
     required this.selectedCategoryId,
     required this.onSelect,
+    required this.onOpenHistory,
   });
 
   final List<CategorySlice> slices;
   final double total;
   final int? selectedCategoryId;
   final ValueChanged<int> onSelect;
+  final ValueChanged<String> onOpenHistory;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +97,7 @@ class CategoryDonut extends StatelessWidget {
             total: total,
             selected: slice.categoryId == selectedCategoryId,
             onTap: () => onSelect(slice.categoryId),
+            onDoubleTap: () => onOpenHistory(slice.name),
           ),
       ],
     );
@@ -104,12 +110,16 @@ class _LegendRow extends StatelessWidget {
     required this.total,
     required this.selected,
     required this.onTap,
+    required this.onDoubleTap,
   });
 
   final CategorySlice slice;
   final double total;
   final bool selected;
   final VoidCallback onTap;
+
+  /// Apre lo Storico filtrato su questa categoria (M34).
+  final VoidCallback onDoubleTap;
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +128,7 @@ class _LegendRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
+      onDoubleTap: onDoubleTap,
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
