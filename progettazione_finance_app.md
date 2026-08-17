@@ -1018,6 +1018,16 @@ in un messaggio d'errore**
   avrebbe senso. `AnnualTotals` (già una riga di 3 stat card) e il resto
   invariati, tutto in `ContentWidthLimiter(maxWidth: 960)`. Sotto la
   soglia, tutto impilato come oggi.
+- **Revisione (17 ago 2026, richiesta da Mario)**: raggruppamento
+  ribaltato — colonna sinistra ora **solo** la torta con la sua legenda;
+  colonna destra **andamento 12 mesi sopra, barre sottocategoria sotto**
+  (prima erano affiancate alla torta a sinistra). La sottocategoria segue
+  comunque l'andamento nella stessa colonna quando c'è, non da sola a
+  fianco della torta. Caso vuoto aggiornato di conseguenza: la torta resta
+  da sola solo se **sia** l'andamento **sia** la sottocategoria mancano
+  (vista "Mese" senza categoria selezionata) — se anche solo una delle due
+  è presente, la torta viene comunque affiancata (prima serviva
+  specificamente l'andamento per giustificare la riga).
 
 **M29 — ✅ Completata — Budget adattivo**
 *(mockup discusso e approvato con Mario, 16 ago 2026)*
@@ -1260,7 +1270,53 @@ implementare o migliorare?")*
     scriverli.
   - `flutter analyze` pulito, **178/178 test** (169 + 9 nuovi).
 
----
+**M34 — ✅ Completata (17 ago 2026) — Doppio click su categoria/
+sottocategoria apre lo Storico filtrato**
+- Richiesta: doppio click su una categoria o sottocategoria in Dashboard
+  deve portare allo Storico con la ricerca testuale già impostata sul nome
+  cliccato.
+- **Fatto**:
+  - `HistoryPage` accetta un `initialQuery` opzionale che precompila
+    `_searchController`/`_query` (resta comunque modificabile/cancellabile
+    come una ricerca digitata a mano). Route `/history`
+    (`app_router.dart`) legge `state.extra as String?` e lo passa.
+  - `CategoryDonut`/`SubcategoryBars`: nuovo callback `onOpenHistory`,
+    agganciato con `InkWell(onDoubleTap: ...)` sulle righe di legenda
+    (categoria) e sulle righe delle barre (sottocategoria) — non sulle
+    fette della torta stesse (nessun testo lì, l'informazione "nome
+    cliccato" vive solo nelle righe). `dashboard_page.dart` fa da
+    tramite verso `context.push('/history', extra: name)` (nessuna delle
+    due card conosce go_router direttamente, restano presentazionali).
+  - **Compromesso da sapere**: sulla legenda categoria, che aveva già un
+    `onTap` (seleziona la categoria per il dettaglio sottocategorie),
+    aggiungere `onDoubleTap` sullo stesso `InkWell` introduce il ritardo
+    standard di Flutter (~300ms) prima che scatti il singolo click, perché
+    il framework deve aspettare per capire se arriva un secondo tap. Sulle
+    barre sottocategoria, che non avevano nessun tap esistente, non c'è
+    questo effetto collaterale (nessun altro riconoscitore con cui
+    competere sulla stessa riga).
+  - `flutter analyze` pulito, **178/178 test invariati** (nessuna logica
+    di business nuova: solo un parametro passato a cascata e un
+    `onDoubleTap` su widget di presentazione).
+- **Revisione layout (17 ago 2026, richiesta da Mario)**: colonna sinistra
+  ora solo la torta; colonna destra andamento 12 mesi sopra, barre
+  sottocategoria sotto (prima la sottocategoria era affiancata alla torta
+  a sinistra) — v. nota aggiunta a M28 sopra per il dettaglio.
+- **Numeri senza decimali (17 ago 2026, richiesta di Mario)**: tutti gli
+  importi mostrati in Dashboard (torta, legenda, barre sottocategoria,
+  media, le 3 card totali, tooltip dell'andamento 12 mesi) ora arrotondati
+  senza cifre decimali — nuovo `AppFormatters.currencyRounded`/
+  `signedCurrencyRounded` (`decimalDigits: 0`). **Esteso su richiesta
+  esplicita di Mario anche alla card "Riepilogo annuale" del Budget**
+  (`annual_summary_card.dart`, M29): obiettivo di risparmio, le due
+  mini-tabelle Effettive/Previsione (reddito/spese/risparmio), quanto si
+  può spendere al mese e il margine — stesso `currencyRounded`/
+  `signedCurrencyRounded`. **Non** toccato il dialog di modifica
+  dell'obiettivo (`_editGoal`): è un campo di input per un importo
+  preciso, non una cifra mostrata, resta a 2 decimali. Usato **solo** in
+  questi due punti: Home, Storico e il resto del Budget continuano a
+  mostrare i centesimi come prima, non è un cambio globale del formatter
+  valuta esistente.
 
 ### Processo per nuove milestone (da qui in avanti)
 

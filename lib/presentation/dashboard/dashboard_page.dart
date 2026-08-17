@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/utils/formatters.dart';
 import '../../core/utils/responsive.dart';
@@ -50,6 +51,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     }
   }
 
+  /// Doppio click su una categoria/sottocategoria (M34): apre lo Storico con
+  /// la ricerca testuale già impostata sul nome cliccato.
+  void _openHistory(BuildContext context, String name) {
+    context.push('/history', extra: name);
+  }
+
   @override
   Widget build(BuildContext context) {
     final dataAsync = ref.watch(
@@ -90,6 +97,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         total: data.totalExpense,
         selectedCategoryId: selectedId,
         onSelect: (id) => setState(() => _selectedCategoryId = id),
+        onOpenHistory: (name) => _openHistory(context, name),
       ),
     );
 
@@ -100,6 +108,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               categoryName: selectedSlice.name,
               color: selectedSlice.color,
               slices: data.subByCategory[selectedId] ?? const [],
+              onOpenHistory: (name) => _openHistory(context, name),
             ),
           );
 
@@ -175,12 +184,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 }
 
-/// Torta "Spese per categoria" e barre sottocategoria raggruppate insieme
-/// (rispondono entrambe alla fetta selezionata) in una colonna; l'andamento
-/// 12 mesi in un'altra colonna più larga (un grafico a linee legge meglio
-/// con più spazio orizzontale) — solo su finestra larga (M28, mockup
-/// discusso e approvato con Mario il 16 ago 2026). Sotto la soglia, tutto
-/// impilato come oggi.
+/// Colonna sinistra: solo la torta "Spese per categoria" (con la sua
+/// legenda). Colonna destra: andamento 12 mesi sopra, barre sottocategoria
+/// sotto — riordinato su richiesta di Mario (17 ago 2026, prima la
+/// sottocategoria stava affiancata alla torta a sinistra, sotto l'andamento
+/// annuale a destra). Solo su finestra larga; sotto la soglia, tutto
+/// impilato come oggi (torta, sottocategoria, andamento).
 class _ChartsSection extends StatelessWidget {
   const _ChartsSection({
     required this.donut,
@@ -203,30 +212,27 @@ class _ChartsSection extends StatelessWidget {
         ],
       );
     }
-    if (trend == null) {
-      // Vista "Mese": nessun andamento da affiancare, resta tutto in colonna
-      // (affiancare la sola torta a un vuoto non avrebbe senso).
-      return Column(
-        children: [
-          donut,
-          if (subcategory != null) subcategory!,
-        ],
-      );
+    if (trend == null && subcategory == null) {
+      // Nessuna categoria selezionata e vista "Mese" (niente andamento):
+      // niente da affiancare alla torta, resta da sola.
+      return donut;
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Expanded(flex: 85, child: donut),
+        const SizedBox(width: 12),
         Expanded(
-          flex: 85,
+          flex: 115,
           child: Column(
             children: [
-              donut,
+              if (trend != null) trend!,
+              if (trend != null && subcategory != null)
+                const SizedBox(height: 12),
               if (subcategory != null) subcategory!,
             ],
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(flex: 115, child: trend!),
       ],
     );
   }
@@ -252,9 +258,8 @@ class _PeriodSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isMonth = month != null;
-    final label = isMonth
-        ? _capitalize(AppFormatters.monthYear(year, month!))
-        : '$year';
+    final label =
+        isMonth ? _capitalize(AppFormatters.monthYear(year, month!)) : '$year';
 
     return Column(
       children: [

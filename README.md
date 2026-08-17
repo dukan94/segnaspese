@@ -25,7 +25,10 @@ desktop Windows** grazie a Flutter.
   doppione, es. scontrino inserito due volte) e in tal caso avvisa con un
   link alla spesa di riferimento, chiedendo conferma prima di procedere.
 - **Dashboard** — grafici e riepiloghi (andamento mensile, per categoria/
-  sottocategoria, totali annuali) per monitorare l'andamento delle spese.
+  sottocategoria, totali annuali) per monitorare l'andamento delle spese,
+  con conteggio e valore medio per categoria/sottocategoria (al netto dei
+  rimborsi); doppio click su una categoria/sottocategoria apre lo Storico
+  con la ricerca già filtrata su quel nome.
 - **Budget** — piano annuale con budget totale mese per mese, suddiviso tra
   categorie.
 - **Movimenti ricorrenti** — gestione di spese/entrate che si ripetono, con
@@ -105,7 +108,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M33 sono completate. Integrazione
+milestone M0-M34 sono completate. Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -145,6 +148,7 @@ continua attiva
 | **M31** | Form e Impostazioni adattivi: `ContentWidthLimiter` ovunque (niente griglie, scelta di Mario), icona info nelle Regole di classificazione | ✅ Completata |
 | **M32** | Sync Turso immediata su inserimento/modifica/cancellazione transazione (oltre al timer ogni 5 minuti, invariato) | ✅ Completata |
 | **M33** | Conteggio e media per categoria/sottocategoria in Dashboard (al netto dei rimborsi) | ✅ Completata |
+| **M34** | Doppio click su categoria/sottocategoria in Dashboard apre lo Storico con la ricerca già filtrata | ✅ Completata |
 
 ## Struttura del database
 

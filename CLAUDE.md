@@ -612,9 +612,12 @@ coerenza invece di inventarne uno nuovo:
 - Nessuna nuova "famiglia di card" per desktop: le card continuano a usare
   il `CardTheme` globale già esistente (`app_theme.dart`), che garantisce
   raggio/padding coerenti da solo. L'omogeneità va cercata raggruppando
-  per **relazione funzionale** (es. Dashboard: torta+barre sottocategoria
-  insieme perché rispondono alla stessa selezione, non "sono entrambi
-  grafici") o riconoscendo **elementi ripetuti e comparabili** (es. Budget:
+  per **relazione funzionale**, non per "sono entrambi grafici" (es.
+  Dashboard: torta sola a sinistra, andamento 12 mesi + barre
+  sottocategoria impilate a destra — **revisionato 17 ago 2026**, prima
+  era torta+barre a sinistra e andamento a destra, v. M28 in
+  `progettazione_finance_app.md` per il dettaglio) o riconoscendo
+  **elementi ripetuti e comparabili** (es. Budget:
   12 mesi/N categorie → griglia `GridView` a 4 colonne con `mainAxisExtent`
   fisso, non una lista; un blocco singolo come `AnnualSummaryCard` non
   entra nella griglia, resta a piena larghezza sopra).
@@ -697,7 +700,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M33 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M34 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -735,7 +738,25 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   barre sottocategoria mostrano ora anche quante volte è ricorsa una
   spesa e il suo valore medio, al netto dei rimborsi (badge col numero +
   "media X €") — logica di aggregazione estratta in `buildDashboardData`
-  (funzione pura, testabile) da `dashboard_providers.dart`. **CI
+  (funzione pura, testabile) da `dashboard_providers.dart`. **Doppio
+  click → Storico filtrato (M34)**: doppio click su una riga di legenda
+  categoria o su una barra sottocategoria in Dashboard apre lo Storico con
+  la ricerca testuale già impostata su quel nome (`HistoryPage.
+  initialQuery`, `state.extra` sulla route `/history`) — attenzione se si
+  tocca ancora `_LegendRow` in `category_donut.dart`: ha sia `onTap`
+  (seleziona la categoria) sia `onDoubleTap` (apre lo Storico) sullo
+  stesso `InkWell`, quindi il singolo click lì ha il ritardo standard
+  Flutter (~300ms) per disambiguare dal doppio — le barre sottocategoria
+  non hanno questo effetto (nessun altro tap con cui competere).
+  Dashboard rivista due volte lo stesso giorno su richiesta di Mario:
+  colonna sinistra ora solo la torta, colonna destra andamento 12 mesi +
+  barre sottocategoria impilate (v. M28 in `progettazione_finance_app.md`
+  per il prima/dopo); e tutti gli importi mostrati in Dashboard (più la
+  card "Riepilogo annuale" del Budget, `annual_summary_card.dart`, M29)
+  arrotondati senza decimali — nuovo `AppFormatters.currencyRounded`/
+  `signedCurrencyRounded`, usato **solo** in questi due punti: il resto
+  dell'app (Home, Storico, Budget salvo quella card) mostra ancora i
+  centesimi, non toccare `AppFormatters.currency` esistente. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice.
 - Test in `test/` (27 file, 178 test): parser CSV, receipt parser, rule

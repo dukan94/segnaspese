@@ -97,7 +97,10 @@ final appRouter = GoRouter(
     // sopra la barra, con pulsante Indietro automatico. ---
     GoRoute(
       path: '/history',
-      builder: (context, state) => const HistoryPage(),
+      // `extra` opzionale (String?): query di ricerca precompilata, usata dal
+      // doppio click su categoria/sottocategoria in Dashboard (M34).
+      builder: (context, state) =>
+          HistoryPage(initialQuery: state.extra as String?),
     ),
     GoRoute(
       path: '/recurring',

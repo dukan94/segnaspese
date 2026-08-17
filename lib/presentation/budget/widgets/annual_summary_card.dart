@@ -27,8 +27,8 @@ class AnnualSummaryCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final forecastAsync = ref
-        .watch(annualForecastProvider((year: year, includeExtra: includeExtra)));
+    final forecastAsync = ref.watch(
+        annualForecastProvider((year: year, includeExtra: includeExtra)));
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -62,7 +62,8 @@ class AnnualSummaryCard extends ConsumerWidget {
               child: Text('Riepilogo annuale $year',
                   style: theme.textTheme.titleMedium),
             ),
-            _GoalChip(goal: f.goal, onTap: () => _editGoal(context, ref, f.goal)),
+            _GoalChip(
+                goal: f.goal, onTap: () => _editGoal(context, ref, f.goal)),
           ],
         ),
         const Divider(height: 20),
@@ -135,7 +136,9 @@ class AnnualSummaryCard extends ConsumerWidget {
             controller: controller,
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))
+            ],
             decoration: const InputDecoration(
               labelText: 'Importo',
               suffixText: '€',
@@ -180,7 +183,7 @@ class _GoalChip extends StatelessWidget {
       avatar: const Icon(Icons.flag_outlined, size: 18),
       label: Text(goal == null
           ? 'Imposta obiettivo'
-          : 'Obiettivo ${AppFormatters.currency(goal!)}'),
+          : 'Obiettivo ${AppFormatters.currencyRounded(goal!)}'),
       onPressed: onTap,
     );
   }
@@ -241,8 +244,9 @@ class _MiniTable extends StatelessWidget {
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerRight,
               child: Text(
-                AppFormatters.currency(value),
-                style: AppTheme.amountStyle(theme.textTheme.bodyMedium?.copyWith(
+                AppFormatters.currencyRounded(value),
+                style:
+                    AppTheme.amountStyle(theme.textTheme.bodyMedium?.copyWith(
                   color: color,
                   fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
                 )),
@@ -325,7 +329,7 @@ class _Advice extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text('Puoi spendere al mese'),
-            Text(AppFormatters.currency(allowedMonthlySpend),
+            Text(AppFormatters.currencyRounded(allowedMonthlySpend),
                 style: AppTheme.amountStyle(theme.textTheme.bodyLarge
                     ?.copyWith(fontWeight: FontWeight.w700))),
           ],
@@ -334,10 +338,13 @@ class _Advice extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(delta >= 0 ? 'Margine sulla spesa media' : 'Oltre la spesa media',
+            Text(
+                delta >= 0
+                    ? 'Margine sulla spesa media'
+                    : 'Oltre la spesa media',
                 style: theme.textTheme.bodySmall),
             Text(
-              '${delta >= 0 ? '+' : ''}${AppFormatters.currency(delta)}',
+              AppFormatters.signedCurrencyRounded(delta),
               style: AppTheme.amountStyle(
                 TextStyle(color: deltaColor, fontWeight: FontWeight.w600),
               ),

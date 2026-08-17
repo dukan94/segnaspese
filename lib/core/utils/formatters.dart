@@ -11,6 +11,16 @@ class AppFormatters {
     decimalDigits: 2,
   );
 
+  /// Come [_currency], senza decimali — solo per la Dashboard (M34, richiesto
+  /// da Mario): altrove nell'app (Home, Storico, Budget) i centesimi restano
+  /// visibili, qui i numeri sono aggregati/arrotondati per essere letti a
+  /// colpo d'occhio.
+  static final _currencyRounded = NumberFormat.currency(
+    locale: 'it_IT',
+    symbol: '€',
+    decimalDigits: 0,
+  );
+
   static final _shortDate = DateFormat('d MMM yyyy', 'it_IT');
   static final _dayMonth = DateFormat('d MMM', 'it_IT');
   static final _monthName = DateFormat('MMMM', 'it_IT');
@@ -23,6 +33,16 @@ class AppFormatters {
   /// Es. "+1.450,00 €" / "-42,80 €", utile per liste di transazioni.
   static String signedCurrency(double amount) {
     final formatted = _currency.format(amount.abs());
+    return amount < 0 ? '-$formatted' : '+$formatted';
+  }
+
+  /// Es. "1.450 €", senza decimali — v. [_currencyRounded].
+  static String currencyRounded(double amount) =>
+      _currencyRounded.format(amount);
+
+  /// Come [signedCurrency], senza decimali.
+  static String signedCurrencyRounded(double amount) {
+    final formatted = _currencyRounded.format(amount.abs());
     return amount < 0 ? '-$formatted' : '+$formatted';
   }
 
