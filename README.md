@@ -108,7 +108,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M40 sono completate. Integrazione
+milestone M0-M41 sono completate. Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -155,6 +155,7 @@ continua attiva
 | **M38** | Windows: blocco seconda istanza (mutex Win32 nativo), attiva la finestra già aperta invece di aprirne una seconda | ✅ Completata |
 | **M39** | Aggiornamento dipendenze rimasto da M24: `fl_chart` 1.2, `google_mlkit_text_recognition` 0.17, `flutter_lints` 6 | ✅ Completata |
 | **M40** | Home: avviso soglia budget (90%), richiudibile per il mese corrente | ✅ Completata |
+| **M41** | Rimossa la dipendenza morta `camera` (mai importata, residuo pre-`image_picker`) | ✅ Completata |
 
 ## Struttura del database
 

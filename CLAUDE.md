@@ -813,7 +813,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M40 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M41 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -900,7 +900,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   mese corrente) quando il budget del mese raggiunge il 90% o è già
   sforato — `shouldShowBudgetAlert` (funzione pura testata) in
   `budget_providers.dart`, `_BudgetThresholdBanner` in `home_page.dart`,
-  stato "chiuso" in una chiave Settings locale non sincronizzata. **CI
+  stato "chiuso" in una chiave Settings locale non sincronizzata.
+  **Rimozione `camera` (M41)**: dipendenza morta (mai importata, residuo
+  pre-`image_picker` di M3), tolta dal `pubspec.yaml` insieme alle sue 4
+  implementazioni per piattaforma mai usate. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).
