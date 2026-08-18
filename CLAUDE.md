@@ -149,6 +149,15 @@ già → `SqliteException("duplicate column name")`.
   schema remoto Turso (`_addColumnIfMissing` in `turso_sync_service.dart`,
   v. sezione dedicata sotto). Una migrazione interrotta a metà, su questo o
   qualunque altro dispositivo, non blocca più l'avvio.
+- **Causa "due istanze" chiusa alla radice su Windows (M38, 18 ago 2026)**:
+  `windows/runner/main.cpp` crea un mutex Win32 nominato prima di
+  inizializzare Flutter — se esiste già (un'altra istanza è in esecuzione),
+  la nuova non apre nulla: porta in primo piano la finestra già aperta
+  (`FindWindowW` su classe **e** titolo insieme, per non confondersi con
+  un'altra app Flutter Windows eventualmente in esecuzione) ed esce subito.
+  Non serve più affidarsi solo alla disciplina di non lanciare l'app due
+  volte. Su Android questo non serve: il sistema operativo già impedisce
+  nativamente due istanze della stessa app.
 - Test di regressione: `test/app_database_migration_test.dart` — crea un DB
   completo, riporta `user_version` a 6 lasciando le colonne fisicamente
   presenti (stesso stato di una migrazione interrotta), poi riapre e verifica
@@ -804,7 +813,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M37 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M38 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -878,7 +887,11 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   `progettazione_finance_app.md` per il dettaglio. **Distribuzione Windows
   via GitHub Releases (M37, v. sezione dedicata sopra)**: build release
   compressa in zip, pubblicata come allegato di un'unica release "rolling"
-  (tag `windows-latest`), link di download fisso nel tempo. **CI
+  (tag `windows-latest`), link di download fisso nel tempo. **Blocco
+  seconda istanza su Windows (M38)**: mutex Win32 nativo in
+  `windows/runner/main.cpp`, v. sezione "Migrazioni schema locale" sopra
+  per il dettaglio — chiude alla radice la causa nota di una migrazione
+  interrotta a metà. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).

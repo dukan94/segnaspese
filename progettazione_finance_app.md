@@ -1445,6 +1445,34 @@ domanda aperta "cosa manca?" sulle possibili migliorie)*
   → `Compress-Archive` → sostituire l'asset sulla release `windows-latest`
   esistente (stesso nome file `Tally-Windows.zip`) mantenendo il link fisso.
 
+**M38 — ✅ Completata — Windows: blocco seconda istanza**
+*(richiesto da Mario, 18 ago 2026, dopo aver chiesto se esisteva già un
+controllo)*
+- Problema: nessuna protezione contro l'apertura di due istanze
+  contemporanee di `finance_app.exe` — `windows/runner/main.cpp` era il
+  codice generato di default da Flutter, senza alcun mutex/lock. Non solo
+  teorico: è la causa radice già documentata (v. "Migrazioni schema locale
+  — insidia" in CLAUDE.md) del bug del 16 ago 2026 in cui un'istanza
+  bloccata avviata due volte ha lasciato una migrazione a metà.
+- **Fix, nativo, nessuna libreria nuova**: mutex Win32 con nome univoco
+  creato in `wWinMain` prima di qualunque inizializzazione Flutter. Se il
+  mutex esiste già (`GetLastError() == ERROR_ALREADY_EXISTS`), la seconda
+  istanza non apre nulla: cerca la finestra della prima (`FindWindowW` su
+  classe **e** titolo insieme — la sola classe
+  `FLUTTER_RUNNER_WIN32_WINDOW` è generica, la userebbe anche qualunque
+  altra app Flutter Windows sulla macchina), la ripristina se minimizzata
+  e la porta in primo piano, poi esce con `EXIT_SUCCESS`. L'handle del
+  mutex della prima istanza non viene mai chiuso esplicitamente: Windows lo
+  rilascia da solo alla terminazione del processo, anche in caso di crash,
+  così non resta mai "orfano" a bloccare per sempre i lanci successivi.
+- **Verificato**: build release compilata pulita, poi test reale — prima
+  istanza avviata e minimizzata a mano, seconda istanza lanciata: uscita
+  immediata (`exit code 0`, nessuna finestra nuova), un solo processo
+  `finance_app.exe` rimasto attivo, finestra della prima istanza tornata
+  visibile e in primo piano (verificato via `IsIconic`/
+  `GetForegroundWindow`). `flutter analyze` pulito, 180/180 test invariati
+  (modifica solo C++, nessun impatto sul lato Dart).
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
