@@ -867,7 +867,9 @@ in un messaggio d'errore**
   restano per un futuro aggiornamento di routine): `fl_chart` 0.68→1.2,
   `google_mlkit_text_recognition`/`camera` (pre-1.0), `flutter_lints`
   4→6. `camera` risultava peraltro una dipendenza morta (mai importata,
-  v. audit) — rimovibile a parte, non necessita di un bump.
+  v. audit) — rimovibile a parte, non necessita di un bump. **Aggiornato
+  in M39** (18 ago 2026): tutti e tre bump fatti, `camera` rimane da
+  rimuovere a parte (v. M40 se già completata).
 
 > **Nota (non una milestone)**: l'audit ha anche confermato che le build
 > Android "release" sono firmate con la stessa `debug.keystore` di CI —
@@ -1472,6 +1474,35 @@ controllo)*
   visibile e in primo piano (verificato via `IsIconic`/
   `GetForegroundWindow`). `flutter analyze` pulito, 180/180 test invariati
   (modifica solo C++, nessun impatto sul lato Dart).
+
+**M39 — ✅ Completata — Aggiornamento dipendenze rimasto da M24**
+*(18 ago 2026, gap noto lasciato aperto in M24 il 17 ago 2026)*
+- `fl_chart` 0.68.0 → 1.2.0, `google_mlkit_text_recognition` 0.13.1 → 0.17.1
+  (con `google_mlkit_commons` aggiornato di conseguenza, dipendenza
+  transitiva), `flutter_lints` 4.0.0 → 6.0.0. Bump uno alla volta, stesso
+  metodo di M24: `flutter pub get` → `flutter analyze` → `flutter test`
+  dopo ognuno, non solo alla fine.
+- **`flutter_lints` 6**: nessun nuovo issue emerso da `flutter analyze`
+  (le regole aggiuntive non hanno trovato nulla da segnalare nel codice
+  esistente).
+- **`google_mlkit_text_recognition` 0.17**: uso nel codice limitato a
+  `TextRecognizer(script: TextRecognitionScript.latin)`
+  (`receipt_scan_page.dart`), API invariata tra le due versioni. Verificato
+  anche con build Windows reale (il plugin è nativo solo Android, ma deve
+  comunque registrarsi/compilare senza errori sul runner Windows).
+- **`fl_chart` 1.2** (il salto più a rischio, 0.x→1.x): usato solo in 2
+  file (`category_donut.dart`, `monthly_trend_chart.dart`). Nessuna
+  modifica al codice necessaria — compila pulito. Verificato anche a
+  runtime con build Windows reale: torta per categoria e andamento 12 mesi
+  (con linea budget tratteggiata) renderizzano identici a prima, legenda e
+  colori invariati.
+- Non incluso in questo giro (confermato ancora "gap minore" dall'audit
+  M24): `camera` — dipendenza morta, va rimossa a parte, non necessita di
+  un bump.
+- **Verificato**: `flutter analyze` pulito e `flutter test` (180/180) dopo
+  ogni singolo bump, non solo alla fine — build Windows release reale
+  lanciata due volte durante il giro per verifiche mirate (dopo il bump
+  ML Kit, dopo il bump fl_chart).
 
 ### Processo per nuove milestone (da qui in avanti)
 
