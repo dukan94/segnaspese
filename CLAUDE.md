@@ -763,13 +763,48 @@ resta respiro" delle altre pagine, nessun nuovo pattern di navigazione.
   `app_theme.dart` (un punto solo, per richiesta esplicita di Mario — non
   aggiungere `Color(0x...)` sparsi in `history_page.dart`).
 
+## Distribuzione Windows — GitHub Releases (M37)
+
+*(18 ago 2026)* Prima di questa milestone l'unico modo per aggiornare
+l'app Windows su un dispositivo era ricompilarla da sorgente. Ora la build
+release (`flutter build windows --release`) viene compressa in zip
+(`Compress-Archive`, PowerShell — nessun tool nuovo, la cartella di build
+di Flutter è già portabile, non serve un vero installer) e pubblicata come
+allegato di un'unica release GitHub "rolling", tag **`windows-latest`**:
+
+```
+https://github.com/dukan94/segnaspese/releases/download/windows-latest/Tally-Windows.zip
+```
+
+Il link resta fisso nel tempo: aggiornare significa sostituire l'allegato
+sulla release esistente mantenendo lo stesso nome file, non crearne una
+nuova — stesso principio "sempre l'ultima build, nessuno storico da
+mantenere" già usato per l'APK Android (`android-build.yml`).
+
+- **Perché GitHub Releases e non Google Drive** (proposta iniziale di
+  Mario): Drive mostra un avviso "impossibile eseguire la scansione
+  antivirus" sui file eseguibili/zip che complica il download diretto, e
+  non tiene uno storico versioni. Il repo è già su GitHub, nessun servizio
+  nuovo da configurare.
+- **Perché uno zip e non un installer vero** (scartata l'alternativa Inno
+  Setup): zero strumenti nuovi da installare sul PC di build, coerente con
+  la scelta fatta più volte in questo progetto di preferire la soluzione
+  più semplice che risolve il problema.
+- **Pubblicazione manuale, non automatizzata**: `gh` CLI non è installata
+  su questo PC (stesso motivo per cui manca l'Android SDK, v. sezione
+  distribuzione Android) — Mario pubblica/aggiorna la release dal browser.
+  Un workflow `workflow_dispatch` che builda e pubblica in automatico (sul
+  modello di `android-build.yml`) resta un'estensione futura possibile, non
+  richiesta ora.
+- V. M37 in `progettazione_finance_app.md` per il dettaglio completo.
+
 ## Stato attuale (18 ago 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M35 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M37 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -840,7 +875,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   indipendenti — riga 1 (icona con data sotto invece che accanto, su
   proposta di Mario + Nota+importo+menu "⋮"), riga 2 (sottocategoria/tag,
   larghezza piena, mai condivisa con l'importo). V. M36 in
-  `progettazione_finance_app.md` per il dettaglio. **CI
+  `progettazione_finance_app.md` per il dettaglio. **Distribuzione Windows
+  via GitHub Releases (M37, v. sezione dedicata sopra)**: build release
+  compressa in zip, pubblicata come allegato di un'unica release "rolling"
+  (tag `windows-latest`), link di download fisso nel tempo. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).

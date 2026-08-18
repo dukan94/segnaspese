@@ -1402,6 +1402,49 @@ domanda aperta "cosa manca?" sulle possibili migliorie)*
   sulla riga 1, sottocategoria/tag per intero sulla riga 2 anche nei casi
   più lunghi osservati ("Alimentari in Viaggio · Rimborso").
 
+**M37 — ✅ Completata — Distribuzione Windows via GitHub Releases (zip portabile)**
+*(richiesto da Mario, 18 ago 2026)*
+- Problema: l'unico modo per aggiornare l'app Windows su un dispositivo era
+  ricompilarla da sorgente (`flutter build windows --release`) — pratico per
+  sviluppo, scomodo per uso quotidiano. Richiesta: un modo semplice per
+  scaricare/aggiornare l'app già pronta, "hostabile su internet" (proposto
+  inizialmente Google Drive).
+- Scelte (con Mario, tra le opzioni proposte):
+  - **Hosting: GitHub Releases**, non Google Drive — Drive mostra un avviso
+    "impossibile eseguire la scansione antivirus" sui file eseguibili/zip
+    che complica il download diretto, e non tiene uno storico versioni
+    ordinato. Il repo è già su GitHub, nessun servizio nuovo da configurare.
+  - **Pacchetto: zip portabile**, non un vero installer (scartata
+    l'alternativa Inno Setup): la build Windows release di Flutter non
+    richiede installazione (nessuna scrittura di registro), comprimere la
+    cartella `build/windows/x64/runner/Release/` basta — zero strumenti
+    nuovi da installare sul PC di build, stesso principio "solo l'essenziale"
+    già seguito altrove nel progetto.
+  - **Una sola release "rolling"** (tag `windows-latest`), non una release
+    versionata per ogni build — stesso principio già in uso per l'APK
+    Android (`android-build.yml`: sempre l'ultimo artifact, nessuno storico
+    da mantenere). Aggiornare significa sostituire l'asset zip mantenendo
+    stesso tag/nome file: il link di download resta fisso,
+    `https://github.com/dukan94/segnaspese/releases/download/windows-latest/Tally-Windows.zip`.
+  - **Creazione manuale della release**, non automatizzata da un workflow
+    Actions: `gh` CLI non è installata su questo PC (dispositivo aziendale,
+    stesso motivo per cui manca l'Android SDK) e non si è voluto
+    installarla solo per questo. Mario pubblica la release dall'interfaccia
+    web di GitHub (drag&drop dello zip), nessun nuovo strumento coinvolto.
+    Un'automazione futura (workflow `workflow_dispatch` che builda e
+    pubblica la release, sul modello di `android-build.yml`) resta
+    un'estensione possibile ma non richiesta ora.
+- **Verificato**: build Windows release (già aggiornata a M36) compressa in
+  zip (~15 MB) con `Compress-Archive` (PowerShell, nessun tool nuovo), copiata
+  in Download per comodità di upload. Release pubblicata da Mario via
+  browser, tag `windows-latest` confermato sul remoto (`git ls-remote
+  --tags`). Repo privato: non verificabile con `WebFetch` (non autenticato),
+  confermato invece da Mario col download diretto del link (~15 MB,
+  scaricato con successo).
+- **Per i prossimi aggiornamenti**: rifare `flutter build windows --release`
+  → `Compress-Archive` → sostituire l'asset sulla release `windows-latest`
+  esistente (stesso nome file `Tally-Windows.zip`) mantenendo il link fisso.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
