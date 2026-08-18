@@ -327,112 +327,169 @@ class _HistoryTile extends StatelessWidget {
       onCardColor = AppTheme.onIncomeContainer(context);
     }
 
+    // Card ricostruita su due righe invece di un ListTile (M36, 18 ago 2026):
+    // in un ListTile, trailing (importo + menu azioni) sottrae larghezza
+    // condivisa sia a title sia a subtitle, anche se solo la prima riga
+    // (Nota) ha davvero bisogno di stare accanto all'importo — su schermo
+    // stretto (telefono) la sottocategoria in subtitle restava comunque
+    // schiacciata dallo stesso trailing, indipendentemente dal numero di
+    // icone. Qui la riga 2 (sottocategoria/tag) ha la larghezza piena della
+    // card, non condivisa con l'importo.
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       color: cardColor,
-      child: ListTile(
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              backgroundColor: theme.colorScheme.surfaceContainerHighest,
-              child: Text(category?.icon ?? '💶',
-                  style: const TextStyle(fontSize: 18)),
-            ),
-            const SizedBox(width: 8),
-            // Data isolata dal resto del testo (M30): prima era dentro la
-            // stringa di subtitle unita con "·", qui ha un suo spazio
-            // dedicato invece di essere annegata nel resto.
-            Text(
-              AppFormatters.dayMonth(tx.date),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: onCardColor ?? theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-        title: Row(
-          children: [
-            Flexible(
-              child: Text(
-                hasNote ? tx.note! : catName,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: onCardColor),
-              ),
-            ),
-            if (onShowLinkedRefunds != null)
-              Padding(
-                padding: const EdgeInsets.only(left: 6),
-                child: Tooltip(
-                  message: 'Rimborsi collegati',
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: onShowLinkedRefunds,
-                    child: const CircleAvatar(
-                      radius: 11,
-                      backgroundColor: AppTheme.refundedBadgeColor,
-                      child: Icon(
-                        Icons.link,
-                        size: 14,
-                        color: AppTheme.onRefundedBadgeColor,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onEdit,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Data sotto l'icona invece che accanto (M36): sulla riga
+                  // 1 restava poco spazio per la Nota tra icona+data e
+                  // importo+menu, specie su schermo stretto — qui il blocco
+                  // icona+data è largo solo quanto l'icona.
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircleAvatar(
+                        radius: 18,
+                        backgroundColor:
+                            theme.colorScheme.surfaceContainerHighest,
+                        child: Text(category?.icon ?? '💶',
+                            style: const TextStyle(fontSize: 18)),
                       ),
+                      const SizedBox(height: 2),
+                      Text(
+                        AppFormatters.dayMonth(tx.date),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color:
+                              onCardColor ?? theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      hasNote ? tx.note! : catName,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: onCardColor),
                     ),
                   ),
+                  if (onShowLinkedRefunds != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 6),
+                      child: Tooltip(
+                        message: 'Rimborsi collegati',
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: onShowLinkedRefunds,
+                          child: const CircleAvatar(
+                            radius: 11,
+                            backgroundColor: AppTheme.refundedBadgeColor,
+                            child: Icon(
+                              Icons.link,
+                              size: 14,
+                              color: AppTheme.onRefundedBadgeColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(width: 8),
+                  Text(
+                    AppFormatters.signedCurrency(tx.signedAmount),
+                    style:
+                        AppTheme.amountStyle(theme.textTheme.titleSmall?.copyWith(
+                      color: positive
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.error,
+                      fontWeight: FontWeight.w600,
+                    )),
+                  ),
+                  // Azioni raccolte in un menu a comparsa (M36): con
+                  // rimborsa + rimborso con divisore + elimina come icone
+                  // separate, questa riga arrivava a occupare gran parte
+                  // della larghezza disponibile su schermo stretto. Un solo
+                  // pulsante "⋮" resta sempre largo importo + un'icona sola.
+                  PopupMenuButton<VoidCallback>(
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    tooltip: 'Altre azioni',
+                    onSelected: (action) => action(),
+                    itemBuilder: (context) => [
+                      if (onShowLinked != null)
+                        PopupMenuItem<VoidCallback>(
+                          value: onShowLinked!,
+                          child: const _MenuItemContent(
+                            icon: Icons.link,
+                            label: 'Spesa collegata',
+                          ),
+                        ),
+                      if (onRefund != null)
+                        PopupMenuItem<VoidCallback>(
+                          value: onRefund!,
+                          child: const _MenuItemContent(
+                            icon: Icons.currency_exchange,
+                            label: 'Rimborsa',
+                          ),
+                        ),
+                      if (onSplitRefund != null)
+                        PopupMenuItem<VoidCallback>(
+                          value: onSplitRefund!,
+                          child: const _MenuItemContent(
+                            icon: Icons.call_split,
+                            label: 'Rimborso con divisore',
+                          ),
+                        ),
+                      PopupMenuItem<VoidCallback>(
+                        value: onDelete,
+                        child: const _MenuItemContent(
+                          icon: Icons.delete_outline,
+                          label: 'Elimina',
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              // Riga 2: allineata sotto la Nota (dopo icona categoria + data
+              // + spaziatura), larghezza piena non condivisa con l'importo.
+              Padding(
+                padding: const EdgeInsets.only(left: 44),
+                child: Text(
+                  secondLine,
+                  style: TextStyle(color: onCardColor),
                 ),
               ),
-          ],
-        ),
-        subtitle: Text(
-          secondLine,
-          style: TextStyle(color: onCardColor),
-        ),
-        onTap: onEdit,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (onShowLinked != null)
-              IconButton(
-                icon: const Icon(Icons.link, size: 20),
-                tooltip: 'Spesa collegata',
-                color: theme.colorScheme.primary,
-                visualDensity: VisualDensity.compact,
-                onPressed: onShowLinked,
-              ),
-            Text(
-              AppFormatters.signedCurrency(tx.signedAmount),
-              style: AppTheme.amountStyle(theme.textTheme.titleSmall?.copyWith(
-                color: positive
-                    ? theme.colorScheme.primary
-                    : theme.colorScheme.error,
-                fontWeight: FontWeight.w600,
-              )),
-            ),
-            if (onRefund != null)
-              IconButton(
-                icon: const Icon(Icons.currency_exchange, size: 20),
-                tooltip: 'Rimborsa',
-                color: theme.colorScheme.outline,
-                visualDensity: VisualDensity.compact,
-                onPressed: onRefund,
-              ),
-            if (onSplitRefund != null)
-              IconButton(
-                icon: const Icon(Icons.call_split, size: 20),
-                tooltip: 'Rimborso con divisore',
-                color: theme.colorScheme.outline,
-                visualDensity: VisualDensity.compact,
-                onPressed: onSplitRefund,
-              ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              tooltip: 'Elimina',
-              color: theme.colorScheme.outline,
-              visualDensity: VisualDensity.compact,
-              onPressed: onDelete,
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _MenuItemContent extends StatelessWidget {
+  const _MenuItemContent({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.outline),
+        const SizedBox(width: 12),
+        Text(label),
+      ],
     );
   }
 }

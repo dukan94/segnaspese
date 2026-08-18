@@ -726,7 +726,10 @@ resta respiro" delle altre pagine, nessun nuovo pattern di navigazione.
   dedicato), Nota come `title`, **sottocategoria sotto la Nota** come
   `subtitle` (prima mostrava il nome categoria — l'icona a sinistra già la
   comunica, la sottocategoria è testo più specifico). Importo e icone
-  azione a destra invariati.
+  azione a destra invariati. **Aggiornamento (M36, 18 ago 2026)**: su
+  schermo stretto (telefono) questo layout basato su `ListTile` risultava
+  illeggibile — la card è stata ricostruita su due righe indipendenti, v.
+  sezione "Stato attuale" e M36 in `progettazione_finance_app.md`.
 - **Sfondo colorato solo per le entrate** (`AppTheme.incomeContainer`/
   `onIncomeContainer` in `app_theme.dart`, stesso principio di
   `warningContainer`: colori fissi indipendenti dal seed, non derivati da
@@ -759,7 +762,7 @@ resta respiro" delle altre pagine, nessun nuovo pattern di navigazione.
   `app_theme.dart` (un punto solo, per richiesta esplicita di Mario — non
   aggiungere `Color(0x...)` sparsi in `history_page.dart`).
 
-## Stato attuale (17 ago 2026)
+## Stato attuale (18 ago 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
@@ -824,7 +827,19 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   centesimi, non toccare `AppFormatters.currency` esistente. **Rimozione
   tabella Merchants (M35, v. sezione dedicata sopra)**: mai collegata a
   DAO/UI/sync in un anno, rimossa con schema v8 (`TableMigration`, non un
-  `DROP COLUMN` diretto — vincolo FK). **CI
+  `DROP COLUMN` diretto — vincolo FK). **Storico: card a due righe (M36,
+  18 ago 2026)**: bug di leggibilità scoperto da Mario aprendo l'app sul
+  secondo dispositivo (telefono) — su schermo stretto la sottocategoria
+  sotto la Nota (M30) risultava illeggibile/tagliata. Primo tentativo (menu
+  "⋮" per rimborsa/rimborso con divisore/elimina al posto di 3
+  `IconButton`) non bastava da solo: in un `ListTile`, `trailing` sottrae
+  larghezza condivisa sia a `title` sia a `subtitle`, quindi la
+  sottocategoria restava comunque schiacciata. Fix vero: `_HistoryTile`
+  non è più un `ListTile` ma `Card > InkWell > Column` su due righe
+  indipendenti — riga 1 (icona con data sotto invece che accanto, su
+  proposta di Mario + Nota+importo+menu "⋮"), riga 2 (sottocategoria/tag,
+  larghezza piena, mai condivisa con l'importo). V. M36 in
+  `progettazione_finance_app.md` per il dettaglio. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).

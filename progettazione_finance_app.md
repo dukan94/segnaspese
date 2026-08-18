@@ -1362,6 +1362,46 @@ domanda aperta "cosa manca?" sulle possibili migliorie)*
     spariti, `PRAGMA integrity_check` → `ok`.
   - `flutter analyze` pulito, **180/180 test** (178 + 2 nuovi).
 
+**M36 — ✅ Completata — Storico: menu azioni a comparsa (bug leggibilità mobile)**
+*(segnalato da Mario dopo aver aperto l'app sul secondo dispositivo, 18 ago
+2026)*
+- **Bug reale**: su schermo stretto (telefono) la sottocategoria sotto la
+  Nota (aggiunta in M30) risultava illeggibile/senza spazio. Causa: il
+  `trailing` di `_HistoryTile` (`history_page.dart`) poteva contenere fino a
+  3 `IconButton` (rimborsa, rimborso con divisore, elimina) più l'importo,
+  tutti in una `Row` a larghezza libera — su schermo stretto occupava gran
+  parte della card, lasciando troppo poco spazio a `title`/`subtitle`. Su
+  desktop (finestra larga) il problema non si vedeva, da qui la scoperta
+  solo ora aprendo l'app sul telefono.
+- **Fix, in due passaggi nella stessa sessione**:
+  1. Le azioni (spesa collegata, rimborsa, rimborso con divisore, elimina)
+     raccolte in un unico `PopupMenuButton` (icona "⋮"), scelto da Mario tra
+     due opzioni proposte (l'alternativa era la card su due righe, v. punto
+     2). Verificato a ~400px di larghezza finestra: migliora, ma Mario
+     l'ha segnalato ancora insufficiente ("è ancora troppo tagliato tutto")
+     — causa strutturale non ancora risolta dal solo menu: in un `ListTile`,
+     `trailing` sottrae larghezza condivisa sia a `title` sia a `subtitle`,
+     quindi la sottocategoria in `subtitle` restava comunque schiacciata
+     dallo stesso `trailing` (importo + "⋮"), indipendentemente da quante
+     icone contenga.
+  2. **Card ricostruita su due righe indipendenti** (non più `ListTile`):
+     `Card > InkWell > Padding > Column`. Riga 1 = icona categoria + data +
+     Nota (`Expanded`, ellissi se serve) + badge rimborsi collegati +
+     importo + `PopupMenuButton`. Riga 2 = sottocategoria/tag, indentata
+     sotto la Nota (`Padding(left: 44)`), larghezza piena della card, MAI
+     condivisa con l'importo. Questo è il fix che risolve davvero il
+     problema: la riga 2 non dipende più da quanto spazio occupa la riga 1.
+  3. Su proposta di Mario, la data si sposta **sotto l'icona categoria**
+     invece che accanto (`Column` icona+data invece di stare in `Row` con
+     la Nota): il blocco icona+data sulla riga 1 resta largo solo quanto
+     l'icona, liberando altro spazio alla Nota prima del troncamento.
+- **Verificato**: `flutter analyze` pulito, 180/180 test invariati (nessuna
+  copertura di test dedicata alla sola disposizione grafica della card),
+  più verifica visiva con build Windows reale, finestra ridotta fino a
+  360px (paragonabile alla larghezza di un telefono): nota+importo+menu
+  sulla riga 1, sottocategoria/tag per intero sulla riga 2 anche nei casi
+  più lunghi osservati ("Alimentari in Viaggio · Rimborso").
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
