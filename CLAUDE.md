@@ -551,7 +551,8 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
 
 - **Import CSV** (spostato qui da Impostazioni, v. `import_page.dart`): solo
   sviluppo/backfill, non il vero import da estratto conto bancario (quello è
-  lavoro futuro separato, non ancora progettato).
+  in Impostazioni, v. sezione dedicata "Import estratto conto bancario"
+  sopra — implementato in M15, questa nota era rimasta non aggiornata).
 - **Bridge Google Sheets** verso il foglio "Copia di Spese" già usato a mano:
   finché attivo, ogni transazione salvata tramite `addTransactionProvider`
   (non l'import CSV, che resta un bulk tool separato) viene copiata in
