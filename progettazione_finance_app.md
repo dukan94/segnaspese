@@ -1543,6 +1543,31 @@ controllo)*
   ai test unitari sulla soglia più il riuso di stili (`warningContainer`,
   layout `Card`/`ListTile`) già verificati altrove nell'app.
 
+**M41 — ✅ Completata — Rimozione dipendenza morta `camera`**
+*(richiesto da Mario, 18 ago 2026, ultima delle migliorie proposte, di
+proposito dopo aver capito cos'era)*
+- `camera: ^0.11.0` era dichiarata in `pubspec.yaml` ma mai importata in
+  `lib/` (confermato di nuovo con grep prima di toccare nulla) — residuo
+  di un primo approccio allo scontrino (M3), poi sostituito da
+  `image_picker` (apre l'app fotocamera nativa, non serve una preview live
+  dentro l'app). Rilevata come dipendenza morta già nell'audit M24.
+- Rimossa dal `pubspec.yaml`: con lei spariscono anche le implementazioni
+  per piattaforma mai usate (`camera_android_camerax`,
+  `camera_avfoundation`, `camera_platform_interface`, `camera_web` — 5
+  pacchetti in meno in tutto).
+  - Verificato che il permesso `android.permission.CAMERA` in
+    `AndroidManifest.xml` **non va rimosso**: serve a `image_picker` con
+    `ImageSource.camera` (già commentato così nel manifest), non a
+    `camera` — nessuna relazione tra i due.
+  - Aggiornato un commento in `android/app/build.gradle.kts` che citava
+    ancora `camera` tra i motivi di `compileSdk = 36` (la vera causa,
+    `flutter_plugin_android_lifecycle`, arriva comunque da `file_picker`,
+    quindi il vincolo resta anche senza `camera`).
+- **Verificato**: `flutter analyze` pulito, 187/187 test invariati, build
+  Windows release reale compilata senza errori. Non verificata la build
+  Android da questo PC (manca l'SDK, v. sezione dedicata sopra) — rischio
+  comunque basso trattandosi di un pacchetto mai importato.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

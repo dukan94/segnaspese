@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.dukan94.segnaspese"
     // Alcune dipendenze (flutter_plugin_android_lifecycle, tirato da
-    // file_picker/camera) richiedono compileSdk >= 36. Lo fissiamo a 36 invece
+    // file_picker) richiedono compileSdk >= 36. Lo fissiamo a 36 invece
     // di flutter.compileSdkVersion (che qui vale 34).
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
