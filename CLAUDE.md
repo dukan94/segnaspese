@@ -562,6 +562,17 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
   sviluppo/backfill, non il vero import da estratto conto bancario (quello è
   in Impostazioni, v. sezione dedicata "Import estratto conto bancario"
   sopra — implementato in M15, questa nota era rimasta non aggiornata).
+- **Backup completo con un click (M43)**: `DatabaseBackupService`
+  (`data/services/database_backup_service.dart`) copia il file `.sqlite`
+  locale grezzo (nessuna cifratura/trasformazione) tramite
+  `FilePicker.saveFile()`, stesso meccanismo dell'export CSV — sostituisce
+  gli script Dart usa-e-getta fatti a mano prima di ogni operazione
+  rischiosa (v. i vari `finance_app.sqlite.backup-...` citati in questo
+  file). Sicuro senza precauzioni aggiuntive perché il database **non usa
+  WAL** (`app_database.dart`, `_openConnection`) — nessun file `-wal`/
+  `-shm` da doversi preoccupare di includere nella copia. Percorso del
+  file condiviso con `_openConnection` tramite `resolveDatabaseFile()`
+  (`app_database.dart`), un solo punto invece di duplicare la logica.
 - **Bridge Google Sheets** verso il foglio "Copia di Spese" già usato a mano:
   finché attivo, ogni transazione salvata tramite `addTransactionProvider`
   (non l'import CSV, che resta un bulk tool separato) viene copiata in
@@ -813,7 +824,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M42 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M43 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -914,11 +925,14 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   un'ottimizzazione mirata della cache FK nel motore di sync (solo lato
   push, mai lato pull — v. M42 in `progettazione_finance_app.md` per il
   perché di questa distinzione, importante se si tocca ancora quel file).
-  **CI
+  **Admin: backup completo con un click (M43)**: copia grezza del file
+  `.sqlite` locale (sicura, il database non usa WAL), salvata dove vuole
+  l'utente tramite lo stesso meccanismo `FilePicker.saveFile()` già usato
+  dall'export CSV — v. sezione Admin sotto per il dettaglio. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).
-- Test in `test/` (29 file, 207 test): parser CSV, receipt parser, rule
+- Test in `test/` (30 file, 209 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -944,7 +958,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (`budget_alert_test.dart`, M40 — stesso principio: logica di soglia
   estratta in `shouldShowBudgetAlert`), arrotondamento importi centralizzato
   (`money_rounding_test.dart`, M42 — unico punto (`roundToCents`) per una
-  formula prima duplicata in 3 file) + 1 smoke widget test.
+  formula prima duplicata in 3 file), backup completo
+  (`database_backup_service_test.dart`, M43 — solo `suggestedFileName`,
+  unica vera logica del servizio) + 1 smoke widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)
 

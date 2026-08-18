@@ -108,7 +108,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M42 sono completate. Integrazione
+milestone M0-M43 sono completate. Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -157,6 +157,7 @@ continua attiva
 | **M40** | Home: avviso soglia budget (90%), richiudibile per il mese corrente | ✅ Completata |
 | **M41** | Rimossa la dipendenza morta `camera` (mai importata, residuo pre-`image_picker`) | ✅ Completata |
 | **M42** | Audit completo del codice: 10 findings risolti (rimborso scollegato per sempre, doppioni per uguaglianza esatta su double, gap sync M32, cache motore di sync, ecc.) | ✅ Completata |
+| **M43** | Admin: backup completo del database con un click, stesso meccanismo di salvataggio dell'export CSV | ✅ Completata |
 
 ## Struttura del database
 

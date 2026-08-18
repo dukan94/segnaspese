@@ -329,16 +329,24 @@ class AppDatabase extends _$AppDatabase {
   }
 }
 
+/// Percorso del file SQLite locale — unico punto condiviso tra
+/// [_openConnection] e `DatabaseBackupService` (Admin > backup completo,
+/// M43), così i due non rischiano di finire a puntare a percorsi diversi se
+/// mai cambiasse.
+Future<File> resolveDatabaseFile() async {
+  // Deliberatamente "application support" e non "documents": su Windows
+  // la cartella Documenti è spesso reindirizzata su OneDrive (Known
+  // Folder Move aziendale), che sincronizza in background il file
+  // SQLite live causando blocchi/corruzioni — lo stesso tipo di problema
+  // avuto con .dart_tool durante lo sviluppo. La cartella "support" non
+  // è soggetta a questo reindirizzamento.
+  final dbFolder = await getApplicationSupportDirectory();
+  return File(p.join(dbFolder.path, 'finance_app.sqlite'));
+}
+
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    // Deliberatamente "application support" e non "documents": su Windows
-    // la cartella Documenti è spesso reindirizzata su OneDrive (Known
-    // Folder Move aziendale), che sincronizza in background il file
-    // SQLite live causando blocchi/corruzioni — lo stesso tipo di problema
-    // avuto con .dart_tool durante lo sviluppo. La cartella "support" non
-    // è soggetta a questo reindirizzamento.
-    final dbFolder = await getApplicationSupportDirectory();
-    final file = File(p.join(dbFolder.path, 'finance_app.sqlite'));
+    final file = await resolveDatabaseFile();
     return NativeDatabase.createInBackground(file);
   });
 }
