@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/di/settings_providers.dart';
 import '../../core/di/sync_providers.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive.dart';
 import '../../data/services/sync_service.dart';
 import '../budget/budget_providers.dart';
@@ -30,6 +32,20 @@ class HomePage extends ConsumerWidget {
     final budgetSummary = ref.watch(homeBudgetSummaryProvider);
     final syncStatus = ref.watch(syncStatusProvider);
     final syncStatusValue = syncStatus.valueOrNull;
+
+    // Avviso soglia budget (M40): confrontato col mese chiuso dall'utente,
+    // per non riproporlo ogni volta che riapre l'app finché resta nello
+    // stesso mese (v. _BudgetThresholdBanner).
+    final now = DateTime.now();
+    final currentMonthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+    final dismissedMonth = ref.watch(budgetAlertDismissedMonthProvider).valueOrNull;
+    final budgetSummaryValue = budgetSummary.valueOrNull;
+    final showBudgetAlert = budgetSummaryValue != null &&
+        shouldShowBudgetAlert(
+          summary: budgetSummaryValue,
+          currentMonthKey: currentMonthKey,
+          dismissedMonth: dismissedMonth,
+        );
 
     return Scaffold(
       appBar: AppBar(
@@ -68,6 +84,13 @@ class HomePage extends ConsumerWidget {
             children: [
               if (syncStatusValue == SyncStatus.offline || syncStatusValue == SyncStatus.error) ...[
                 _SyncAlertBanner(status: syncStatusValue!),
+                const SizedBox(height: 12),
+              ],
+              if (showBudgetAlert) ...[
+                _BudgetThresholdBanner(
+                  summary: budgetSummaryValue,
+                  monthKey: currentMonthKey,
+                ),
                 const SizedBox(height: 12),
               ],
               _BalanceAndBudgetRow(
@@ -195,6 +218,49 @@ class _SyncAlertBanner extends StatelessWidget {
         ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.push('/settings/sync'),
+      ),
+    );
+  }
+}
+
+/// Avviso quando il budget del mese ha raggiunto/superato il 90% (soglia
+/// fissa, M40) — un solo banner per "quasi esaurito" e "già sforato", per
+/// non moltiplicare gli stati. A differenza di [_SyncAlertBanner] è
+/// richiudibile: chiuderlo lo nasconde per il resto del mese corrente
+/// (Settings, `budgetAlertDismissedMonthSettingsKey`), riappare da solo al
+/// mese successivo o se il budget viene alzato e poi speso di nuovo oltre
+/// soglia (il confronto è solo sul mese, non sul valore di usedPct).
+class _BudgetThresholdBanner extends ConsumerWidget {
+  const _BudgetThresholdBanner({required this.summary, required this.monthKey});
+
+  final HomeBudgetSummary summary;
+  final String monthKey;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final over = summary.isOverBudget;
+    final colorScheme = Theme.of(context).colorScheme;
+    final bg = over ? colorScheme.errorContainer : AppTheme.warningContainer(context);
+    final fg = over ? colorScheme.onErrorContainer : AppTheme.onWarningContainer(context);
+    final pct = (summary.usedPct * 100).round();
+    return Card(
+      color: bg,
+      child: ListTile(
+        leading: Icon(Icons.warning_amber_rounded, color: fg),
+        title: Text(
+          over ? 'Budget superato' : 'Budget quasi esaurito',
+          style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          'Hai usato il $pct% del budget di questo mese.',
+          style: TextStyle(color: fg.withValues(alpha: 0.85)),
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.close, color: fg),
+          tooltip: 'Chiudi per questo mese',
+          onPressed: () => ref.read(dismissBudgetAlertProvider)(monthKey),
+        ),
+        onTap: () => context.go('/budget'),
       ),
     );
   }

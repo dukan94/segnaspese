@@ -1504,6 +1504,45 @@ controllo)*
   lanciata due volte durante il giro per verifiche mirate (dopo il bump
   ML Kit, dopo il bump fl_chart).
 
+**M40 — ✅ Completata — Home: avviso soglia budget**
+*(richiesto da Mario, 18 ago 2026, tra le migliorie proposte)*
+- Problema: "Budget utilizzato: X%" era già visibile nella card "Saldo
+  Budget" in Home, ma solo come informazione passiva (bisognava guardarla)
+  — nessun avviso proattivo quando ci si avvicina o si supera il budget del
+  mese.
+- Decisioni prese con Mario (tra le opzioni proposte):
+  - **Soglia fissa 90%** (`budgetAlertThreshold` in `budget_providers.dart`),
+    non configurabile in UI — stesso principio "solo l'essenziale" già
+    seguito altrove. Un solo banner copre sia "quasi esaurito" (90-99%) sia
+    "già sforato" (≥100%), colore diverso (`AppTheme.warningContainer`
+    vs `colorScheme.errorContainer`) invece di duplicare gli stati.
+  - **Richiudibile**, a differenza del banner di sync esistente
+    (`_SyncAlertBanner`, mai richiudibile): chiuderlo lo nasconde solo per
+    il mese corrente (nuova chiave Settings locale,
+    `budgetAlertDismissedMonthSettingsKey`, **non** aggiunta alla whitelist
+    di sync in `turso_sync_service.dart` — stato del banner, non un dato
+    reale, stesso principio dell'ordine manuale categorie). Riappare da
+    solo al mese successivo, confronto per uguaglianza esatta sul mese
+    (non un "prima o dopo": chiudere vale solo per lo specifico mese
+    chiuso).
+- **Implementazione**: `shouldShowBudgetAlert` (`budget_providers.dart`),
+  funzione pura testabile — stesso principio di `buildDashboardData` (M33).
+  `_BudgetThresholdBanner` in `home_page.dart` (nuova classe, mirror di
+  `_SyncAlertBanner`: `Card` > `ListTile`, icona `warning_amber_rounded`,
+  tap sulla riga naviga a `/budget`, `IconButton` di chiusura a parte nel
+  `trailing` così non interferisce col tap di navigazione).
+- **Verificato**: 7 nuovi test unitari su `shouldShowBudgetAlert`
+  (`test/budget_alert_test.dart`) — nessun budget, sotto/sopra/esattamente
+  alla soglia, sforato, chiuso per il mese corrente, chiuso per un mese
+  diverso (riappare). `flutter analyze` pulito, 187/187 test (180 + 7).
+  Verificato anche a runtime con build Windows reale sul database vero di
+  Mario (budget al 74%, sotto soglia): il banner correttamente non appare,
+  nessun errore/crash con il nuovo provider Settings. Non riprodotto a
+  schermo l'aspetto del banner attivo (avrebbe richiesto alterare
+  artificialmente lo speso del budget reale di agosto) — copertura affidata
+  ai test unitari sulla soglia più il riuso di stili (`warningContainer`,
+  layout `Card`/`ListTile`) già verificati altrove nell'app.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
