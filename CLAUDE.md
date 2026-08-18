@@ -813,7 +813,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M38 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M39 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -891,7 +891,12 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   seconda istanza su Windows (M38)**: mutex Win32 nativo in
   `windows/runner/main.cpp`, v. sezione "Migrazioni schema locale" sopra
   per il dettaglio — chiude alla radice la causa nota di una migrazione
-  interrotta a metà. **CI
+  interrotta a metà. **Aggiornamento dipendenze rimasto da M24 (M39)**:
+  `fl_chart` 0.68→1.2, `google_mlkit_text_recognition` 0.13→0.17,
+  `flutter_lints` 4→6 — nessuna modifica al codice necessaria, verificato
+  anche a runtime (grafici Dashboard) con build Windows reale. `camera`
+  (dipendenza morta) resta apposta fuori da questo giro, da rimuovere a
+  parte. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).
