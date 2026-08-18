@@ -377,9 +377,29 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
   /// [softDeleteCategory] (che a sua volta soft-deleta a cascata le sue
   /// sottocategorie, ormai senza dati collegati). Lancia se [sourceId] ha
   /// ancora sottocategorie bloccanti: v. [categoryHasBlockingSubCategories].
+  ///
+  /// Verifica anche che [targetId] esista, sia attiva e dello stesso tipo
+  /// (Uscita/Entrata) di [sourceId]: oggi l'unico chiamante (il picker in
+  /// `categories_manage_page.dart`) filtra già correttamente, ma senza
+  /// questo controllo qui il DAO riassegnerebbe silenziosamente
+  /// transazioni/budget reali su una categoria del tipo sbagliato o già
+  /// cancellata, se mai chiamato da un percorso che non pre-filtra.
   Future<void> mergeCategoryInto({required int sourceId, required int targetId}) async {
     if (sourceId == targetId) {
       throw ArgumentError('Categoria di origine e destinazione coincidono');
+    }
+    final source = await getCategoryById(sourceId);
+    if (source == null || source.isDeleted) {
+      throw StateError('Categoria di origine non trovata');
+    }
+    final target = await getCategoryById(targetId);
+    if (target == null || target.isDeleted) {
+      throw StateError('Categoria di destinazione non trovata');
+    }
+    if (target.type != source.type) {
+      throw ArgumentError(
+        'Categoria di origine e destinazione devono essere dello stesso tipo (Uscita/Entrata)',
+      );
     }
     if (await categoryHasBlockingSubCategories(sourceId)) {
       throw StateError(
@@ -408,13 +428,32 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
   /// [targetId] (categoria E sottocategoria, dato che la destinazione può
   /// appartenere a una categoria padre diversa — v. incidente Salute in
   /// CLAUDE.md), poi elimina [sourceId] con [softDeleteSubCategory].
+  ///
+  /// Verifica anche che origine e destinazione esistano/siano attive e che
+  /// le rispettive categorie padre siano dello stesso tipo (Uscita/Entrata)
+  /// — stesso principio di [mergeCategoryInto]: un cambio di parent è
+  /// voluto (Salute→Viaggio), un cambio di tipo Uscita/Entrata no.
   Future<void> mergeSubCategoryInto({required int sourceId, required int targetId}) async {
     if (sourceId == targetId) {
       throw ArgumentError('Sottocategoria di origine e destinazione coincidono');
     }
+    final source = await getSubCategoryById(sourceId);
+    if (source == null || source.isDeleted) {
+      throw StateError('Sottocategoria di origine non trovata');
+    }
     final target = await getSubCategoryById(targetId);
-    if (target == null) {
+    if (target == null || target.isDeleted) {
       throw StateError('Sottocategoria di destinazione non trovata');
+    }
+    final sourceCategory = await getCategoryById(source.categoryId);
+    final targetCategory = await getCategoryById(target.categoryId);
+    if (sourceCategory == null || targetCategory == null) {
+      throw StateError('Categoria collegata non trovata');
+    }
+    if (targetCategory.type != sourceCategory.type) {
+      throw ArgumentError(
+        'Sottocategoria di origine e destinazione devono appartenere a categorie dello stesso tipo (Uscita/Entrata)',
+      );
     }
     final now = DateTime.now();
     await transaction(() async {

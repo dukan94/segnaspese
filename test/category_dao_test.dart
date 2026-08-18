@@ -16,12 +16,12 @@ void main() {
 
   tearDown(() => db.close());
 
-  Future<int> insertCategory(String name) {
+  Future<int> insertCategory(String name, {TransactionKind type = TransactionKind.expense}) {
     return db.into(db.categories).insert(
           CategoriesCompanion.insert(
             name: name,
             icon: '🏷️',
-            type: TransactionKind.expense,
+            type: type,
             color: 0xFF000000,
           ),
         );
@@ -361,6 +361,63 @@ void main() {
       expect(
         () => db.categoryDao.mergeSubCategoryInto(sourceId: bollette, targetId: bollette),
         throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test(
+        'mergeCategoryInto rifiuta se origine e destinazione non sono dello '
+        'stesso tipo (Uscita/Entrata)', () async {
+      final casa = await insertCategory('Casa', type: TransactionKind.expense);
+      final stipendio = await insertCategory('Stipendio', type: TransactionKind.income);
+
+      expect(
+        () => db.categoryDao.mergeCategoryInto(sourceId: casa, targetId: stipendio),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('mergeCategoryInto rifiuta se la destinazione non esiste', () async {
+      final casa = await insertCategory('Casa');
+
+      expect(
+        () => db.categoryDao.mergeCategoryInto(sourceId: casa, targetId: 999999),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('mergeCategoryInto rifiuta se la destinazione è già cancellata', () async {
+      final casa = await insertCategory('Casa');
+      final auto = await insertCategory('Auto');
+      await db.categoryDao.softDeleteCategory(auto);
+
+      expect(
+        () => db.categoryDao.mergeCategoryInto(sourceId: casa, targetId: auto),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test(
+        'mergeSubCategoryInto rifiuta se le categorie padre non sono dello '
+        'stesso tipo (Uscita/Entrata), anche con parent diverso dalla sorgente',
+        () async {
+      final casa = await insertCategory('Casa', type: TransactionKind.expense);
+      final stipendio = await insertCategory('Stipendio', type: TransactionKind.income);
+      final bollette = await insertSubCategory(casa, 'Bollette');
+      final mensile = await insertSubCategory(stipendio, 'Mensile');
+
+      expect(
+        () => db.categoryDao.mergeSubCategoryInto(sourceId: bollette, targetId: mensile),
+        throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('mergeSubCategoryInto rifiuta se la destinazione non esiste', () async {
+      final casa = await insertCategory('Casa');
+      final bollette = await insertSubCategory(casa, 'Bollette');
+
+      expect(
+        () => db.categoryDao.mergeSubCategoryInto(sourceId: bollette, targetId: 999999),
+        throwsA(isA<StateError>()),
       );
     });
   });

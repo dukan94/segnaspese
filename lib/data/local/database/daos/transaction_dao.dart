@@ -1,9 +1,18 @@
 import 'package:drift/drift.dart';
 
+import '../../../../domain/services/money_rounding.dart';
 import '../app_database.dart';
 import '../tables/transactions_table.dart';
 
 part 'transaction_dao.g.dart';
+
+/// Esegue l'escape dei metacaratteri jolly di SQL LIKE (`%`, `_`) e del
+/// carattere di escape stesso, così una ricerca testuale può contenere
+/// questi caratteri alla lettera invece di essere interpretata come
+/// pattern — va sempre usato insieme a `like(..., escapeChar: r'\')`.
+String _escapeLikePattern(String input) {
+  return input.replaceAll(r'\', r'\\').replaceAll('%', r'\%').replaceAll('_', r'\_');
+}
 
 /// Accesso ai dati grezzi (righe Drift) della tabella [Transactions].
 ///
@@ -45,14 +54,11 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     double? amount,
     DateTime? date,
     String? note,
-  }) {
+  }) async {
     final query = select(transactions)..where((t) => t.isDeleted.equals(false));
 
     if (categoryId != null) {
       query.where((t) => t.categoryId.equals(categoryId));
-    }
-    if (amount != null) {
-      query.where((t) => t.amount.equals(amount));
     }
     if (date != null) {
       final startOfDay = DateTime(date.year, date.month, date.day);
@@ -62,11 +68,24 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
           t.date.isSmallerThanValue(endOfDay));
     }
     if (note != null && note.isNotEmpty) {
-      query.where((t) => t.note.like('%$note%'));
+      // Escape dei caratteri jolly SQL (% e _) prima di incorniciare con i
+      // "%" veri della ricerca: senza questo, una nota che contiene uno di
+      // questi caratteri alla lettera (comune nelle causali bancarie, es.
+      // "50%_SCONTO") verrebbe interpretata come pattern invece che come
+      // testo letterale.
+      query.where((t) => t.note.like('%${_escapeLikePattern(note)}%', escapeChar: r'\'));
     }
 
     query.orderBy([(t) => OrderingTerm.desc(t.date)]);
-    return query.get();
+    final results = await query.get();
+    if (amount == null) return results;
+    // Confronto sull'importo arrotondato al centesimo, non uguaglianza
+    // esatta su double: due importi visivamente identici possono differire
+    // per rumore di rappresentazione binaria (stesso principio di
+    // transaction_duplicate_finder.dart), altrimenti l'avviso "possibile
+    // doppione" in "Nuova Operazione" non scatterebbe per un doppione reale.
+    final roundedAmount = roundToCents(amount);
+    return results.where((t) => roundToCents(t.amount) == roundedAmount).toList();
   }
 
   Future<Transaction?> getById(int id) {

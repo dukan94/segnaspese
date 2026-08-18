@@ -42,6 +42,17 @@ void main() {
     expect(row.subCategoryName, 'Ristorante / Uscita');
   });
 
+  test(
+      'una data con un giorno che non esiste nel mese (31/04) è segnalata '
+      'come riga non valida, non normalizzata silenziosamente all\'1 maggio',
+      () {
+    const csv = 'Data;Quanto;Sub Categoria\n'
+        '31/04/2026;10,00 €;Ristorante / Uscita';
+    final row = parser.parse(csv).rows.single;
+    expect(row.error, isNotNull);
+    expect(row.date, isNull);
+  });
+
   test('intestazione senza colonne obbligatorie → errore', () {
     const csv = 'Colonna1;Colonna2\na;b';
     final result = parser.parse(csv);

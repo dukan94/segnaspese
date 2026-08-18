@@ -86,6 +86,63 @@ void main() {
     expect(remoteRow['category_sync_id'], categorySyncId);
   });
 
+  test(
+    'push: due transazioni della stessa categoria in un solo giro risolvono '
+    'entrambe correttamente il category_sync_id (cache condivisa nel giro)',
+    () async {
+      await insertLocalTransaction(syncId: 'local-1', amount: 10);
+      await insertLocalTransaction(syncId: 'local-2', amount: 20);
+
+      await sync.syncNow();
+
+      expect(fakeClient.tables['sync_transactions']?['local-1']?['category_sync_id'],
+          categorySyncId);
+      expect(fakeClient.tables['sync_transactions']?['local-2']?['category_sync_id'],
+          categorySyncId);
+    },
+  );
+
+  test(
+    'push: una categoria creata DOPO il primo giro di sync viene comunque '
+    'risolta correttamente in un secondo giro (la cache non resta '
+    'valida tra un syncNow() e l\'altro)',
+    () async {
+      await insertLocalTransaction(syncId: 'local-1', amount: 10);
+      await sync.syncNow();
+
+      // Categoria creata SOLO dopo il primo giro: se la cache del primo giro
+      // restasse valida (bug), questa non verrebbe mai vista e la
+      // transazione sotto non avanzerebbe mai (categorySyncId null ->
+      // _pushTransactions la salta silenziosamente, v. `if (categorySyncId
+      // == null) continue`).
+      const nuovaCategorySyncId = 'cat-sync-2';
+      final nuovaCategoriaId = await db.into(db.categories).insert(
+            CategoriesCompanion.insert(
+              name: 'Auto',
+              icon: '🚗',
+              type: TransactionKind.expense,
+              color: 0xFF000000,
+              syncId: const Value(nuovaCategorySyncId),
+            ),
+          );
+      await db.into(db.transactions).insert(
+            TransactionsCompanion.insert(
+              date: DateTime(2026, 7, 24),
+              amount: 30,
+              type: TransactionKind.expense,
+              categoryId: nuovaCategoriaId,
+              syncId: const Value('local-2'),
+              updatedAt: Value(DateTime(2020, 1, 1)),
+            ),
+          );
+
+      await sync.syncNow();
+
+      expect(fakeClient.tables['sync_transactions']?['local-2']?['category_sync_id'],
+          nuovaCategorySyncId);
+    },
+  );
+
   test('pull: una transazione remota mai vista viene inserita in locale', () async {
     final updatedAt = DateTime(2026, 7, 25).millisecondsSinceEpoch;
     fakeClient.tables['sync_transactions'] = {
@@ -175,6 +232,71 @@ void main() {
       final remoteDuplicate = fakeClient.tables['sync_transactions']!['remote-duplicate']!;
       expect(remoteDuplicate['is_deleted'], 1,
           reason: 'il doppione remoto va segnalato cancellato così converge sugli altri device');
+    },
+  );
+
+  test(
+    'pull: un rimborso ricevuto prima della sua spesa originale non perde '
+    'il collegamento (non avanza la filigrana finché non è risolvibile)',
+    () async {
+      final expenseUpdatedAt = DateTime(2026, 7, 20).millisecondsSinceEpoch;
+      final refundUpdatedAt = DateTime(2026, 7, 21).millisecondsSinceEpoch;
+      // L'ordine di inserimento nella mappa (LinkedHashMap) determina
+      // l'ordine di iterazione del fake client: il rimborso arriva PRIMA
+      // della spesa a cui è collegato, come può capitare con un pull reale
+      // se le righe non arrivano in ordine cronologico.
+      fakeClient.tables['sync_transactions'] = {
+        'refund-1': {
+          'sync_id': 'refund-1',
+          'date': DateTime(2026, 7, 21).millisecondsSinceEpoch,
+          'amount': 10.0,
+          'type': TransactionKind.expense.index,
+          'category_sync_id': categorySyncId,
+          'sub_category_sync_id': subCategorySyncId,
+          'note': 'Rimborso cena',
+          'is_extraordinary': 0,
+          'is_refund': 1,
+          'recurring_sync_id': null,
+          'refund_of_sync_id': 'expense-1',
+          'updated_at': refundUpdatedAt,
+          'is_deleted': 0,
+        },
+        'expense-1': {
+          'sync_id': 'expense-1',
+          'date': DateTime(2026, 7, 20).millisecondsSinceEpoch,
+          'amount': 25.0,
+          'type': TransactionKind.expense.index,
+          'category_sync_id': categorySyncId,
+          'sub_category_sync_id': subCategorySyncId,
+          'note': 'Cena',
+          'is_extraordinary': 0,
+          'is_refund': 0,
+          'recurring_sync_id': null,
+          'refund_of_sync_id': null,
+          'updated_at': expenseUpdatedAt,
+          'is_deleted': 0,
+        },
+      };
+
+      await sync.syncNow();
+
+      // Solo la spesa deve essere arrivata: il rimborso non è ancora
+      // risolvibile (la spesa non era ancora locale nell'ordine di
+      // iterazione) e va riprovato al giro successivo, non inserito con
+      // refundOfId null.
+      var rows = await db.select(db.transactions).get();
+      expect(rows, hasLength(1));
+      expect(rows.single.syncId, 'expense-1');
+
+      await sync.syncNow();
+
+      rows = await db.select(db.transactions).get();
+      expect(rows, hasLength(2));
+      final refund = rows.firstWhere((t) => t.syncId == 'refund-1');
+      final expense = rows.firstWhere((t) => t.syncId == 'expense-1');
+      expect(refund.refundOfId, expense.id,
+          reason: 'il rimborso deve risultare collegato alla spesa una volta '
+              'che questa è disponibile in locale, non restare orfano per sempre');
     },
   );
 
