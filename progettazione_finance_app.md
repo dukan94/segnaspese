@@ -1672,6 +1672,47 @@ ti fermare alle prime occorrenze")*
   business). Build Windows release reale compilata più volte durante il
   giro, l'ultima a fix conclusi.
 
+**M43 — ✅ Completata — Admin: backup completo con un click**
+*(richiesto da Mario, 18 ago 2026, tra le migliorie proposte)*
+- Problema: ogni backup del database prima di un'operazione rischiosa
+  (numerosi in CLAUDE.md, es. `finance_app.sqlite.backup-2026-08-17-pre-
+  m35-merchants-removal`) era fatto a mano, di solito da terminale/script
+  Dart usa-e-getta — nessun modo dall'app stessa.
+- **Nuovo servizio** `data/services/database_backup_service.dart`
+  (`DatabaseBackupService`, esposto via `databaseBackupServiceProvider` in
+  `core/di/database_backup_providers.dart`, stesso schema di
+  `SafeTransactionDeletionService`): copia grezza del file `.sqlite`
+  locale, nessuna cifratura/trasformazione — lo stesso file che l'app usa
+  per riaprire il database. Sicura senza precauzioni aggiuntive perché il
+  database **non usa WAL** (verificato in `app_database.dart`,
+  `_openConnection`: `NativeDatabase.createInBackground` senza `setup:`
+  che imposti `PRAGMA journal_mode = WAL`) — nessun file `-wal`/`-shm` con
+  dati non ancora nel file principale di cui preoccuparsi.
+  - Percorso del file estratto in una funzione condivisa
+    (`resolveDatabaseFile()` in `app_database.dart`, usata sia da
+    `_openConnection` sia dal nuovo servizio) invece di duplicare la
+    logica "cartella application support + nome file" una seconda volta.
+  - Nome file proposto con data **e ora** (`Tally-backup-2026-08-18-
+    1627.sqlite`), non solo la data: non sovrascrive per errore un backup
+    fatto poco prima nella stessa giornata.
+- **UI**: nuova sezione "Backup completo" in Admin (tra Import CSV e
+  Google Sheet), un pulsante "Esporta backup completo" — stesso pattern
+  di salvataggio file già usato dall'export CSV (`export_page.dart`):
+  `FilePicker.saveFile()` con i byte passati direttamente (li scrive già
+  il plugin su Android/iOS), su desktop `saveFile` restituisce solo il
+  percorso scelto e tocca scrivere il file a mano.
+- **Verificato**: 2 nuovi test unitari su `suggestedFileName` (unica vera
+  logica del servizio — la lettura del file è wiring sottile, non testata
+  a parte, stesso principio già seguito per il trigger di sync in
+  `addTransactionProvider`, M32/M42). `flutter analyze` pulito, **209/209
+  test**. Verificato anche end-to-end con build Windows reale sul database
+  vero di Mario: cliccato il pulsante, compare la finestra "Salva backup
+  completo" di Windows col nome file già proposto, salvato in Download,
+  confermato che il file scritto (577.536 byte, stessa dimensione
+  dell'originale) è un `.sqlite` valido — `PRAGMA integrity_check` → `ok`,
+  1910 transazioni totali/700 attive lette correttamente dal backup
+  stesso. File di test rimosso subito dopo la verifica.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

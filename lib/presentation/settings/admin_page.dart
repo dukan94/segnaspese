@@ -1,8 +1,12 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/di/category_providers.dart';
+import '../../core/di/database_backup_providers.dart';
 import '../../core/di/google_sheets_providers.dart';
 import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
@@ -35,6 +39,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
   bool _busy = false;
   bool _alreadyConfigured = false;
   _SheetsTestStatus _testStatus = _SheetsTestStatus.unknown;
+  bool _backupBusy = false;
 
   final _deleteSearchController = TextEditingController();
   String _deleteQuery = '';
@@ -239,6 +244,45 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     }
   }
 
+  /// Backup completo del database (M43): stesso pattern di salvataggio file
+  /// già usato dall'export CSV (`export_page.dart`) — su mobile il plugin
+  /// scrive già il file dai byte passati, su desktop `saveFile` restituisce
+  /// solo il percorso scelto e tocca a noi scrivere.
+  Future<void> _exportBackup() async {
+    setState(() => _backupBusy = true);
+    try {
+      final service = ref.read(databaseBackupServiceProvider);
+      final bytes = await service.readDatabaseBytes();
+      final fileName = service.suggestedFileName(DateTime.now());
+
+      final uri = await FilePicker.saveFile(
+        dialogTitle: 'Salva backup completo',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['sqlite'],
+        bytes: bytes,
+      );
+
+      if (!mounted) return;
+      if (uri == null) {
+        setState(() => _backupBusy = false); // annullato dall'utente
+        return;
+      }
+
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        await File(uri.toFilePath()).writeAsBytes(bytes, flush: true);
+      }
+
+      if (!mounted) return;
+      setState(() => _backupBusy = false);
+      showSuccessSnackBar(context, 'Backup esportato');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _backupBusy = false);
+      showErrorSnackBar(context, 'Errore durante l\'esportazione del backup: $e');
+    }
+  }
+
   Future<void> _toggleGoogleSheetsEnabled(bool value) async {
     try {
       await ref.read(setGoogleSheetsEnabledProvider)(value);
@@ -311,6 +355,29 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/import'),
               ),
+            ),
+            const _AdminSectionDivider(),
+            Text('Backup completo', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Salva una copia dell\'intero database locale in un file, così '
+              'non serve più uno script improvvisato prima di un\'operazione '
+              'rischiosa. Nessuna cifratura: contiene tutti i tuoi dati, tienilo '
+              'al sicuro.',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: _backupBusy ? null : _exportBackup,
+              icon: _backupBusy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_alt_outlined),
+              label: Text(
+                  _backupBusy ? 'Esportazione...' : 'Esporta backup completo'),
             ),
             const _AdminSectionDivider(),
             Text('Google Sheet spese (temporaneo)',
