@@ -7,6 +7,7 @@ import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/local/database/app_database.dart';
 import '../../../domain/entities/transaction_entity.dart';
+import '../../../domain/services/money_rounding.dart';
 import '../../../domain/usecases/transaction/build_split_refund.dart';
 
 /// Bottom sheet "Rimborso con divisore" (M25): da una spesa esistente, crea
@@ -55,7 +56,7 @@ class _SplitRefundSheetContentState
   double? get _quota {
     final divisor = _divisor;
     if (divisor == null || divisor < 2) return null;
-    return (widget.expense.amount / divisor * 100).round() / 100;
+    return roundToCents(widget.expense.amount / divisor);
   }
 
   @override

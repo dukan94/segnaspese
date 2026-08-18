@@ -813,7 +813,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M41 completate** (v. `progettazione_finance_app.md` sezione 6 per
+- **M0–M42 completate** (v. `progettazione_finance_app.md` sezione 6 per
   il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -903,11 +903,22 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   stato "chiuso" in una chiave Settings locale non sincronizzata.
   **Rimozione `camera` (M41)**: dipendenza morta (mai importata, residuo
   pre-`image_picker` di M3), tolta dal `pubspec.yaml` insieme alle sue 4
-  implementazioni per piattaforma mai usate. **CI
+  implementazioni per piattaforma mai usate. **Audit completo del codice
+  (M42)**: 10 findings da un audit con lo skill `code-review` su `lib/` a
+  copertura massima, risolti in ordine di gravità — il più rilevante, un
+  rimborso che perdeva il collegamento per sempre se pullato prima della
+  sua spesa (`turso_sync_service.dart`, contraddiceva il commento nel
+  codice stesso), più altri 3 bug di uguaglianza esatta su double invece
+  di arrotondata (stessa classe dell'incidente dei 554 doppioni), un gap
+  nel trigger di sync immediata M32 sull'import estratto conto, e
+  un'ottimizzazione mirata della cache FK nel motore di sync (solo lato
+  push, mai lato pull — v. M42 in `progettazione_finance_app.md` per il
+  perché di questa distinzione, importante se si tocca ancora quel file).
+  **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).
-- Test in `test/` (28 file, 187 test): parser CSV, receipt parser, rule
+- Test in `test/` (29 file, 207 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -931,7 +942,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (`dashboard_data_test.dart`, M33 — logica di aggregazione estratta in
   una funzione pura apposta per essere testabile), avviso soglia budget
   (`budget_alert_test.dart`, M40 — stesso principio: logica di soglia
-  estratta in `shouldShowBudgetAlert`) + 1 smoke widget test.
+  estratta in `shouldShowBudgetAlert`), arrotondamento importi centralizzato
+  (`money_rounding_test.dart`, M42 — unico punto (`roundToCents`) per una
+  formula prima duplicata in 3 file) + 1 smoke widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)
 

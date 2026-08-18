@@ -1,4 +1,5 @@
 import '../../entities/transaction_entity.dart';
+import '../../services/money_rounding.dart';
 
 /// Costruisce l'entità di un rimborso "quota" da una spesa esistente
 /// (M25): l'importo è quello della spesa diviso per [divisor], categoria e
@@ -41,7 +42,7 @@ class BuildSplitRefund {
 
     return TransactionEntity(
       date: today,
-      amount: _round2(expense.amount / divisor),
+      amount: roundToCents(expense.amount / divisor),
       type: TransactionType.expense,
       categoryId: expense.categoryId,
       subCategoryId: expense.subCategoryId,
@@ -50,9 +51,4 @@ class BuildSplitRefund {
       refundOfId: expense.id,
     );
   }
-
-  /// Stesso arrotondamento già usato altrove per gli importi (v.
-  /// `bancoposta_statement_parser.dart`): evita errori di rappresentazione
-  /// binaria del double (es. 16.666666... da una divisione non esatta).
-  double _round2(double v) => (v * 100).round() / 100;
 }

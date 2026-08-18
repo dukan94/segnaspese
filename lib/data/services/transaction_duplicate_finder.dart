@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/services/money_rounding.dart';
 import '../local/database/app_database.dart';
 import '../local/database/tables/categories_table.dart';
 
@@ -49,7 +50,6 @@ Future<Transaction?> findContentDuplicateTransaction(
     ..where((t) =>
         t.isDeleted.equals(false) &
         t.date.equals(date) &
-        t.amount.equals(amount) &
         t.type.equalsValue(type) &
         t.categoryId.equals(categoryId) &
         t.isRefund.equals(isRefund) &
@@ -60,5 +60,14 @@ Future<Transaction?> findContentDuplicateTransaction(
         : t.subCategoryId.equals(subCategoryId))
     ..where((t) => note == null ? t.note.isNull() : t.note.equals(note));
   final matches = await query.get();
-  return matches.isEmpty ? null : matches.first;
+  // Confronto sull'importo arrotondato al centesimo, non uguaglianza esatta
+  // su double: due righe logicamente identiche possono differire per rumore
+  // di rappresentazione binaria (stesso principio di
+  // statement_duplicate_matcher.dart, scritto apposta per questo). Il
+  // filtro sull'importo resta in Dart, dopo la query, invece che nel WHERE
+  // SQL: più semplice che replicare l'arrotondamento in SQL, e il numero di
+  // righe candidate (stessa data/categoria/tipo) è comunque piccolo.
+  final roundedAmount = roundToCents(amount);
+  final sameAmount = matches.where((t) => roundToCents(t.amount) == roundedAmount);
+  return sameAmount.isEmpty ? null : sameAmount.first;
 }

@@ -80,6 +80,39 @@ void main() {
     expect(result.single.note, 'Bolletta luce');
   });
 
+  test(
+      'search per importo: trova anche se differisce per rumore di '
+      'rappresentazione binaria (40.799999999999997 vs 40.8)', () async {
+    await insertTransazione(
+        categoryId: categoriaCasa, amount: 40.799999999999997, date: DateTime(2025, 6, 1));
+
+    final result = await db.transactionDao.search(amount: 40.8);
+
+    expect(result, hasLength(1));
+  });
+
+  test('search per importo: non trova se differisce di un vero centesimo', () async {
+    await insertTransazione(categoryId: categoriaCasa, amount: 40.80, date: DateTime(2025, 6, 1));
+
+    final result = await db.transactionDao.search(amount: 40.81);
+
+    expect(result, isEmpty);
+  });
+
+  test(
+      'search per nota: un "%" o "_" letterale nel testo cercato non viene '
+      'interpretato come jolly SQL', () async {
+    await insertTransazione(
+        categoryId: categoriaCasa, amount: 10, date: DateTime(2025, 6, 1), note: '50%_SCONTO');
+    await insertTransazione(
+        categoryId: categoriaCasa, amount: 20, date: DateTime(2025, 6, 1), note: '50XYSCONTO');
+
+    final result = await db.transactionDao.search(note: '50%_SCONTO');
+
+    expect(result, hasLength(1));
+    expect(result.single.note, '50%_SCONTO');
+  });
+
   test('search combina i filtri in AND: categoria giusta ma importo sbagliato non trova nulla', () async {
     await insertTransazione(categoryId: categoriaCasa, amount: 50, date: DateTime(2025, 6, 1));
 

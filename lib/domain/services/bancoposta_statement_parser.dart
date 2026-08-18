@@ -5,6 +5,7 @@ import 'package:excel/excel.dart';
 import '../entities/parsed_statement_row.dart';
 import '../entities/transaction_entity.dart';
 import 'bank_statement_parser.dart';
+import 'money_rounding.dart';
 
 /// Parser dell'estratto conto Excel di Poste Italiane (BancoPosta), esportato
 /// da "Lista movimenti" nell'home banking.
@@ -68,20 +69,31 @@ class BancoPostaStatementParser implements BankStatementParser {
       Data? at(int i) => i < row.length ? row[i] : null;
 
       // Colonna 1 (Data Valuta), non 0 (Data Contabile) — v. commento di
-      // classe sopra.
-      final date = _date(at(1));
-      if (date == null) break; // fine dei dati
+      // classe sopra. Una cella VUOTA (nessun valore) segnala la vera fine
+      // dei dati; una cella CON un valore che non decodifica come data è
+      // invece una riga malformata (es. cella esportata come testo per una
+      // particolarità di locale/formato) — va solo saltata, non deve
+      // troncare l'import di tutte le righe successive.
+      final dateCell = at(1);
+      if (dateCell?.value == null) break; // riga vuota: fine dei dati
+      final date = _date(dateCell);
+      if (date == null) continue; // riga malformata: si salta, non è la fine del file
 
-      final debit = _amount(at(2));
-      final credit = _amount(at(3));
-      if (debit == null && credit == null) break; // riga vuota: fine dei dati
+      final debitCell = at(2);
+      final creditCell = at(3);
+      if (debitCell?.value == null && creditCell?.value == null) {
+        break; // riga vuota: fine dei dati
+      }
+      final debit = _amount(debitCell);
+      final credit = _amount(creditCell);
+      if (debit == null && credit == null) continue; // riga malformata: si salta
 
       final description = _text(at(4)).replaceAll(RegExp(r'\s+'), ' ').trim();
 
       rows.add(ParsedStatementRow(
         date: date,
         description: description,
-        amount: _round2((debit ?? credit)!),
+        amount: roundToCents((debit ?? credit)!),
         type: debit != null ? TransactionType.expense : TransactionType.income,
       ));
     }
@@ -96,11 +108,6 @@ class BancoPostaStatementParser implements BankStatementParser {
     if (v is DoubleCellValue) return v.value;
     return null;
   }
-
-  /// Arrotonda a 2 decimali: alcuni importi arrivano dal file come double con
-  /// errori di rappresentazione binaria (es. `40.799999999999997` invece di
-  /// `40.8`, osservato nel file reale del 5 ago 2026).
-  double _round2(double v) => (v * 100).round() / 100;
 
   DateTime? _date(Data? cell) {
     final v = cell?.value;

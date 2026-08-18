@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/di/merchant_rule_providers.dart';
 import '../../core/di/statement_import_providers.dart';
+import '../../core/di/sync_providers.dart';
 import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
@@ -197,6 +200,16 @@ class _StatementImportPageState extends ConsumerState<StatementImportPage> {
           note: r.note.isEmpty ? null : r.note,
         );
       }).toList());
+      // Stesso trattamento M32 di addTransactionProvider: senza questo, un
+      // import seguito da chiusura dell'app prima del prossimo tick (5 min)
+      // resta solo locale finché non capita una sync per altri motivi —
+      // qui non passa da quel provider (repo.addAll è un batch atomico,
+      // stesso motivo per cui non lo usa neanche l'import CSV di Admin).
+      unawaited(
+        ref.read(syncServiceProvider).syncNow().catchError((Object e, StackTrace s) {
+          debugPrint('Sync Turso fallita (dopo import estratto conto): $e\n$s');
+        }),
+      );
       if (!mounted) return;
       setState(() {
         _busy = false;

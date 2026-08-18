@@ -1568,6 +1568,110 @@ proposito dopo aver capito cos'era)*
   Android da questo PC (manca l'SDK, v. sezione dedicata sopra) — rischio
   comunque basso trattandosi di un pacchetto mai importato.
 
+**M42 — ✅ Completata — Audit completo del codice: 10 findings risolti**
+*(richiesto da Mario, 18 ago 2026: "fai un audit completo del codice, non
+ti fermare alle prime occorrenze")*
+- Eseguito con lo skill `code-review` puntato su `lib/` a livello massimo di
+  copertura. 10 findings, verificati a campione con lettura diretta del
+  codice (7/10 confermati leggendo il sorgente reale, incluso un caso in
+  cui il codice contraddiceva il proprio commento — "si risolve al sync
+  successivo" non era vero). Risolti tutti e 10, in ordine di gravità,
+  ognuno con `flutter analyze` + `flutter test` dopo la modifica prima di
+  passare al successivo, come richiesto da Mario ("risolvi, testa, risolvi
+  nuovamente").
+  1. **Rimborso pullato prima della spesa originale**
+     (`turso_sync_service.dart`): `refundOfId` restava `null` per sempre
+     invece di risolversi al giro successivo come diceva il commento — la
+     filigrana avanzava comunque oltre la riga non risolvibile. Fix: stesso
+     trattamento già riservato a `categoryId` (non avanzare la filigrana
+     finché il riferimento non è risolvibile), esteso a `refundOfId` quando
+     è effettivamente presente sul remoto. Nuovo test: rimborso e spesa in
+     ordine invertito nello stesso pull, verificato che il collegamento si
+     stabilisca al giro successivo.
+  2. **Uguaglianza esatta su double nel dedup di sync**
+     (`transaction_duplicate_finder.dart`): confrontava gli importi con
+     `t.amount.equals(amount)` invece di arrotondare al centesimo, a
+     differenza di `statement_duplicate_matcher.dart` scritto apposta per
+     questo — stessa classe di bug dell'incidente reale dei 554 doppioni
+     dell'1 ago 2026. Fix: filtro sull'importo spostato in Dart dopo la
+     query, confronto arrotondato. 2 nuovi test (rumore binario riconosciuto
+     come duplicato, un vero centesimo di differenza no).
+  3. **Unione categorie senza verifica tipo/esistenza**
+     (`category_dao.dart`): `mergeCategoryInto`/`mergeSubCategoryInto` non
+     verificavano che la destinazione esistesse, fosse attiva, o dello
+     stesso tipo (Uscita/Entrata) della sorgente — l'unica protezione era il
+     filtro lato UI. Fix: entrambi i metodi ora verificano origine e
+     destinazione (esistenza, stato attivo, stesso `TransactionKind`) prima
+     di procedere. 6 nuovi test.
+  4. **Import estratto conto senza sync immediata**
+     (`statement_import_page.dart`): scriveva con
+     `transactionRepositoryProvider.addAll(...)` invece di
+     `addTransactionProvider`, quindi non attivava il trigger di sync
+     immediata di M32 — un gap non nell'elenco delle esclusioni documentate
+     (solo CSV Admin e ricorrenze). Fix: aggiunto lo stesso trigger
+     fire-and-forget (`unawaited(syncService.syncNow()...)`) dopo il
+     salvataggio, stesso pattern di `addTransactionProvider`.
+  5. **Riga malformata tronca l'import BancoPosta**
+     (`bancoposta_statement_parser.dart`): una cella Data Valuta o
+     addebito/accredito non decodificabile veniva trattata come "fine dei
+     dati" (break) invece che come una singola riga da saltare, perdendo
+     silenziosamente tutte le righe successive. Fix: distinzione tra cella
+     VUOTA (vera fine dati, `break`) e cella CON un valore che non decodifica
+     (riga malformata, `continue`). 2 nuovi test.
+  6. **Ricerca per nota senza escape dei jolly SQL**
+     (`transaction_dao.dart`): `t.note.like('%$note%')` non faceva l'escape
+     di `%`/`_`, interpretati come jolly invece che caratteri letterali (es.
+     causali bancarie tipo "50%_SCONTO"). Fix: nuovo helper
+     `_escapeLikePattern` + `escapeChar` sul `.like()` di Drift (supportato
+     dalla versione in uso, 2.34.3). 1 nuovo test.
+  7. **Stessa uguaglianza esatta nel controllo doppioni di "Nuova
+     Operazione"** (`transaction_dao.dart`, stesso file/metodo del punto 6):
+     stessa classe di bug del punto 2, ma sul lato UI del form. Fix
+     identico (confronto arrotondato in Dart). 2 nuovi test.
+  8. **Date invalide nel CSV normalizzate in silenzio**
+     (`csv_transaction_parser.dart`): `_parseDate` validava giorno/mese come
+     range indipendenti (1-31, 1-12) senza controllare che il giorno
+     esistesse davvero in quel mese — `DateTime(y, m, 31)` con un mese da 30
+     giorni si normalizza silenziosamente al giorno successivo invece di
+     essere rifiutato. Fix: verifica che i componenti di `DateTime(y, m, d)`
+     coincidano con quelli richiesti dopo la costruzione. 1 nuovo test.
+  9. **Query per riga nel motore di sync invece di una mappa per ciclo**
+     (`turso_sync_service.dart`, efficienza): affrontato con cautela
+     (file più delicato dell'app, molti incidenti storici). Analisi:
+     `_categorySyncId`/`_subCategorySyncId`/`_recurringSyncId` sono chiamate
+     SOLO dai passi di push, che leggono le tabelle locali senza mai
+     scriverci — uno snapshot caricato in una sola query all'inizio del giro
+     resta valido per tutta la fase di push, azzerato a ogni nuovo
+     `syncNow()`. **`_transactionSyncId` volutamente esclusa dalla cache**:
+     è usata anche da `isTransactionDeletionConfirmedRemotely` (il controllo
+     di sicurezza per l'hard delete in Admin), chiamata anche fuori da un
+     ciclo di sync, dove servono sempre dati freschi. Il lato pull
+     (`_categoryIdFor`/`_subCategoryIdFor`/`_recurringIdFor`/
+     `_transactionIdFor`) resta **non cachato di proposito**: il pull
+     inserisce righe locali mentre gira (in modo autoreferenziale dentro
+     `_pullTransactions`, v. punto 1 sopra), una cache statica lì
+     rischierebbe di non vedere una riga appena inserita da un passo
+     precedente nello stesso giro. 2 nuovi test (due transazioni della
+     stessa categoria in un giro risolvono entrambe dalla cache; una
+     categoria creata DOPO un giro viene comunque risolta in quello
+     successivo, la cache non sopravvive tra due `syncNow()`).
+  10. **Formula di arrotondamento duplicata in 3 punti**
+      (`build_split_refund.dart`, `bancoposta_statement_parser.dart`,
+      `split_refund_sheet.dart`): stessa formula `(v * 100).round() / 100`
+      copiata identica in 3 file. Fix: estratta in
+      `domain/services/money_rounding.dart` (`roundToCents`), unico punto
+      per tutto il progetto — riusata anche dai punti 2 e 7 sopra per
+      coerenza, invece di lasciare lì un calcolo equivalente scritto a
+      mano. 4 nuovi test dedicati.
+- **Verificato nel complesso**: `flutter analyze` pulito e `flutter test`
+  dopo OGNI singolo fix (non solo alla fine), **207/207 test** (187 + 20
+  nuovi: 1+2+6+0+2+1+2+1+2+4 — il punto 4 non ha un test dedicato, stesso
+  motivo per cui non esiste per il trigger equivalente in
+  `addTransactionProvider`: nessuna copertura di test in questo progetto
+  per "è stata chiamata la sync in background", solo per la logica di
+  business). Build Windows release reale compilata più volte durante il
+  giro, l'ultima a fix conclusi.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

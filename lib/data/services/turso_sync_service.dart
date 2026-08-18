@@ -131,6 +131,15 @@ class TursoSyncService implements SyncService {
   /// Il giro di sync attualmente in corso, se ce n'è uno.
   Future<void>? _currentRun;
 
+  // --- Cache id->syncId per un singolo giro di sync, solo lato push (v.
+  // commento in _syncNowInner). _transactionSyncId ne resta fuori
+  // apposta: è usata anche da isTransactionDeletionConfirmedRemotely, un
+  // controllo di sicurezza chiamato anche fuori da un ciclo di sync, che
+  // deve sempre leggere lo stato più fresco possibile.
+  Map<int, String?>? _categorySyncIdCache;
+  Map<int, String?>? _subCategorySyncIdCache;
+  Map<int, String?>? _recurringSyncIdCache;
+
   @override
   Future<void> syncNow() async {
     // Se un giro è già in corso, NON ci accontentiamo del suo risultato: è
@@ -169,6 +178,21 @@ class TursoSyncService implements SyncService {
       return;
     }
     _setStatus(SyncStatus.syncing);
+
+    // Azzerate a ogni giro (mai riusate tra un syncNow() e l'altro: l'utente
+    // può modificare categorie/sottocategorie/ricorrenze tra due giri).
+    // Sicure SOLO per la fase di push qui sotto: il push legge le tabelle
+    // locali senza mai scriverci (scrive solo sul remoto), quindi uno
+    // snapshot preso ora resta valido per tutta la fase di push. La fase di
+    // pull invece INSERISCE righe locali mentre gira (anche in modo
+    // autoreferenziale dentro _pullTransactions, v. commento lì) — una
+    // cache statica lì rischierebbe di non vedere una riga appena inserita
+    // da un passo precedente nello stesso giro, quindi il lato pull
+    // (_categoryIdFor/_subCategoryIdFor/_recurringIdFor/_transactionIdFor)
+    // resta volutamente non cachato.
+    _categorySyncIdCache = null;
+    _subCategorySyncIdCache = null;
+    _recurringSyncIdCache = null;
 
     // Se la creazione delle tabelle remote fallisce, nessun passo successivo
     // può funzionare comunque: qui un errore blocca subito l'intero ciclo.
@@ -341,10 +365,17 @@ class TursoSyncService implements SyncService {
 
   // --- Traduzione FK locali <-> syncId remoti ---
 
+  /// Cache id->syncId di tutte le categorie, caricata in una sola query alla
+  /// prima chiamata di questo giro di sync invece di una query per riga (v.
+  /// commento su `_categorySyncIdCache` in `_syncNowInner`) — sicura solo
+  /// perché chiamata esclusivamente dai passi di push, che non scrivono mai
+  /// sulla tabella locale.
   Future<String?> _categorySyncId(int? id) async {
     if (id == null) return null;
-    final row = await (_db.select(_db.categories)..where((c) => c.id.equals(id))).getSingleOrNull();
-    return row?.syncId;
+    final cache = _categorySyncIdCache ??= {
+      for (final row in await _db.select(_db.categories).get()) row.id: row.syncId,
+    };
+    return cache[id];
   }
 
   Future<int?> _categoryIdFor(String? syncId) async {
@@ -353,11 +384,13 @@ class TursoSyncService implements SyncService {
     return row?.id;
   }
 
+  /// Stesso principio di [_categorySyncId].
   Future<String?> _subCategorySyncId(int? id) async {
     if (id == null) return null;
-    final row =
-        await (_db.select(_db.subCategories)..where((s) => s.id.equals(id))).getSingleOrNull();
-    return row?.syncId;
+    final cache = _subCategorySyncIdCache ??= {
+      for (final row in await _db.select(_db.subCategories).get()) row.id: row.syncId,
+    };
+    return cache[id];
   }
 
   Future<int?> _subCategoryIdFor(String? syncId) async {
@@ -367,11 +400,13 @@ class TursoSyncService implements SyncService {
     return row?.id;
   }
 
+  /// Stesso principio di [_categorySyncId].
   Future<String?> _recurringSyncId(int? id) async {
     if (id == null) return null;
-    final row = await (_db.select(_db.recurringTransactions)..where((r) => r.id.equals(id)))
-        .getSingleOrNull();
-    return row?.syncId;
+    final cache = _recurringSyncIdCache ??= {
+      for (final row in await _db.select(_db.recurringTransactions).get()) row.id: row.syncId,
+    };
+    return cache[id];
   }
 
   Future<int?> _recurringIdFor(String? syncId) async {
@@ -934,15 +969,19 @@ class TursoSyncService implements SyncService {
       // V. commento in _pullSubCategories: non avanzare la filigrana oltre
       // una riga il cui genitore non è ancora risolvibile.
       if (categoryId == null) continue;
-      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
       final subCategoryId = await _subCategoryIdFor(row['sub_category_sync_id'] as String?);
       final recurringId = await _recurringIdFor(row['recurring_sync_id'] as String?);
-      // NOTA: se il rimborso e la spesa originale arrivano nello stesso pull
-      // e la spesa non è ancora presente localmente, refundOfId resta null
-      // per questo giro (si risolve al sync successivo, quando la spesa
-      // originale sarà già stata inserita) — caso raro, non gestito con un
-      // secondo passaggio per non complicare il motore di sync.
-      final refundOfId = await _transactionIdFor(row['refund_of_sync_id'] as String?);
+      // Se il rimborso e la spesa originale arrivano nello stesso pull (o in
+      // ordine invertito) e la spesa non è ancora presente localmente,
+      // refundOfId non è ancora risolvibile: stesso trattamento di
+      // categoryId sopra, non avanzare la filigrana oltre questa riga,
+      // altrimenti il collegamento andrebbe perso per sempre (il
+      // watermark impedirebbe di riselezionarla ai pull successivi, anche
+      // quando la spesa originale sarà stata inserita nel frattempo).
+      final refundOfSyncId = row['refund_of_sync_id'] as String?;
+      final refundOfId = await _transactionIdFor(refundOfSyncId);
+      if (refundOfSyncId != null && refundOfId == null) continue;
+      if (maxUpdatedAt == null || updatedAt.isAfter(maxUpdatedAt)) maxUpdatedAt = updatedAt;
 
       final existing =
           await (_db.select(_db.transactions)..where((t) => t.syncId.equals(syncId))).getSingleOrNull();

@@ -124,6 +124,74 @@ void main() {
     expect(parser.parse(bytes), hasLength(1));
   });
 
+  test(
+      'una riga malformata a metà file (data non decodificabile, non vuota) '
+      'viene saltata invece di troncare le righe successive', () {
+    final bytes = _buildWorkbook(dataRows: [
+      [
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DoubleCellValue(1.26),
+        null,
+        TextCellValue('PAGAMENTO POS MD LISSONE'),
+      ],
+      [
+        // Cella Data Valuta con un valore non decodificabile come data
+        // (testo invece di data/seriale) — non una cella vuota: non deve
+        // essere confusa con la fine dei dati.
+        const DateCellValue(year: 2026, month: 8, day: 4),
+        TextCellValue('n/d'),
+        const DoubleCellValue(5.0),
+        null,
+        TextCellValue('Riga malformata'),
+      ],
+      [
+        const DateCellValue(year: 2026, month: 8, day: 5),
+        const DateCellValue(year: 2026, month: 8, day: 5),
+        const DoubleCellValue(2.0),
+        null,
+        TextCellValue('Riga dopo quella malformata, deve comunque comparire'),
+      ],
+    ]);
+
+    final rows = parser.parse(bytes);
+    expect(rows, hasLength(2));
+    expect(rows.map((r) => r.description),
+        containsAll(['PAGAMENTO POS MD LISSONE', contains('deve comunque comparire')]));
+  });
+
+  test(
+      'una riga malformata a metà file (addebito/accredito non decodificabile, '
+      'non vuoto) viene saltata invece di troncare le righe successive', () {
+    final bytes = _buildWorkbook(dataRows: [
+      [
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DateCellValue(year: 2026, month: 8, day: 3),
+        const DoubleCellValue(1.26),
+        null,
+        TextCellValue('PAGAMENTO POS MD LISSONE'),
+      ],
+      [
+        const DateCellValue(year: 2026, month: 8, day: 4),
+        const DateCellValue(year: 2026, month: 8, day: 4),
+        // Addebito non numerico (non vuoto): riga malformata, non fine dati.
+        TextCellValue('n/d'),
+        null,
+        TextCellValue('Riga malformata'),
+      ],
+      [
+        const DateCellValue(year: 2026, month: 8, day: 5),
+        const DateCellValue(year: 2026, month: 8, day: 5),
+        const DoubleCellValue(2.0),
+        null,
+        TextCellValue('Riga dopo quella malformata, deve comunque comparire'),
+      ],
+    ]);
+
+    final rows = parser.parse(bytes);
+    expect(rows, hasLength(2));
+  });
+
   test('numero variabile di righe vuote prima dell\'intestazione', () {
     final bytes = _buildWorkbook(
       blankRowsBeforeHeader: 3,

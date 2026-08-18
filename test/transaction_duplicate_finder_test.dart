@@ -95,6 +95,26 @@ void main() {
     expect(found, isNull);
   });
 
+  test(
+      'trova il duplicato anche se gli importi differiscono per rumore di '
+      'rappresentazione binaria (40.799999999999997 vs 40.8)', () async {
+    await insertTransaction(syncId: 'local-1', amount: 40.799999999999997);
+
+    final found = await find(excludeSyncId: 'remote-2', amount: 40.8);
+
+    expect(found, isNotNull);
+    expect(found!.syncId, 'local-1');
+  });
+
+  test('non trova nulla se gli importi differiscono di un vero centesimo',
+      () async {
+    await insertTransaction(syncId: 'local-1', amount: 40.80);
+
+    final found = await find(excludeSyncId: 'remote-2', amount: 40.81);
+
+    expect(found, isNull);
+  });
+
   test('non trova nulla se la nota è diversa', () async {
     await insertTransaction(syncId: 'local-1', note: 'Cena');
 

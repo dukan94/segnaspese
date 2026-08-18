@@ -179,7 +179,14 @@ class CsvTransactionParser {
     if (d == null || m == null || y == null) return null;
     if (y < 100) y += 2000;
     if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-    return DateTime(y, m, d);
+    final result = DateTime(y, m, d);
+    // Il controllo sopra valida solo i range indipendenti (1-12, 1-31), non
+    // che il giorno esista davvero in quel mese: DateTime normalizza in
+    // silenzio un giorno fuori range (es. 31/04 -> 1 maggio) invece di
+    // lanciare un'eccezione. Se i componenti del risultato non coincidono
+    // con quelli richiesti, la data non era valida.
+    if (result.year != y || result.month != m || result.day != d) return null;
+    return result;
   }
 
   double? _parseAmount(String s) {
