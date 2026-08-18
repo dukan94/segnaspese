@@ -272,6 +272,27 @@ class HomeBudgetSummary {
   bool get isOverBudget => budget != null && spent > budget!;
 }
 
+/// Soglia fissa (90%) per l'avviso budget in Home (M40) — non
+/// configurabile per ora, stessa scelta di semplicità già seguita altrove
+/// nel progetto (v. `_BudgetThresholdBanner` in `home_page.dart`).
+const double budgetAlertThreshold = 0.9;
+
+/// Logica pura (testabile) di quando mostrare l'avviso soglia budget:
+/// budget impostato, uso al 90% o oltre, e non già chiuso dall'utente per
+/// il mese corrente (`dismissedMonth` confrontato per uguaglianza esatta,
+/// non un "prima o dopo" — chiudere vale solo per lo specifico mese in cui
+/// è stato chiuso, riappare per qualunque mese diverso, incluso uno
+/// precedente non ancora chiuso).
+bool shouldShowBudgetAlert({
+  required HomeBudgetSummary summary,
+  required String currentMonthKey,
+  required String? dismissedMonth,
+}) {
+  return summary.hasBudget &&
+      summary.usedPct >= budgetAlertThreshold &&
+      dismissedMonth != currentMonthKey;
+}
+
 final homeBudgetSummaryProvider =
     Provider.autoDispose<AsyncValue<HomeBudgetSummary>>((ref) {
   final key = MonthKey.of(DateTime.now());
