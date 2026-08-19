@@ -1,11 +1,26 @@
 name: Analyze & Test
 
-# A differenza di android-build.yml (che compila l'APK solo su push a main),
-# questo workflow gira su ogni push e ogni PR, su qualunque branch: deve
-# far emergere errori di analisi/test prima del merge, non dopo.
+# Gira su ogni push, su qualunque branch: deve far emergere errori di
+# analisi/test prima del merge, non dopo (importante anche per il lavoro da
+# due PC in parallelo, v. CLAUDE.md "Come lavorare su questo progetto").
+# Niente `pull_request:`: non si usano mai PR in questo repo (mono-sviluppatore).
+#
+# paths-ignore: un commit di soli file .md non tocca codice Flutter, non
+# serve rigenerare/analizzare/testare nulla — non impedisce comunque il
+# push (git e trigger CI sono indipendenti), salta solo la run inutile.
+#
+# concurrency: se si pusha due volte di fila sullo STESSO branch (es.
+# iterando un fix), la run precedente ormai superata viene cancellata
+# invece di girare fino in fondo per un risultato che il push successivo
+# rimpiazza comunque. Raggruppato per branch (github.ref), non per repo:
+# non interferisce tra branch diversi lavorati in parallelo dai due PC.
 on:
   push:
-  pull_request:
+    paths-ignore: ['**.md']
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   analyze-and-test:

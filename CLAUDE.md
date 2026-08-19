@@ -676,6 +676,45 @@ controllo qualità, e costa molto meno in minuti.
   consumo automatico al solo `ci.yml`. Se ricompare questo tipo di errore
   ("Failed in 2 seconds" su ogni push, nessuno step eseguito): controllare
   prima la mail/notifica quota minuti Actions di GitHub, non il codice.
+- **Bug reale, pagamento fallito (19 ago 2026)**: `ci.yml` (job
+  `analyze-and-test`) non parte più nemmeno lui, con un messaggio diverso
+  dai due sopra: *"The job was not started because recent account payments
+  have failed or your spending limit needs to be increased."* — non è né
+  storage Artifacts né minuti mensili esauriti (che si azzerano da soli a
+  fine ciclo): è un problema di **pagamento/metodo di fatturazione** o
+  **spending limit** sull'account GitHub, che blocca ogni workflow finché
+  non risolto a mano. Nessuna causa nel codice/YAML da cercare — verificare
+  in GitHub, sezione **Settings > Billing & plans** dell'account (metodo di
+  pagamento aggiornato, o alzare lo spending limit), non risolvibile da
+  Claude Code. **Verificato lo stesso giorno sulla pagina Billing reale di
+  Mario**: metered usage e included usage coincidevano esattamente
+  ($12.48 = $12.48, netto $0, nessun importo insoluto, "Next payment due"
+  vuoto) — quindi non un pagamento davvero fallito, ma quota gratuita del
+  ciclo (1-30 ago) esaurita senza spending limit configurato per
+  l'eccedenza: stesso bug di fondo del 17 ago, testo d'errore diverso.
+  Risolto da solo al ciclo successivo (31 ago/1 set), nessuna azione
+  di pagamento necessaria.
+- **Parsimonia minuti, deciso con Mario (19 ago 2026)**: analizzato il
+  consumo reale di agosto (92 commit, 35 merge da inizio mese) — la causa
+  di fondo non era `android-build.yml` (già `workflow_dispatch`-only dal 17
+  ago) ma `ci.yml` stesso: girava su `on: push` **senza filtro di branch**,
+  quindi ogni push su un branch di lavoro *e* di nuovo su `main` dopo il
+  merge contava come run separata (~125 run stimate da 35 feature/fix).
+  **Scartata** l'opzione più aggressiva (`branches: [main]`, che avrebbe
+  tagliato il consumo di più): Mario lavora da **due PC in parallelo** e
+  vuole sempre poter fare almeno un push di fine giornata anche su un
+  branch non ancora mergiato (anche di soli file `.md`) per restare
+  sincronizzato tra i due — perdere la verifica CI automatica su quel push
+  avrebbe tolto proprio il segnale più utile in quello scenario. Applicate
+  invece solo le ottimizzazioni che non toccano frequenza/copertura dei
+  push: `paths-ignore: ['**.md']` (un commit di soli `.md` non tocca
+  codice Flutter, salta la run senza impedire il push — git e trigger CI
+  sono indipendenti), `concurrency` con `cancel-in-progress: true`
+  raggruppato per `github.ref` (cancella una run superata da un push
+  successivo sullo **stesso** branch, non interferisce tra branch diversi
+  lavorati in parallelo dai due PC), rimosso `pull_request:` (mai usate PR
+  in questo repo, trigger morto). `on: push` resta senza filtro di branch
+  — invariato, per non rompere il caso d'uso sopra.
 
 ## Layout desktop-adattivo (M26-M31)
 
