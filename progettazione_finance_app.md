@@ -1713,6 +1713,62 @@ ti fermare alle prime occorrenze")*
   1910 transazioni totali/700 attive lette correttamente dal backup
   stesso. File di test rimosso subito dopo la verifica.
 
+**M44 — 🔧 Proposta — Dashboard: formato budget "attuale/budget"**
+*(richiesto da Mario, 19 ago 2026)*
+- Problema: nella schermata Dashboard, la cifra di budget del mese non
+  distingue visivamente speso attuale e tetto di budget — Mario vuole poter
+  leggere a colpo d'occhio quanto ha speso rispetto al tetto.
+- Approccio previsto: formato `<attuale>€ / <budget>€` dove `/ <budget>€` è
+  reso più piccolo e non in grassetto rispetto ad `<attuale>€` (stesso
+  principio già in uso per altri importi in evidenza in Dashboard, es.
+  `AppFormatters.currencyRounded`, M33) — da individuare il widget esatto
+  che mostra oggi il budget del mese in `dashboard_page.dart`/
+  `dashboard_providers.dart` prima di intervenire.
+- Da confermare con Mario prima di scrivere codice (v. processo sotto).
+
+**M45 — ✅ Completata — Storico: filtri separati per data e importo (range)**
+*(richiesto da Mario, 19 ago 2026)*
+- Problema: `HistoryPage` aveva un solo campo di ricerca testuale (`_filter`
+  in `history_page.dart`, filtro client-side su `allTransactionsProvider`,
+  cerca in nota/categoria/sottocategoria/data/importo come stringa). Mario
+  ha chiesto di tenere questo campo testuale invariato ("mi va bene
+  testualmente") ma di aggiungere **2 filtri separati e indipendenti**: uno
+  per **data** (range, da/a) e uno per **importo** (range, min/max) —
+  combinabili in AND tra loro e col testo.
+- **Implementazione**: tutto client-side su `all` dentro `_filter`, stesso
+  principio del filtro testuale esistente (nessun nuovo usecase —
+  `SearchTransactions`/`SearchTransactionsParams` restano un binario
+  diverso, usati solo per il controllo doppioni in
+  `add_transaction_page.dart`, non da questa pagina). Due nuovi stati
+  locali (`DateTimeRange? _dateRange`, `double? _minAmount`/`_maxAmount`).
+  - **UI**: due icone (calendario, €) accanto alla barra di ricerca —
+    scelta confermata da Mario tra questa e una riga di chip separata sotto
+    la ricerca. Icona colorata (`colorScheme.primary`) quando il filtro è
+    attivo, `onSurfaceVariant` altrimenti. Tocca per impostare/modificare
+    (calendario → `showDateRangePicker` nativo; € → un `AlertDialog` con
+    due campi numerici min/max, validazione inline se minimo > massimo o
+    importo non numerico), tieni premuto per rimuovere il filtro
+    direttamente — stesso principio del pulsante "x" già esistente sul
+    campo testo (sempre visibile lì solo perché il testo è sempre
+    modificabile, qui attivabile via long-press perché sono due stati
+    on/off separati).
+  - Confronto data ignora l'orario (solo anno/mese/giorno): l'`end` di
+    `DateTimeRange` da `showDateRangePicker` è mezzanotte del giorno scelto,
+    non fine giornata, va normalizzato come lo `start` per includere quel
+    giorno intero.
+  - Confronto importo sempre arrotondato ai centesimi con `roundToCents`
+    (stessa precauzione di M42, mai `==`/confronto diretto su double letti
+    da un form).
+  - Empty state aggiornato: se il risultato è vuoto per un filtro
+    data/importo senza testo, messaggio "Nessun risultato con i filtri
+    impostati" invece di riferirsi a un testo di ricerca vuoto.
+- **Nessun test dedicato**: filtro puramente client-side nella pagina UI,
+  stesso principio già in uso per il filtro testuale preesistente in questa
+  stessa pagina (mai stato estratto in una funzione pura testabile,
+  a differenza di `buildDashboardData`/`shouldShowBudgetAlert` — qui non si
+  è introdotta un'eccezione al pattern esistente del file). `flutter
+  analyze` pulito, **209/209 test** (nessuno nuovo, nessuno rotto).
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

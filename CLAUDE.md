@@ -857,14 +857,15 @@ mantenere" già usato per l'APK Android (`android-build.yml`).
   richiesta ora.
 - V. M37 in `progettazione_finance_app.md` per il dettaglio completo.
 
-## Stato attuale (18 ago 2026)
+## Stato attuale (19 ago 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M43 completate** (v. `progettazione_finance_app.md` sezione 6 per
-  il dettaglio completo). M0-M8:
+- **M0–M43 e M45 completate, M44 in fase di proposta** (v.
+  `progettazione_finance_app.md` sezione 6 per il dettaglio completo,
+  incluso M44). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
@@ -967,7 +968,14 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   **Admin: backup completo con un click (M43)**: copia grezza del file
   `.sqlite` locale (sicura, il database non usa WAL), salvata dove vuole
   l'utente tramite lo stesso meccanismo `FilePicker.saveFile()` già usato
-  dall'export CSV — v. sezione Admin sotto per il dettaglio. **CI
+  dall'export CSV — v. sezione Admin sotto per il dettaglio. **Storico:
+  filtri separati per data e importo (M45, 19 ago 2026)**: il campo di
+  ricerca testuale resta invariato, aggiunte 2 icone accanto ad esso
+  (calendario, €) che aprono rispettivamente un range di date
+  (`showDateRangePicker`) e un range di importi (dialog con min/max) —
+  combinabili in AND tra loro e col testo, tutto client-side in
+  `history_page.dart` come il filtro testuale preesistente. Tocca per
+  impostare/modificare, tieni premuto per rimuovere il singolo filtro. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
   su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
   su richiesta manuale, v. sezione dedicata sotto).
