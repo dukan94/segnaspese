@@ -2,7 +2,13 @@ name: Build Android APK
 
 # Compila un APK debug installabile su telefono, senza bisogno di Android
 # Studio/SDK in locale (v. sviluppo su dispositivo aziendale senza SDK
-# Android). Scaricabile dalla tab "Actions" della run, sezione "Artifacts".
+# Android). Pubblicato su una release GitHub fissa (M46, 20 ago 2026), non
+# più negli Artifacts della run: link di download stabile nel tempo, stesso
+# principio già in uso per Windows (M37) —
+# https://github.com/dukan94/segnaspese/releases/download/android-latest/Tally-Android.apk
+# — installare/aggiornare su un nuovo dispositivo significa solo scaricare
+# di nuovo questo link, senza dover trovare la run giusta nella tab Actions
+# (che oltretutto teneva l'APK solo 3 giorni).
 #
 # Solo su richiesta manuale (tab Actions > "Build Android APK" > "Run
 # workflow"), non più ad ogni push su main: era il workflow più costoso in
@@ -10,12 +16,17 @@ name: Build Android APK
 # a esaurire la quota gratuita mensile (2.000 min, 17 ago 2026) insieme a
 # `ci.yml`, che invece resta automatico com'è (più leggero, vero controllo
 # qualità). Va lanciato a mano solo quando serve davvero un APK aggiornato
-# da installare sul telefono.
+# da installare sul telefono. Runner ubuntu-latest, 1x sul conteggio minuti
+# (a differenza di un eventuale runner Windows, 2x) — costo per run
+# invariato rispetto a prima, solo la destinazione della pubblicazione
+# cambia.
 on:
   workflow_dispatch:
 
-# Necessario per poter ricommittare il keystore generato la prima volta
-# (v. step "Genera e salva" sotto).
+# "contents: write" serve sia per ricommittare il keystore generato la
+# prima volta (v. step "Genera e salva" sotto) sia per pubblicare/
+# aggiornare la release fissa "android-latest" (nuovo, M46) con il
+# GITHUB_TOKEN di default — nessun nuovo secret.
 permissions:
   contents: write
 
@@ -70,12 +81,24 @@ jobs:
 
       - run: flutter build apk --debug
 
-      # retention-days basso: interessa solo l'ultimo APK per sideload sul
-      # telefono, nessun motivo di tenere gli artifact per i 90 giorni di
-      # default (con lo storage Actions gratuito di 0.5GB si satura in
-      # fretta, v. avviso GitHub del 5 ago 2026).
-      - uses: actions/upload-artifact@v4
-        with:
-          name: segnaspese-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
-          retention-days: 3
+      # Pubblica su una release "rolling" a link fisso (M46, 20 ago 2026),
+      # non più come Artifact della run: niente più consumo della quota
+      # storage Artifacts (0.5GB gratis, già causa di un incidente il 5 ago
+      # 2026) e niente più retention di 3 giorni da rincorrere — il link
+      # resta valido finché non viene sostituito dalla prossima pubblicazione.
+      # gh CLI è già preinstallata sui runner GitHub-hosted (a differenza del
+      # PC aziendale di Mario, v. commento in cima al file): nessun nuovo
+      # tool, autenticata automaticamente col GITHUB_TOKEN di default.
+      - name: Pubblica su release fissa android-latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-debug.apk Tally-Android.apk
+          NOTES="APK di debug, pubblicato automaticamente da CI. Ultimo aggiornamento: commit ${{ github.sha }}."
+          if gh release view android-latest --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload android-latest Tally-Android.apk --repo "${{ github.repository }}" --clobber
+            gh release edit android-latest --repo "${{ github.repository }}" --notes "$NOTES"
+          else
+            gh release create android-latest Tally-Android.apk --repo "${{ github.repository }}" \
+              --title "Tally per Android" --notes "$NOTES"
+          fi

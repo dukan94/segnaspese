@@ -108,7 +108,9 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M45 sono completate. Integrazione
+milestone M0-M45 sono completate; M46 è parzialmente completata (solo la
+parte Android — la parte Windows e la M47 sono rimandate al 1° settembre
+2026, dopo il reset della quota minuti GitHub Actions). Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -160,6 +162,8 @@ continua attiva
 | **M43** | Admin: backup completo del database con un click, stesso meccanismo di salvataggio dell'export CSV | ✅ Completata |
 | **M44** | Dashboard: card Budget nel formato "attuale/budget" invece del solo tetto | ✅ Completata |
 | **M45** | Storico: filtri separati per data e importo (range), in AND col testo esistente | ✅ Completata |
+| **M46** | CI: pubblicazione APK Android su link fisso (release GitHub); build+pubblicazione Windows automatica | 🔧 Parziale (solo Android) |
+| **M47** | Avviso in-app quando è disponibile una versione più recente | 🔧 Rimandata al 1° set 2026 |
 
 ## Struttura del database
 
