@@ -1713,18 +1713,30 @@ ti fermare alle prime occorrenze")*
   1910 transazioni totali/700 attive lette correttamente dal backup
   stesso. File di test rimosso subito dopo la verifica.
 
-**M44 — 🔧 Proposta — Dashboard: formato budget "attuale/budget"**
+**M44 — ✅ Completata (20 ago 2026) — Dashboard: formato budget "attuale/budget"**
 *(richiesto da Mario, 19 ago 2026)*
 - Problema: nella schermata Dashboard, la cifra di budget del mese non
   distingue visivamente speso attuale e tetto di budget — Mario vuole poter
   leggere a colpo d'occhio quanto ha speso rispetto al tetto.
-- Approccio previsto: formato `<attuale>€ / <budget>€` dove `/ <budget>€` è
-  reso più piccolo e non in grassetto rispetto ad `<attuale>€` (stesso
-  principio già in uso per altri importi in evidenza in Dashboard, es.
-  `AppFormatters.currencyRounded`, M33) — da individuare il widget esatto
-  che mostra oggi il budget del mese in `dashboard_page.dart`/
-  `dashboard_providers.dart` prima di intervenire.
-- Da confermare con Mario prima di scrivere codice (v. processo sotto).
+- **Widget individuato**: la card "Budget" in `AnnualTotals`
+  (`presentation/dashboard/widgets/annual_totals.dart`), che prima mostrava
+  solo `data.totalBudget` come cifra principale.
+- **Implementazione**: la card ora mostra `<attuale> / <budget>`, dove
+  `<attuale>` è lo stesso valore già usato nella card "Uscite"
+  (`data.totalExpense`, in grassetto, colore invariato in base allo stato —
+  verde/rosso/outline) e `<budget>` (`data.totalBudget`) è reso più piccolo
+  e non in grassetto dopo " / " — nuovo parametro opzionale
+  `secondaryAmount` su `_StatCard`, `Row` con `crossAxisAlignment.baseline`
+  dentro il `FittedBox` già esistente (per restare su una riga scalata come
+  le altre due card). Sottotitolo (non impostato/nei limiti/sforato)
+  invariato. Se nessun budget è impostato (`budget <= 0`), niente "/ ...":
+  resta il solo speso, come per le altre due card.
+- Nessun nuovo test (stesso principio già in uso per gli altri widget
+  puramente di presentazione in questo file, senza logica pura estraibile —
+  a differenza di `buildDashboardData`, che resta intoccato). `flutter
+  analyze` pulito, **209/209 test**. Verificato anche a runtime con build
+  Windows reale: card "Budget" mostra "12.739 € / 3.080 €" con "12.739 €"
+  in grassetto e "/ 3.080 €" più piccolo, come da richiesta.
 
 **M45 — ✅ Completata — Storico: filtri separati per data e importo (range)**
 *(richiesto da Mario, 19 ago 2026)*

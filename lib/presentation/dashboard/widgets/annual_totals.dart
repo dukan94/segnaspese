@@ -9,7 +9,8 @@ import '../../shared_widgets/animated_amount_text.dart';
 /// di informazione secondaria, così hanno tutte la stessa altezza:
 /// - Entrate → risparmio netto (entrate − uscite);
 /// - Uscite → quota rispetto alle entrate;
-/// - Budget → stato (non impostato / nei limiti / sforato).
+/// - Budget → formato "speso/tetto" (M44) + stato (non impostato / nei
+///   limiti / sforato) come sottotitolo.
 class AnnualTotals extends StatelessWidget {
   const AnnualTotals({
     super.key,
@@ -64,7 +65,11 @@ class AnnualTotals extends StatelessWidget {
         Expanded(
           child: _StatCard(
             label: 'Budget',
-            amount: budget,
+            amount: expense,
+            // Formato "attuale/budget" (M44): a colpo d'occhio quanto è
+            // stato speso rispetto al tetto, non solo il tetto da solo.
+            // Nessun tetto impostato -> resta il solo speso, senza il "/".
+            secondaryAmount: budget > 0 ? budget : null,
             color: budgetColor,
             subtitle: budget <= 0
                 ? 'non impostato'
@@ -81,6 +86,7 @@ class _StatCard extends StatelessWidget {
     required this.label,
     required this.amount,
     required this.color,
+    this.secondaryAmount,
     this.subtitle,
     this.subtitleColor,
   });
@@ -88,6 +94,12 @@ class _StatCard extends StatelessWidget {
   final String label;
   final double amount;
   final Color color;
+
+  /// Se presente, mostrato dopo [amount] come "/ importo", più piccolo e
+  /// non in grassetto (M44 — es. tetto di budget accanto allo speso
+  /// attuale, per confrontarli a colpo d'occhio).
+  final double? secondaryAmount;
+
   final String? subtitle;
 
   /// Colore del sottotitolo; se assente usa [color].
@@ -107,11 +119,25 @@ class _StatCard extends StatelessWidget {
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: AnimatedAmountText(
-                value: amount,
-                formatter: AppFormatters.currencyRounded,
-                style: AppTheme.amountStyle(theme.textTheme.titleMedium
-                    ?.copyWith(color: color, fontWeight: FontWeight.w700)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  AnimatedAmountText(
+                    value: amount,
+                    formatter: AppFormatters.currencyRounded,
+                    style: AppTheme.amountStyle(theme.textTheme.titleMedium
+                        ?.copyWith(
+                            color: color, fontWeight: FontWeight.w700)),
+                  ),
+                  if (secondaryAmount != null)
+                    Text(
+                      ' / ${AppFormatters.currencyRounded(secondaryAmount!)}',
+                      style: AppTheme.amountStyle(theme.textTheme.bodyMedium
+                          ?.copyWith(color: color, fontWeight: FontWeight.w400)),
+                    ),
+                ],
               ),
             ),
             if (subtitle != null) ...[
