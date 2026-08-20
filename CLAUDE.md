@@ -863,8 +863,10 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M45 completate** (v. `progettazione_finance_app.md` sezione 6 per il
-  dettaglio completo). M0-M8:
+- **M0–M45 completate, M46 parzialmente completata (solo parte Android),
+  M47 in attesa** (v. `progettazione_finance_app.md` sezione 6 per il
+  dettaglio completo, incluso perché M46-Windows e M47 sono state
+  deliberatamente rimandate al 1° settembre 2026). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
@@ -979,10 +981,26 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   card "Budget" in Dashboard (`AnnualTotals`) mostra ora `<attuale> /
   <budget>` invece del solo tetto — speso in grassetto (stesso colore di
   stato verde/rosso/outline di prima), tetto più piccolo e non in
-  grassetto dopo "/", nessun "/ ..." se il budget non è impostato. **CI
-  attiva** — `.github/workflows/ci.yml`: `flutter analyze` + `flutter test`
-  su ogni push/PR con rigenerazione del codice (`android-build.yml` solo
-  su richiesta manuale, v. sezione dedicata sotto).
+  grassetto dopo "/", nessun "/ ..." se il budget non è impostato.
+  **Android: pubblicazione su release fissa (M46, parte Android, 20 ago
+  2026)**: `android-build.yml` non carica più l'APK come Artifact della
+  run (3 giorni di retention, quota storage 0.5GB) — lo pubblica/sostituisce
+  su una release GitHub "rolling" (`gh` CLI, già preinstallata sui runner
+  GitHub-hosted, nessun nuovo secret), tag `android-latest`:
+  `https://github.com/dukan94/segnaspese/releases/download/android-latest/Tally-Android.apk`
+  — stesso principio del link fisso Windows (M37), stesso trigger
+  `workflow_dispatch` e stesso build **debug** di sempre, nessun cambio di
+  costo in minuti Actions. **Parte Windows di M46 (workflow che automatizza
+  build+pubblicazione, oggi manuale) e M47 (banner in-app "nuova versione
+  disponibile") rimandate al 1° settembre 2026**: la build Windows su
+  runner `windows-latest` costa 2x sul conteggio minuti Actions, e la
+  quota gratuita mensile (2.000 min) era già sotto pressione da più
+  incidenti recenti nel ciclo corrente (v. sezione CI sotto) — v.
+  `progettazione_finance_app.md` M46/M47 per il dettaglio completo e la
+  stima dei minuti. **CI attiva** — `.github/workflows/ci.yml`: `flutter
+  analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
+  (`android-build.yml` solo su richiesta manuale, v. sezione dedicata
+  sotto).
 - Test in `test/` (30 file, 209 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair

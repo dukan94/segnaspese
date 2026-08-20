@@ -1781,6 +1781,132 @@ ti fermare alle prime occorrenze")*
   è introdotta un'eccezione al pattern esistente del file). `flutter
   analyze` pulito, **209/209 test** (nessuno nuovo, nessuno rotto).
 
+**M46 — 🔧 Parzialmente completata (Android ✅, Windows rimandata) — CI:
+pubblicazione automatica su release fisse (Android + Windows)**
+*(richiesto da Mario, 20 ago 2026 — "facilitare l'aggiornamento e
+l'installazione su nuovi dispositivi")*
+- **Sequenza decisa con Mario dopo la stima dei minuti Actions** (v. sotto
+  per il dettaglio dei numeri): partire dalla parte **Android**, a costo
+  invariato rispetto a oggi (`workflow_dispatch` su `ubuntu-latest`, 1x sul
+  conteggio minuti). La parte **Windows** aggiunge invece un nuovo
+  consumo reale (runner `windows-latest`, 2x sul conteggio minuti) proprio
+  mentre la quota gratuita mensile (2.000 min) è già sotto pressione da
+  più incidenti recenti (v. sezione CI) — **rimandata al ciclo successivo**,
+  che si azzera il **1° settembre 2026**, invece di aggiungere altro carico
+  nel ciclo corrente.
+- Problema: installare/aggiornare l'app è oggi un processo diverso e
+  parzialmente manuale per piattaforma:
+  - **Windows**: link fisso già esistente (M37, tag `windows-latest`), ma
+    build (`flutter build windows --release`), zip (`Compress-Archive`) e
+    upload sono sempre fatti a mano da Mario sul suo PC.
+  - **Android**: nessun link fisso — l'APK debug prodotto da
+    `android-build.yml` è scaricabile solo dalla tab Actions > Artifacts
+    della singola run (richiede login GitHub, retention 3 giorni, quota
+    storage Artifacts già causa di un incidente passato, v. sezione CI
+    sopra).
+- **Osservazione chiave**: sia il vincolo "niente `gh` CLI in locale" (M37)
+  sia "niente Android SDK in locale" valgono solo per il PC aziendale di
+  Mario — i runner ospitati da GitHub (`ubuntu-latest`/`windows-latest`)
+  hanno **entrambi già preinstallati** sia l'Android SDK sia `gh` CLI.
+  Quindi l'intero flusso build → pacchettizza → pubblica può girare dentro
+  Actions senza introdurre alcun nuovo strumento sul PC di Mario.
+- **Android — ✅ Completata (20 ago 2026)**: estende `android-build.yml`,
+  resta `workflow_dispatch`, nessun cambio al trigger né al tipo di build
+  (**debug**, invariato, stessa ragione già documentata: keystore
+  persistente per firma stabile). Dopo `flutter build apk --debug`, copia
+  l'APK in un nome fisso (`Tally-Android.apk`) e lo pubblica/sostituisce
+  (`gh release upload android-latest ... --clobber`, creando la release
+  `android-latest` la prima volta con `gh release create`) usando il
+  `GITHUB_TOKEN` di default (già usato per il commit del keystore,
+  permessi `contents: write` invariati — nessun nuovo secret). **Rimosso**
+  lo step `actions/upload-artifact` esistente: sostituito dalla release,
+  niente più consumo della quota storage Artifacts da 0.5GB (stesso
+  problema già affrontato una volta, v. sezione CI — le Release GitHub
+  hanno uno storage separato e molto più ampio, non condiviso con quella
+  quota). Link fisso risultante:
+  `https://github.com/dukan94/segnaspese/releases/download/android-latest/Tally-Android.apk`.
+  Non ancora verificato con una run reale (nessun lancio del workflow
+  dopo la modifica): da controllare all'prossimo utilizzo che
+  `gh release create`/`upload` funzionino come previsto.
+- **Windows — 🔧 Proposta, rimandata al 1° settembre 2026 (reset quota)**:
+  nuovo workflow `windows-build.yml`, `workflow_dispatch`,
+  `runs-on: windows-latest` — `flutter pub get` → `build_runner build` →
+  `flutter build windows --release` → `Compress-Archive` nello stesso
+  `Tally-Windows.zip` di sempre → pubblica/sostituisce sulla release
+  `windows-latest` già esistente (stesso comando `gh release upload
+  ... --clobber`, stesso `GITHUB_TOKEN`/permessi). Link fisso **invariato**
+  (stesso tag/nome file di M37: nessun bookmark di Mario da aggiornare).
+  Stima costo per pubblicazione: 8-12 minuti di build su runner Windows ×
+  moltiplicatore 2x = **16-24 minuti di quota per run** (contro gli 1-4
+  min circa di un run `ci.yml` su Linux) — non ancora implementato, da
+  riprendere dopo il 1° settembre, verificando i minuti effettivi
+  consumati alla prima run reale prima di stabilire una cadenza d'uso
+  abituale.
+- Non tocca `ci.yml` (resta il controllo qualità automatico ad ogni push).
+
+**M47 — 🔧 Proposta (in attesa della parte Windows di M46) — Avviso in-app
+di aggiornamento disponibile**
+*(richiesto da Mario, 20 ago 2026, insieme a M46)*
+- **In attesa**: ha senso implementarla insieme alla parte Windows di M46
+  (stesso `version.json`/GitHub Pages per entrambe le piattaforme in un
+  colpo solo) invece che a metà solo per Android — ripresa dopo il
+  1° settembre insieme a M46-Windows.
+- Problema: anche con i link fissi di M46, sapere che è uscita una build
+  più recente richiede di controllare a mano. Mario vuole un banner
+  nell'app, stesso principio del banner soglia budget in Home (M40,
+  `_BudgetThresholdBanner`/`shouldShowBudgetAlert`).
+- **Perché non un semplice numero di versione da `pubspec.yaml`**: è fermo
+  a `0.1.0` da sempre (mai avuto disciplina di bump manuale attraverso 45
+  milestone) — usarlo per il confronto richiederebbe che Mario ricordi di
+  incrementarlo a ogni release, facile da dimenticare. **Approccio
+  proposto**: un numero di build monotono e automatico, non un numero di
+  versione semantico. `windows-build.yml`/`android-build.yml` passano
+  `github.run_number` (contatore che GitHub incrementa da solo a ogni run
+  di quello specifico workflow, mai a ritroso) come
+  `--dart-define=BUILD_NUMBER=<n>` alla build; nel codice Dart,
+  `const currentBuildNumber = int.fromEnvironment('BUILD_NUMBER',
+  defaultValue: 0)` — **nessuna nuova dipendenza** (niente
+  `package_info_plus`: `--dart-define` è nativo di Flutter, evita anche
+  l'incertezza su come i plugin di versione si comportino su Windows).
+- **Dove pubblicare il numero di build più recente, in chiaro (repo
+  privato)**: la sola pubblicazione della release GitHub (M46) non basta,
+  perché scaricare da un repo privato via API richiederebbe un token — da
+  non incorporare mai nell'app (stesso principio guida di M18 sulla API
+  key Gemini). Soluzione proposta: **GitHub Pages** sullo stesso repo
+  (Settings → Pages → Source: **GitHub Actions** — repo privato, ma le
+  pagine pubblicate sono **pubbliche di default sui piani gratuiti/Pro**,
+  a differenza di GitHub Enterprise dove possono restare private; nessun
+  codice dell'app finisce lì, solo un JSON con due numeri). Ogni run dei
+  due workflow, dopo la pubblicazione riuscita, scrive/aggiorna
+  `version.json` (`{"windows": <run_number>, "android": <run_number>}`)
+  e lo pubblica su Pages (`actions/upload-pages-artifact` +
+  `actions/deploy-pages`, permessi `pages: write`/`id-token: write`,
+  `GITHUB_TOKEN` di default — nessun nuovo secret). URL pubblico risultante
+  (esempio, da confermare dopo l'attivazione):
+  `https://dukan94.github.io/segnaspese/version.json`.
+- **In app**: nuovo provider che fa `http.get` (stesso package `http` già
+  usato per Turso, timeout breve stesso principio di M21) su quell'URL,
+  confronta il numero della piattaforma corrente con
+  `currentBuildNumber`; se maggiore, banner in Home (stesso posto/stile
+  del banner soglia budget M40, sopra o sotto di esso). "Aggiorna ora"
+  apre il link fisso della release (M46) nel browser di sistema
+  (`url_launcher` — **unica nuova dipendenza**, free/BSD, o alternativa
+  senza nuova dipendenza se già presente un meccanismo per apire URL
+  esterni, da verificare). Chiusura banner: stesso pattern Settings-key di
+  M40 (`updateBannerDismissedBuildSettingsKey`), ma dismiss **specifico
+  per numero di build** (non per mese): se poi esce una build ancora più
+  recente, il banner riappare da solo (a differenza del bottone chiudi di
+  M40, mensile per natura). Fallimento della richiesta HTTP (rete assente,
+  Pages non ancora propagato, ecc.) → nessun banner, nessun errore
+  mostrato (stesso principio isolamento errori non critici già seguito
+  per la sync/Google Sheets).
+- **Richiede un'azione manuale una tantum di Mario** (fuori dall'app, sul
+  repo GitHub): attivare GitHub Pages (Settings → Pages → Source: GitHub
+  Actions) — nessun'altra configurazione, nessun nuovo secret/token.
+- Da confermare con Mario prima di scrivere codice (v. processo sotto),
+  in particolare l'approccio GitHub Pages per il file `version.json`
+  pubblico.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
