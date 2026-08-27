@@ -849,12 +849,18 @@ mantenere" già usato per l'APK Android (`android-build.yml`).
   Setup): zero strumenti nuovi da installare sul PC di build, coerente con
   la scelta fatta più volte in questo progetto di preferire la soluzione
   più semplice che risolve il problema.
-- **Pubblicazione manuale, non automatizzata**: `gh` CLI non è installata
-  su questo PC (stesso motivo per cui manca l'Android SDK, v. sezione
-  distribuzione Android) — Mario pubblica/aggiorna la release dal browser.
-  Un workflow `workflow_dispatch` che builda e pubblica in automatico (sul
-  modello di `android-build.yml`) resta un'estensione futura possibile, non
-  richiesta ora.
+- **Pubblicazione**: dipende dal PC. Sul PC di lavoro (aziendale) `gh` CLI
+  non è installabile (stesso motivo per cui manca l'Android SDK, v. sezione
+  distribuzione Android) — lì Mario pubblica/aggiorna la release dal
+  browser. Sul PC personale (27 ago 2026) `gh` CLI è stata installata via
+  `winget install --id GitHub.cli` + `gh auth login --web` (autenticato
+  come `dukan94`): da lì la pubblicazione è automatizzabile con
+  `gh release upload windows-latest Tally-Windows.zip --repo
+  dukan94/segnaspese --clobber` dopo build+zip, nessun passaggio da
+  browser. `--clobber` sostituisce l'asset esistente mantenendo lo stesso
+  nome file/link. Un workflow `workflow_dispatch` che builda e pubblica in
+  automatico da GitHub Actions (sul modello di `android-build.yml`) resta
+  comunque un'estensione futura possibile, non richiesta ora.
 - V. M37 in `progettazione_finance_app.md` per il dettaglio completo.
 
 ## Stato attuale (20 ago 2026)

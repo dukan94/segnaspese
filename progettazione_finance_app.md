@@ -1428,14 +1428,20 @@ domanda aperta "cosa manca?" sulle possibili migliorie)*
     da mantenere). Aggiornare significa sostituire l'asset zip mantenendo
     stesso tag/nome file: il link di download resta fisso,
     `https://github.com/dukan94/segnaspese/releases/download/windows-latest/Tally-Windows.zip`.
-  - **Creazione manuale della release**, non automatizzata da un workflow
-    Actions: `gh` CLI non è installata su questo PC (dispositivo aziendale,
-    stesso motivo per cui manca l'Android SDK) e non si è voluto
-    installarla solo per questo. Mario pubblica la release dall'interfaccia
-    web di GitHub (drag&drop dello zip), nessun nuovo strumento coinvolto.
-    Un'automazione futura (workflow `workflow_dispatch` che builda e
-    pubblica la release, sul modello di `android-build.yml`) resta
-    un'estensione possibile ma non richiesta ora.
+  - **Creazione manuale della release** (18 ago 2026): `gh` CLI non era
+    installata sul PC usato quel giorno (dispositivo aziendale, stesso
+    motivo per cui manca l'Android SDK) — Mario ha pubblicato la prima
+    release dall'interfaccia web di GitHub (drag&drop dello zip). **Aggiornamento
+    (27 ago 2026)**: sul PC personale (non aziendale, si possono installare
+    strumenti) `gh` CLI è stata installata (`winget install --id
+    GitHub.cli`) e autenticata (`gh auth login --web`) — da lì
+    l'aggiornamento della release è ora automatizzabile in una riga (`gh
+    release upload windows-latest Tally-Windows.zip --repo
+    dukan94/segnaspese --clobber`), senza passare dal browser. Resta
+    manuale solo sul PC aziendale. Un'automazione ulteriore (workflow
+    `workflow_dispatch` che builda e pubblica da GitHub Actions, sul
+    modello di `android-build.yml`) resta un'estensione possibile ma non
+    richiesta ora.
 - **Verificato**: build Windows release (già aggiornata a M36) compressa in
   zip (~15 MB) con `Compress-Archive` (PowerShell, nessun tool nuovo), copiata
   in Download per comodità di upload. Release pubblicata da Mario via
