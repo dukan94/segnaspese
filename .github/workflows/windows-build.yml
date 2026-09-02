@@ -21,12 +21,23 @@ name: Build Windows App
 # - Nessun `actions/upload-artifact`: si pubblica solo sulla release fissa
 #   (storage Releases, separato e molto più ampio della quota Artifacts da
 #   0.5GB già causa di un incidente passato, v. CLAUDE.md).
+#
+# M47 (2 set 2026): dopo la pubblicazione, il job "publish-version" separato
+# aggiorna il numero di build corrente per Windows su version.json (GitHub
+# Pages) — stesso meccanismo di android-build.yml. Job apposta su
+# ubuntu-latest (1x sul conteggio minuti, non windows-latest): il solo
+# aggiornamento del JSON non ha alcun bisogno di un runner Windows, farlo
+# lì sprecherebbe minuti al doppio del costo per un'operazione che non
+# tocca affatto la build Windows.
 on:
   workflow_dispatch:
 
 # Serve solo per pubblicare/aggiornare la release fissa "windows-latest"
 # col GITHUB_TOKEN di default — nessun nuovo secret (stesso principio di
-# android-build.yml).
+# android-build.yml). Il job "publish-version" sotto dichiara i propri
+# permessi (pages/id-token), diversi da questi: un blocco `permissions` a
+# livello di job sostituisce quello di default del workflow per quel job,
+# non lo somma.
 permissions:
   contents: write
 
@@ -64,7 +75,11 @@ jobs:
       # sorgente committato.
       - run: dart run build_runner build --delete-conflicting-outputs
 
-      - run: flutter build windows --release
+      # --dart-define=BUILD_NUMBER (M47): stesso principio di
+      # android-build.yml — github.run_number è un contatore monotono per
+      # QUESTO workflow, confrontato in app col numero pubblicato su
+      # version.json per mostrare il banner di aggiornamento.
+      - run: flutter build windows --release --dart-define=BUILD_NUMBER=${{ github.run_number }}
 
       # Stesso contenuto/percorso che Mario comprime a mano da M37: la
       # cartella build di Flutter è già portabile, non serve un installer
@@ -91,3 +106,41 @@ jobs:
             gh release create windows-latest Tally-Windows.zip --repo "${{ github.repository }}" `
               --title "Tally per Windows" --notes "$notes"
           }
+
+  # M47 (2 set 2026): pubblica il numero di build Windows corrente su un
+  # piccolo version.json su GitHub Pages — stesso meccanismo del job
+  # equivalente in android-build.yml (v. commento lì per il perché
+  # GitHub Pages e per la necessità dell'attivazione una tantum da parte
+  # di Mario). Runner ubuntu-latest (1x), non windows-latest: nessuna
+  # dipendenza da qui in poi dal runner della build.
+  publish-version:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # Stesso nome di gruppo di android-build.yml: serializza i due deploy
+    # Pages se capitano nello stesso momento, così il secondo legge sempre
+    # il version.json già aggiornato dal primo invece di sovrascriverlo con
+    # un dato dell'altra piattaforma non ancora visibile.
+    concurrency:
+      group: pages-version-json
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Aggiorna version.json (chiave "windows")
+        run: |
+          mkdir -p dist
+          curl -fsSL https://dukan94.github.io/segnaspese/version.json -o current.json || echo '{}' > current.json
+          jq --argjson n ${{ github.run_number }} '.windows = $n' current.json > dist/version.json
+          cat dist/version.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

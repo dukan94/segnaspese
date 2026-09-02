@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/di/settings_providers.dart';
 import '../../core/di/sync_providers.dart';
+import '../../core/di/update_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/responsive.dart';
 import '../../data/services/sync_service.dart';
@@ -46,6 +48,17 @@ class HomePage extends ConsumerWidget {
           currentMonthKey: currentMonthKey,
           dismissedMonth: dismissedMonth,
         );
+
+    // Avviso "nuova versione disponibile" (M47): un solo controllo per
+    // sessione app (v. latestBuildNumberProvider), dismiss per specifico
+    // numero di build (v. _UpdateAvailableBanner).
+    final latestBuildNumber = ref.watch(latestBuildNumberProvider).valueOrNull;
+    final dismissedBuild = ref.watch(updateBannerDismissedBuildProvider).valueOrNull;
+    final showUpdateBanner = shouldShowUpdateBanner(
+      currentBuildNumber: currentBuildNumber,
+      latestBuildNumber: latestBuildNumber,
+      dismissedBuildNumber: dismissedBuild,
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -91,6 +104,10 @@ class HomePage extends ConsumerWidget {
                   summary: budgetSummaryValue,
                   monthKey: currentMonthKey,
                 ),
+                const SizedBox(height: 12),
+              ],
+              if (showUpdateBanner) ...[
+                _UpdateAvailableBanner(latestBuildNumber: latestBuildNumber!),
                 const SizedBox(height: 12),
               ],
               _BalanceAndBudgetRow(
@@ -261,6 +278,46 @@ class _BudgetThresholdBanner extends ConsumerWidget {
           onPressed: () => ref.read(dismissBudgetAlertProvider)(monthKey),
         ),
         onTap: () => context.go('/budget'),
+      ),
+    );
+  }
+}
+
+/// Avviso quando è disponibile una build più recente di quella in
+/// esecuzione (M47) — stesso posto/stile del banner soglia budget sopra,
+/// ma dismiss per specifico numero di build invece che per mese: se esce
+/// una build ancora più recente di quella chiusa, riappare da solo.
+class _UpdateAvailableBanner extends ConsumerWidget {
+  const _UpdateAvailableBanner({required this.latestBuildNumber});
+
+  final int latestBuildNumber;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final fg = colorScheme.onSecondaryContainer;
+    return Card(
+      color: colorScheme.secondaryContainer,
+      child: ListTile(
+        leading: Icon(Icons.system_update_alt, color: fg),
+        title: Text(
+          'Nuova versione disponibile',
+          style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          'Tocca per scaricare l\'aggiornamento.',
+          style: TextStyle(color: fg.withValues(alpha: 0.85)),
+        ),
+        trailing: IconButton(
+          icon: Icon(Icons.close, color: fg),
+          tooltip: 'Chiudi per questa versione',
+          onPressed: () =>
+              ref.read(dismissUpdateBannerProvider)(latestBuildNumber.toString()),
+        ),
+        onTap: () => launchUrl(
+          Uri.parse(updateDownloadUrl()),
+          mode: LaunchMode.externalApplication,
+        ),
       ),
     );
   }
