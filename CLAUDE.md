@@ -14,7 +14,12 @@ categorizza e lo salva in un DB locale, con dashboard, budget, movimenti
 ricorrenti e sync tra dispositivi. Gira su **Android** e come **app desktop
 Windows**, da un'unica base di codice.
 
-- Repo GitHub: https://github.com/dukan94/segnaspese
+- Repo GitHub: https://github.com/dukan94/segnaspese — **pubblico** (reso
+  tale il 2 set 2026 per usare GitHub Pages gratuitamente, v. sezione
+  "Avviso in-app di aggiornamento" sotto; era privato da sempre prima).
+  Nessun segreto committato (verificato prima del cambio): credenziali
+  Turso/Gemini/Google Sheets solo in `flutter_secure_storage`, mai nel
+  codice.
 - Vincolo fondante: **solo strumenti e librerie gratuite**.
 - App a utente singolo (Mario), non multi-tenant.
 
@@ -922,9 +927,19 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
 - **`version.json` su GitHub Pages, non nella release**: il repo è
   privato, scaricare da lì via API richiederebbe un token — mai da
   incorporare nell'app (stesso principio guida di M18 sulla API key
-  Gemini). Le pagine GitHub Pages sono invece pubbliche di default anche
-  per un repo privato (piani gratuiti/Pro), e non ci finisce altro che due
-  numeri. Ogni workflow ha un job `publish-version` (`needs: build`, così
+  Gemini). **Correzione (2 set 2026)**: l'assunzione iniziale che GitHub
+  Pages fosse gratuito anche su repo privato era sbagliata — l'interfaccia
+  mostra "Upgrade or make this repository public to enable Pages" sul
+  piano Free. Deciso con Mario: **repo reso pubblico** (Settings > Danger
+  Zone > Change visibility), invece di pagare un piano a pagamento
+  (contro il vincolo fondante "solo strumenti gratuiti") o complicare con
+  un Gist + Personal Access Token. Verificato prima nessun segreto
+  committato nella storia del repo (credenziali Turso/Gemini/Google Sheets
+  sempre solo in `flutter_secure_storage`, mai nel codice) — l'unico file
+  "particolare" è il keystore Android di debug (password fissa nota
+  `android`/`android`, rischio basso, pratica standard per CI Flutter).
+  Pages attivato subito dopo (Settings > Pages > Source: "GitHub Actions").
+  Ogni workflow ha un job `publish-version` (`needs: build`, così
   un problema qui non blocca la release già pubblicata nel job
   precedente) che legge il JSON esistente (fallback `{}` se non ancora
   pubblicato), aggiorna solo la propria chiave (`android`/`windows`) con

@@ -1951,11 +1951,22 @@ codice)*
   `--dart-define=BUILD_NUMBER=${{ github.run_number }}` alla rispettiva
   build (contatore che GitHub incrementa da solo ad ogni run di quello
   specifico workflow, mai a ritroso).
-- **Pubblicazione del numero di build, in chiaro (repo privato)**:
-  **GitHub Pages** sullo stesso repo (Settings → Pages → Source: "GitHub
-  Actions" — pagine pubblicate pubbliche di default sui piani gratuiti/Pro
-  anche per un repo privato; nessun codice dell'app finisce lì, solo un
-  JSON con due numeri). **Fatto**: nuovo job `publish-version` in
+- **Pubblicazione del numero di build, in chiaro**: **GitHub Pages** sullo
+  stesso repo (Settings → Pages → Source: "GitHub Actions"; nessun codice
+  dell'app finisce lì, solo un JSON con due numeri). **Assunzione iniziale
+  sbagliata, corretta il 2 set 2026**: Pages su repo *privato* richiede un
+  piano a pagamento (GitHub Pro/Team/Enterprise) — l'interfaccia mostra
+  "Upgrade or make this repository public to enable Pages" sul piano
+  Free, scoperto solo provando ad attivarlo. Deciso con Mario, tra le
+  alternative (pagare un piano — contro il vincolo fondante "solo
+  strumenti gratuiti"; un Gist pubblico + Personal Access Token, più
+  setup; rimandare M47): **rendere pubblico l'intero repo**
+  (Settings → Danger Zone → Change visibility), verificato prima nessun
+  segreto committato nella storia (credenziali sempre e solo in
+  `flutter_secure_storage`, mai nel codice — solo il keystore Android di
+  debug, password fissa nota, rischio basso). **Il repo
+  `dukan94/segnaspese` è quindi ora pubblico** (era privato da sempre
+  prima di questo). **Fatto**: nuovo job `publish-version` in
   entrambi i workflow (`needs: build`, così un problema qui non blocca la
   pubblicazione della release, già avvenuta nel job precedente), **su
   `ubuntu-latest` in entrambi i casi** (anche per `windows-build.yml`:
