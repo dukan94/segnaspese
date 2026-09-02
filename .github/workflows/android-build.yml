@@ -136,11 +136,17 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    # Serializza contro un eventuale deploy Pages avviato nello stesso
-    # momento da windows-build.yml: senza, il secondo a terminare
-    # rischierebbe di sovrascrivere il version.json col dato dell'altra
-    # piattaforma non ancora aggiornato (letto prima che il primo deploy
-    # fosse visibile). Stesso nome di gruppo in entrambi i workflow.
+    # Stesso nome di gruppo in entrambi i workflow: serializza l'ESECUZIONE
+    # dei due job se capitano nello stesso momento (uno aspetta che l'altro
+    # finisca). Non garantisce da sola che il `curl` sotto veda già il
+    # deploy appena fatto dall'altro job: GitHub Pages è servito da una CDN
+    # con un margine di propagazione, quindi resta un rischio residuo,
+    # ridotto (non eliminato) dal cache-busting sull'URL sotto. Impatto
+    # comunque basso e si autocorregge da solo alla pubblicazione
+    # successiva della stessa piattaforma (v. `max` nello step sotto: mai
+    # una regressione, nel peggiore dei casi una chiave temporaneamente non
+    # aggiornata) — accettato per uso personale, non vale un meccanismo più
+    # robusto (es. leggere l'ultimo deploy via API invece che da Pages).
     concurrency:
       group: pages-version-json
       cancel-in-progress: false
@@ -148,11 +154,17 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # `max` invece di un'assegnazione diretta: v. commento gemello in
+      # windows-build.yml — due dispatch ravvicinati dello stesso workflow
+      # possono completare il job "build" in ordine invertito rispetto a
+      # quello di partenza, senza questa guardia il più vecchio a finire
+      # per ultimo riscriverebbe un numero più basso sopra quello già
+      # pubblicato.
       - name: Aggiorna version.json (chiave "android")
         run: |
           mkdir -p dist
-          curl -fsSL https://dukan94.github.io/segnaspese/version.json -o current.json || echo '{}' > current.json
-          jq --argjson n ${{ github.run_number }} '.android = $n' current.json > dist/version.json
+          curl -fsSL "https://dukan94.github.io/segnaspese/version.json?_=${{ github.run_id }}" -o current.json || echo '{}' > current.json
+          jq --argjson n ${{ github.run_number }} '.android = ([.android // 0, $n] | max)' current.json > dist/version.json
           cat dist/version.json
 
       - uses: actions/upload-pages-artifact@v3

@@ -44,6 +44,17 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    # PUB_CACHE esplicito (invece di affidarsi alla posizione di default
+    # sotto %LOCALAPPDATA%): il contesto `env` delle espressioni GitHub
+    # Actions espone SOLO le variabili dichiarate in un blocco `env:` del
+    # workflow, non le variabili d'ambiente reali del runner Windows — un
+    # primo tentativo con `${{ env.LOCALAPPDATA }}` nello step di cache
+    # sotto risolveva quindi a stringa vuota (path `\Pub\Cache`, mai
+    # coincidente con la cache pub reale): nessun errore visibile, la
+    # cache era semplicemente sempre un no-op silenzioso, vanificando la
+    # precauzione sui minuti che questo env esiste apposta a garantire.
+    env:
+      PUB_CACHE: ${{ github.workspace }}\.pub-cache
     steps:
       - uses: actions/checkout@v4
 
@@ -59,7 +70,7 @@ jobs:
       - name: Cache pacchetti pub
         uses: actions/cache@v4
         with:
-          path: ${{ env.LOCALAPPDATA }}\Pub\Cache
+          path: ${{ env.PUB_CACHE }}
           key: pub-windows-${{ hashFiles('pubspec.lock') }}
           restore-keys: |
             pub-windows-
@@ -120,10 +131,17 @@ jobs:
       contents: read
       pages: write
       id-token: write
-    # Stesso nome di gruppo di android-build.yml: serializza i due deploy
-    # Pages se capitano nello stesso momento, così il secondo legge sempre
-    # il version.json già aggiornato dal primo invece di sovrascriverlo con
-    # un dato dell'altra piattaforma non ancora visibile.
+    # Stesso nome di gruppo di android-build.yml: serializza l'ESECUZIONE
+    # dei due job se capitano nello stesso momento (uno aspetta che l'altro
+    # finisca). Non garantisce da sola che il `curl` sotto veda già il
+    # deploy appena fatto dall'altro job: GitHub Pages è servito da una CDN
+    # con un margine di propagazione, quindi resta un rischio residuo,
+    # ridotto (non eliminato) dal cache-busting sull'URL sotto. Impatto
+    # comunque basso e si autocorregge da solo alla pubblicazione
+    # successiva della stessa piattaforma (v. `max` nello step sotto: mai
+    # una regressione, nel peggiore dei casi una chiave temporaneamente non
+    # aggiornata) — accettato per uso personale, non vale un meccanismo più
+    # robusto (es. leggere l'ultimo deploy via API invece che da Pages).
     concurrency:
       group: pages-version-json
       cancel-in-progress: false
@@ -131,11 +149,18 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # `max` invece di un'assegnazione diretta: due dispatch ravvicinati
+      # dello stesso workflow possono completare il job "build" (lento, su
+      # windows-latest) in ordine invertito rispetto a quello di partenza
+      # — senza questa guardia, la run più vecchia a finire per ultima
+      # riscriverebbe un numero più BASSO sopra quello già pubblicato
+      # dalla run più recente, facendo sparire il banner o mostrandolo con
+      # un numero sbagliato finché non arriva un'altra pubblicazione.
       - name: Aggiorna version.json (chiave "windows")
         run: |
           mkdir -p dist
-          curl -fsSL https://dukan94.github.io/segnaspese/version.json -o current.json || echo '{}' > current.json
-          jq --argjson n ${{ github.run_number }} '.windows = $n' current.json > dist/version.json
+          curl -fsSL "https://dukan94.github.io/segnaspese/version.json?_=${{ github.run_id }}" -o current.json || echo '{}' > current.json
+          jq --argjson n ${{ github.run_number }} '.windows = ([.windows // 0, $n] | max)' current.json > dist/version.json
           cat dist/version.json
 
       - uses: actions/upload-pages-artifact@v3
