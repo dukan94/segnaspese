@@ -1862,16 +1862,16 @@ l'installazione su nuovi dispositivi")*
     `ci.yml`/`android-build.yml`, mai in cache lì).
   - Stima costo per pubblicazione: 8-12 minuti di build su runner Windows ×
     moltiplicatore 2x = **16-24 minuti di quota per run** (contro gli 1-4
-    min circa di un run `ci.yml` su Linux) — **non ancora verificato con
-    una run reale**: sintassi YAML validata offline (`python -c
-    "yaml.safe_load(...)"`), ma nessun lancio del workflow ancora
-    effettuato. Scelta esplicita con Mario: un solo run di verifica quando
-    pronto (non più di uno, per contenere il consumo reale finché non si
-    conosce il tempo effettivo) — da lanciare a mano (tab Actions >
-    "Build Windows App" > "Run workflow") e da controllare che
-    `gh release create`/`upload` funzionino come previsto, stesso
-    controllo ancora pendente sul lato Android (v. sopra: nemmeno quello
-    verificato con una run reale dopo la modifica).
+    min circa di un run `ci.yml` su Linux). **Verificato con l'unico run di
+    verifica concordato (2 set 2026)**: **7m33s totali** (job `build` +
+    `publish-version`), sotto la stima — successo (`gh release
+    upload`/`edit` hanno aggiornato correttamente la release
+    `windows-latest` esistente, note con l'hash del commit corretto,
+    3 asset: lo zip più i due allegati sorgente automatici di GitHub),
+    solo i soliti avvisi di deprecazione Node.js 20→24/`actions/cache`
+    non bloccanti. `version.json` aggiornato correttamente con
+    `{"android": 76, "windows": 1}` (v. M47 sotto per il dettaglio del
+    job `publish-version`).
   - **Audit pre-verifica (2 set 2026)**: richiesto esplicitamente da Mario
     prima di spendere il run di verifica reale sopra — skill `code-review`
     puntato sul range di commit di M46-Windows + M47, livello alto. 5
@@ -2036,14 +2036,16 @@ codice)*
   `test/update_check_service_test.dart` (5: lettura chiave
   android/windows, chiave mancante, valore non intero, JSON vuoto).
   `flutter analyze` pulito, **221/221 test** (209 + 12). **Verificato con
-  una run reale lato Android (2 set 2026)**: repo reso pubblico, GitHub
-  Pages attivato, `android-build.yml` lanciato — `publish-version` verde,
-  `https://dukan94.github.io/segnaspese/version.json` raggiungibile e
-  corretto (`{"android": 76}`). **Ancora da verificare**: il lato Windows
-  (v. M46 sopra, run pianificata ma non ancora lanciata) e la comparsa
-  reale del banner in Home (richiede un dispositivo con una build
-  volutamente più vecchia di quella pubblicata — non ancora testato a
-  schermo).
+  run reali su entrambe le piattaforme (2 set 2026)**: repo reso pubblico,
+  GitHub Pages attivato, `android-build.yml` poi `windows-build.yml`
+  lanciati — entrambi i job `publish-version` verdi,
+  `https://dukan94.github.io/segnaspese/version.json` raggiungibile e con
+  entrambe le chiavi corrette (`{"android": 76, "windows": 1}`, ognuna
+  scritta dal proprio workflow senza cancellare l'altra — v. fix "max"
+  dell'audit pre-verifica, confermato funzionante). **Ancora da
+  verificare**: la comparsa reale del banner in Home (richiede un
+  dispositivo con una build volutamente più vecchia di quella pubblicata
+  — non urgente, non blocca l'uso della feature).
 
 ### Processo per nuove milestone (da qui in avanti)
 

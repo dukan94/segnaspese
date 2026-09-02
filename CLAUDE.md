@@ -667,11 +667,10 @@ molto meno in minuti.
   pub** (`actions/cache` su `%LOCALAPPDATA%\Pub\Cache`, chiave su hash di
   `pubspec.lock`) per accorciare le run successive alla prima quando le
   dipendenze non cambiano — l'SDK Flutter stesso è già cachato da
-  `subosito/flutter-action` (`cache: true`). **Non ancora verificato con
-  una run reale**: solo sintassi YAML validata offline. Concordato con
-  Mario un solo run di verifica quando pronto, non ripetuto a piacere,
-  proprio per contenere il consumo reale finché non si conosce il tempo
-  effettivo di una build su questo runner.
+  `subosito/flutter-action` (`cache: true`). **Verificato con l'unico run
+  di verifica concordato (2 set 2026)**: **7m33s totali**, sotto la stima
+  16-24 min — successo, solo avvisi di deprecazione Node.js 20→24 non
+  bloccanti.
 - **Audit pre-verifica (2 set 2026)**, richiesto esplicitamente da Mario
   prima del run di verifica reale sopra: skill `code-review` sui commit di
   M46-Windows + M47, 5 findings risolti prima di ogni lancio reale — il
@@ -991,10 +990,13 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   `flutter test` è sempre `false` (i test girano sull'host, non su un
   dispositivo Android). `flutter analyze` pulito, 221/221 test (209 + 12:
   `test/update_banner_test.dart` + `test/update_check_service_test.dart`).
-- **Verificato lato Android con una run reale (2 set 2026)**: repo reso
-  pubblico, GitHub Pages attivato, `android-build.yml` lanciato —
-  `publish-version` verde, `version.json` raggiungibile e corretto. Ancora
-  da verificare: il lato Windows (v. sezione CI sopra) e la comparsa
+- **Verificato con run reali su entrambe le piattaforme (2 set 2026)**:
+  repo reso pubblico, GitHub Pages attivato, `android-build.yml` poi
+  `windows-build.yml` lanciati — entrambi i job `publish-version` verdi,
+  `version.json` raggiungibile con entrambe le chiavi corrette
+  (`{"android": 76, "windows": 1}`, il fix "max" dell'audit ha funzionato:
+  nessuna chiave persa tra un deploy e l'altro). Ancora da verificare: la
+  comparsa
   reale del banner a schermo (richiede una build volutamente più vecchia
   di quella pubblicata).
 
@@ -1134,8 +1136,8 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   `workflow_dispatch` per entrambi (mai su push), stesso build **debug**
   Android di sempre. Parte Windows ripresa dopo il reset quota del 1°
   settembre con precauzioni esplicite di Mario per il costo 2x su
-  `windows-latest`: trigger solo manuale + cache pacchetti pub, un solo
-  run di verifica pianificato (non ancora eseguito) — v. sezione CI sotto
+  `windows-latest`: trigger solo manuale + cache pacchetti pub, **run di
+  verifica eseguito (2 set 2026): 7m33s, successo** — v. sezione CI sotto
   per il dettaglio e `progettazione_finance_app.md` M46 per la cronologia
   completa. **Banner in-app "nuova versione disponibile" (M47, 2 set
   2026, v. sezione dedicata sotto)**: `currentBuildNumber` (`--dart-define
@@ -1145,10 +1147,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (221/221). Richiedeva GitHub Pages attivo: scoperto che serve un repo
   **pubblico** sul piano Free (assunzione iniziale sbagliata) — deciso con
   Mario di rendere pubblico `dukan94/segnaspese` (v. sopra) invece di
-  pagare un piano. **Verificato lato Android con una run reale (2 set
-  2026)**: `publish-version` verde, `version.json` raggiungibile e
-  corretto. Lato Windows in attesa dello stesso run di verifica di M46
-  sopra. **CI attiva** — `.github/workflows/ci.yml`: `flutter
+  pagare un piano. **Verificato con run reali su entrambe le piattaforme
+  (2 set 2026)**: entrambi i job `publish-version` verdi, `version.json`
+  raggiungibile con entrambe le chiavi corrette. **CI attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
