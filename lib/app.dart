@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/di/sync_providers.dart';
 import 'core/di/theme_providers.dart';
 import 'core/theme/app_theme.dart';
-import 'core/router/app_router.dart';
 
 /// Widget radice dell'app: Material 3, tema chiaro/scuro scelto dall'utente
 /// in Impostazioni > Tema (default "segui sistema"), routing dichiarativo
@@ -14,8 +14,14 @@ import 'core/router/app_router.dart';
 /// Localizzazione forzata in italiano: senza `localizationsDelegates` /
 /// `supportedLocales`, i widget di sistema (DatePicker, ecc.) usano
 /// l'inglese di default, con settimana che parte da domenica.
+///
+/// `router` è costruito da `main.dart` (non più un singleton importato
+/// direttamente, M49): la route iniziale (`/home` o `/onboarding`) dipende
+/// da un controllo asincrono sul database, fatto prima di `runApp()`.
 class FinanceApp extends ConsumerStatefulWidget {
-  const FinanceApp({super.key});
+  const FinanceApp({super.key, required this.router});
+
+  final GoRouter router;
 
   @override
   ConsumerState<FinanceApp> createState() => _FinanceAppState();
@@ -76,7 +82,7 @@ class _FinanceAppState extends ConsumerState<FinanceApp> with WidgetsBindingObse
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      routerConfig: appRouter,
+      routerConfig: widget.router,
     );
   }
 }

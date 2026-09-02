@@ -58,6 +58,10 @@ desktop Windows** grazie a Flutter.
   link fissi (release GitHub) dopo ogni build da CI; un banner in Home
   avvisa quando è disponibile una build più recente di quella installata,
   con un tocco per aprire il link di download.
+- **Primo avvio guidato** — su un'installazione vuota, un breve wizard
+  (Benvenuto → Sync Turso opzionale, con istruzioni passo-passo e link
+  diretto → Fine) aiuta a collegare subito un proprio database Turso;
+  non compare mai su un dispositivo già in uso.
 
 ## Stack tecnologico
 
@@ -110,7 +114,9 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M48 sono completate e verificate con run/build reali. Integrazione
+milestone M0-M49 sono completate e verificate con run/build reali (M49: solo
+la logica di innesco, non le schermate del wizard — v. CLAUDE.md).
+Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -165,6 +171,7 @@ continua attiva
 | **M46** | CI: pubblicazione automatica su release fisse per Android e Windows (`android-latest`/`windows-latest`) | ✅ Completata |
 | **M47** | Avviso in-app quando è disponibile una versione più recente | ✅ Completata |
 | **M48** | Predisposizione alla condivisione: rimozione bridge Google Sheets, PIN pannello Admin, riorganizzazione Impostazioni | ✅ Completata |
+| **M49** | Wizard di primo avvio (Benvenuto, Sync Turso opzionale con istruzioni, Fine) | ✅ Completata |
 
 ## Struttura del database
 

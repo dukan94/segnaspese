@@ -119,7 +119,9 @@ lib/
 │   │                                  # merchant_rules_seed, seed_runner,
 │   │                                  # dedupe_default_taxonomy (riparazione
 │   │                                  # doppioni post-sync multi-dispositivo),
-│   │                                  # repair_orphaned_subcategories
+│   │                                  # repair_orphaned_subcategories,
+│   │                                  # onboarding_check (wizard primo
+│   │                                  # avvio, M49)
 │   ├── services/
 │   │   ├── turso_http_client.dart    # client HTTP puro Dart per l'API Hrana
 │   │   ├── turso_sync_service.dart   # push/pull bidirezionale, conflict res.
@@ -162,6 +164,8 @@ lib/
     │                                  # conto bancario, un parser per banca)
     ├── altro/                         # altro_page (hub di navigazione
     │                                  # secondaria: Storico, Ricorrenze, Imp.)
+    ├── onboarding/                    # onboarding_page (wizard di primo
+    │                                  # avvio, M49: Benvenuto/Sync Turso/Fine)
     ├── settings/                      # settings_page (sezioni: Configurazioni,
     │                                  # Aspetto, M48), categories_manage_page
     │                                  # (blocco nomi duplicati + "Unisci con..."),
@@ -2181,6 +2185,84 @@ Impostazioni, disabilitazione temporanea scan scontrino**
   Impostazioni e la sezione "Lettura scontrini" disabilitata confermati
   funzionanti/corretti a video, dopo un giro di rebuild+riavvio per
   ciascuna delle due richieste di estensione.
+
+**M49 — ✅ Completata (2 set 2026) — Wizard di primo avvio**
+*(richiesto da Mario insieme a M48, come obiettivo finale della
+predisposizione alla condivisione)*
+- **Contesto**: Turso e Gemini erano già "bring your own" per dispositivo
+  (nessuna modifica di schema/backend necessaria) — mancava solo un modo
+  guidato per configurarli la primissima volta, invece di dover sapere da
+  soli che quella voce esiste in Impostazioni. Gemini escluso dallo scope
+  (confermato con Mario): lo scan scontrino è disabilitato (M48, bug non
+  risolto), non ha senso guidare la configurazione di qualcosa che non si
+  può ancora usare — quando il bug sarà risolto, uno step Gemini nel
+  wizard sarà una milestone a parte.
+- **Scope Turso confermato con Mario**: il wizard guida solo l'inserimento
+  di URL+token che l'utente ha già ottenuto da sé su turso.tech — creare/
+  provisionare un database Turso direttamente dall'app (via API della
+  piattaforma Turso) è fuori scope, richiederebbe una nuova integrazione.
+  Richiesta esplicita di Mario: chi segue il wizard deve poter uscire
+  dall'app per andare a creare il database sul browser e poi rientrare
+  **senza perdere il progresso**, anche se il processo viene ucciso nel
+  frattempo (comune su Android in background) — e deve trovare istruzioni
+  passo-passo con link diretto, non solo due campi vuoti.
+- **Fatto**:
+  - **3 schermate** (`presentation/onboarding/onboarding_page.dart`):
+    Benvenuto → Sync Turso (istruzioni numerate + pulsante "Apri
+    turso.tech" via `url_launcher`, campi URL/token con stesso
+    `AutofillGroup` di `sync_page.dart`, "Salva e continua" o "Salta per
+    ora") → Fine ("Inizia a usare Tally"). Lo step corrente è persistito
+    in Settings (`onboardingStepProvider`/`core/di/
+    onboarding_providers.dart`, valori `welcome`/`turso`/`done`): se il
+    processo viene ucciso mentre l'utente è nel browser, al ritorno
+    l'app riapre esattamente sulla stessa schermata (le credenziali,
+    se già salvate prima di uscire, sono comunque già in
+    `flutter_secure_storage` tramite lo stesso `TursoSyncService.
+    configure()` usato dalla pagina Sync normale — nessuna duplicazione
+    di logica di salvataggio).
+  - **Mai mostrato a un utente/dispositivo già in uso** — il vincolo più
+    delicato di questa milestone: `resolveNeedsOnboarding` (`data/local/
+    seed/onboarding_check.dart`, testato in isolamento) controlla, in
+    ordine, (1) se l'onboarding è già marcato completato (riga Settings
+    già presente → esce subito, nessun altro controllo — importante:
+    dopo il primo avvio la spesa è una sola query), poi solo se assente
+    (2) se esiste già almeno una transazione o la sync Turso è già
+    configurata → marca completato in silenzio (**backfill una tantum**,
+    stesso principio della versione seed `kSeedVersion`) e non mostra
+    nulla. Verificato: sul dispositivo reale di Mario (dati e Turso già
+    presenti) l'app continua ad aprirsi direttamente su Home, invariato.
+  - **Nessun `redirect` reattivo di go_router**: la decisione
+    `/onboarding` vs `/home` è presa **una sola volta**, in `main.dart`,
+    prima di `runApp()` — stessa cautela già richiesta dai bug reali M17/
+    M22 in quest'area del codice, per cui `appRouter` (prima un `final`
+    top-level fisso) è diventato `buildAppRouter({required
+    initialLocation})`, chiamato da `main.dart` col risultato del
+    controllo, e `FinanceApp` accetta il router già costruito come
+    parametro invece di importare un singleton. La transizione dal
+    wizard a Home ("Inizia a usare Tally") è un `context.go('/home')`
+    esplicito, non un redirect osservato.
+  - Fallimento del controllo stesso (errore DB) → fallback **sempre**
+    `false` (nessun wizard): mostrarlo per errore a un utente esistente
+    sarebbe più fastidioso che ometterlo a un utente nuovo, che può
+    comunque configurare tutto in un secondo momento da Impostazioni.
+- **Test**: `test/onboarding_check_test.dart` (4 test) —
+  installazione vuota con/senza Turso già configurato, transazione già
+  esistente, e il caso di short-circuit (onboarding già completato non
+  richiama nemmeno `isTursoConfigured`). Nessun test sulle 3 schermate
+  (pura presentazione + riuso di logica già testata altrove — `configure`/
+  `isConfigured` di `TursoSyncService` hanno già copertura propria).
+- **Verificato**: `flutter analyze` pulito, **220/220 test** (216 + 4).
+  Build Windows release reale compilata ed eseguita sul dispositivo vero
+  di Mario: percorso "utente esistente" confermato invariato (apre
+  direttamente su Home, nessuna regressione sull'avvio — l'area più
+  delicata di questa milestone). **Non verificato**: le 3 schermate del
+  wizard non sono state osservate a schermo — richiederebbe
+  un'installazione davvero vuota (nessuna transazione, nessuna sync
+  configurata), che né il dispositivo di sviluppo né i due telefoni di
+  Mario hanno più a questo punto (Turso già configurato ovunque). Da
+  provare su un dispositivo/emulatore genuinamente pulito, o ripulendo un
+  dispositivo di test, quando comodo — non urgente, la logica di innesco
+  è coperta dai test automatici.
 
 ### Processo per nuove milestone (da qui in avanti)
 
