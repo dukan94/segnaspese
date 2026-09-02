@@ -7,6 +7,7 @@ import '../../core/di/settings_providers.dart';
 import '../../core/di/sync_providers.dart';
 import '../../core/di/update_providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/responsive.dart';
 import '../../data/services/sync_service.dart';
 import '../budget/budget_providers.dart';
@@ -314,12 +315,29 @@ class _UpdateAvailableBanner extends ConsumerWidget {
           onPressed: () =>
               ref.read(dismissUpdateBannerProvider)(latestBuildNumber.toString()),
         ),
-        onTap: () => launchUrl(
-          Uri.parse(updateDownloadUrl()),
-          mode: LaunchMode.externalApplication,
-        ),
+        onTap: () => _openDownloadLink(context),
       ),
     );
+  }
+
+  /// A differenza degli altri banner (che navigano con `go_router`,
+  /// sempre riuscito), aprire un URL esterno può fallire (nessun browser
+  /// predefinito, permesso mancante) — stessa regola generale del
+  /// progetto: un errore risale sempre fino a una snackbar, mai silenzioso.
+  Future<void> _openDownloadLink(BuildContext context) async {
+    try {
+      final launched = await launchUrl(
+        Uri.parse(updateDownloadUrl()),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched && context.mounted) {
+        showErrorSnackBar(context, 'Impossibile aprire il link di download.');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        showErrorSnackBar(context, 'Impossibile aprire il link di download.');
+      }
+    }
   }
 }
 

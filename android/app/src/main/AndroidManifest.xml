@@ -48,5 +48,16 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Richiesto da url_launcher (M47, banner "nuova versione
+             disponibile" in Home) per poter risolvere il browser con
+             PackageManager.resolveActivity()/queryIntentActivities() sotto
+             il package-visibility filtering di Android 11+ (API 30+, qui
+             sempre applicabile: minSdk 21 ma target/compileSdk 36) —
+             senza questa dichiarazione launchUrl non trova alcuna app in
+             grado di aprire un link https, anche con un browser installato. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

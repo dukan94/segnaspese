@@ -667,6 +667,22 @@ molto meno in minuti.
   Mario un solo run di verifica quando pronto, non ripetuto a piacere,
   proprio per contenere il consumo reale finché non si conosce il tempo
   effettivo di una build su questo runner.
+- **Audit pre-verifica (2 set 2026)**, richiesto esplicitamente da Mario
+  prima del run di verifica reale sopra: skill `code-review` sui commit di
+  M46-Windows + M47, 5 findings risolti prima di ogni lancio reale — il
+  più rilevante, la cache pub packages di `windows-build.yml` era un
+  no-op silenzioso (`${{ env.LOCALAPPDATA }}` non esiste nel contesto
+  `env` delle espressioni GitHub Actions, che espone solo variabili
+  dichiarate in un blocco `env:` del workflow, non quelle reali del
+  runner — fix: `PUB_CACHE` dichiarato esplicitamente come `env:` del
+  job). Più: `version.json` poteva regredire a un numero più basso con
+  run duplicate ravvicinate (fix: `max` invece di assegnazione diretta,
+  in entrambi i workflow), race CDN tra i due job `publish-version`
+  mitigata con cache-busting sull'URL, `AndroidManifest.xml` privo della
+  query di package-visibility per `url_launcher` (Android 11+), banner
+  M47 senza gestione errori su `launchUrl` (v. dettaglio completo in
+  `progettazione_finance_app.md` M46). `flutter analyze` pulito, 221/221
+  test invariati.
 
 - **Bug reale (5 ago 2026)**: build fallita in fase `actions/upload-artifact`
   con `Artifact storage quota has been hit`. Il job Flutter (`flutter build
@@ -918,9 +934,15 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   Windows, farlo lì raddoppierebbe il costo in minuti per nulla — stessa
   cautela sui minuti già applicata al resto di M46. Stesso
   `concurrency.group` (`pages-version-json`) in entrambi i workflow, per
-  serializzare due deploy quasi contemporanei da Android e Windows (senza,
-  il secondo rischierebbe di sovrascrivere il JSON con un dato dell'altra
-  piattaforma non ancora aggiornato).
+  serializzare l'esecuzione di due deploy quasi contemporanei da Android e
+  Windows — non garantisce da sola che il secondo veda già il deploy del
+  primo (GitHub Pages è dietro una CDN, un margine di propagazione
+  residuo resta possibile anche così), mitigato con cache-busting
+  sull'URL (`?_=<run_id>`) e con un aggiornamento sempre "a salire"
+  (`max` tra il valore letto e quello nuovo, mai una riscrittura diretta)
+  così una run che legge un JSON non ancora aggiornato non fa mai
+  regredire il numero già pubblicato — v. "Audit pre-verifica" nella
+  sezione CI sopra per il dettaglio di come è stato scoperto.
 - **Richiede un'azione manuale una tantum di Mario, non ancora fatta**:
   attivare GitHub Pages (Settings del repo → Pages → Source: "GitHub
   Actions"). Finché non è attivata, i job `publish-version` falliscono
@@ -937,6 +959,16 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   `updateBannerDismissedBuildSettingsKey` memorizza lo specifico numero
   di build chiuso — se ne esce una ancora più recente, il banner riappare
   da solo (v. `shouldShowUpdateBanner`).
+- **Apertura del link — errori gestiti, non silenziosi**: `_openDownloadLink`
+  (`home_page.dart`) avvolge `launchUrl` in try/catch e controlla anche il
+  valore di ritorno (`false` = nessuna app trovata, senza lanciare
+  un'eccezione) — su fallimento, `showErrorSnackBar`, stessa regola di
+  ogni altro punto dell'app. Su Android, `AndroidManifest.xml` ha
+  bisogno di una query di package-visibility dedicata per l'intent
+  `VIEW`/`https` (Android 11+, qui sempre applicabile: target/compileSdk
+  36) oltre a quella già presente per `PROCESS_TEXT` — senza,
+  `url_launcher` non trova alcun browser anche se installato (scoperto
+  nell'audit pre-verifica, v. sezione CI).
 - **Test**: `extractBuildNumberForPlatform` (lettura chiave
   `android`/`windows` da un JSON già decodificato) è una funzione pura
   separata dalla chiamata di rete apposta per essere testabile — non si

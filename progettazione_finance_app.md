@@ -1872,6 +1872,59 @@ l'installazione su nuovi dispositivi")*
     `gh release create`/`upload` funzionino come previsto, stesso
     controllo ancora pendente sul lato Android (v. sopra: nemmeno quello
     verificato con una run reale dopo la modifica).
+  - **Audit pre-verifica (2 set 2026)**: richiesto esplicitamente da Mario
+    prima di spendere il run di verifica reale sopra — skill `code-review`
+    puntato sul range di commit di M46-Windows + M47, livello alto. 5
+    findings, tutti confermati e risolti prima di qualunque lancio reale:
+    1. **Cache pub packages sempre un no-op silenzioso**: lo step usava
+       `${{ env.LOCALAPPDATA }}\Pub\Cache`, ma il contesto `env` delle
+       espressioni GitHub Actions espone solo le variabili dichiarate in
+       un blocco `env:` del workflow stesso, non le variabili
+       d'ambiente reali del runner — risolveva a stringa vuota, quindi la
+       cache non avrebbe mai coinciso con la cache pub reale (nessun
+       errore, solo il vantaggio sui minuti annullato in silenzio,
+       proprio la precauzione che questa cache doveva garantire). Fix:
+       `PUB_CACHE` dichiarato esplicitamente come variabile d'ambiente
+       del job (`env: PUB_CACHE: ${{ github.workspace }}\.pub-cache`),
+       poi `${{ env.PUB_CACHE }}` sia nel path della cache sia
+       implicitamente rispettato da `flutter pub get`.
+    2. **`version.json`: una run duplicata poteva far regredire il
+       numero pubblicato**: l'aggiornamento della chiave era
+       un'assegnazione diretta (`.android = $n`) — due dispatch
+       ravvicinati dello stesso workflow, con la run più vecchia a
+       terminare per ultima (build lenta su Windows), avrebbero
+       sovrascritto un numero più alto già pubblicato con uno più basso.
+       Fix: `.android = ([.android // 0, $n] | max)` (stesso per
+       `.windows`) in entrambi i workflow — mai una regressione.
+    3. **Race CDN tra i due job `publish-version`**: il commento
+       originale sovrastimava la garanzia della `concurrency` (serializza
+       l'esecuzione dei job, non la visibilità CDN di GitHub Pages) —
+       un deploy quasi contemporaneo da Android e Windows poteva far
+       leggere al secondo job una versione ancora non propagata del
+       JSON, perdendo temporaneamente la chiave appena scritta dal
+       primo. Mitigato (non eliminato: rischio residuo accettato per uso
+       personale, si autocorregge da solo alla pubblicazione successiva)
+       con cache-busting sull'URL (`?_=${{ github.run_id }}`) e commento
+       corretto per riflettere la garanzia reale.
+    4. **`AndroidManifest.xml` senza la query di package-visibility per
+       `url_launcher`**: il blocco `<queries>` esistente copriva solo
+       `PROCESS_TEXT` (Flutter), non l'intent `VIEW`/`https` richiesto da
+       `url_launcher` per risolvere il browser su Android 11+ (qui
+       sempre applicabile, target/compileSdk 36) — senza, il banner M47
+       su Android avrebbe fallito silenziosamente ad aprire il link
+       anche con un browser installato. Fix: intent aggiunto al blocco
+       `<queries>` esistente.
+    5. **`launchUrl` senza gestione errori**: in contraddizione con la
+       regola dichiarata del progetto (ogni errore risale come eccezione
+       fino a una snackbar) — un fallimento (nessun browser predefinito,
+       permesso mancante) sarebbe stato silenzioso, a differenza di ogni
+       altro banner della Home. Fix: `_openDownloadLink` in
+       `home_page.dart`, try/catch + controllo del valore di ritorno di
+       `launchUrl`, `showErrorSnackBar` in caso di fallimento (`context.
+       mounted` verificato dopo l'`await`).
+    - `flutter analyze` pulito, 221/221 test invariati (nessuna logica
+      pura toccata, solo workflow YAML/manifest/gestione errori UI).
+      Sintassi YAML rivalidata offline dopo i fix.
 - Non tocca `ci.yml` (resta il controllo qualità automatico ad ogni push).
 
 **M47 — ✅ Completata (2 set 2026) — Avviso in-app di aggiornamento
