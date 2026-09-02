@@ -126,8 +126,7 @@ lib/
 │   │   ├── sync_service.dart         # interfaccia SyncService + SyncStatus
 │   │   ├── gemini_vision_service.dart # lettura scontrino via Google Gemini
 │   │   ├── gemini_api_key_store.dart # API key Gemini in flutter_secure_storage
-│   │   ├── google_sheets_service.dart # bridge temporaneo (Admin), service account
-│   │   ├── google_sheets_row_formatter.dart # colonne del foglio "Copia di Spese"
+│   │   ├── admin_pin_store.dart      # hash PIN Admin (M48), mai in chiaro
 │   │   ├── safe_transaction_deletion_service.dart # hard delete/purge con
 │   │   │                              # conferma remota (Admin, v. sezione 6 M9)
 │   │   └── transaction_duplicate_finder.dart # doppioni di contenuto in pull sync
@@ -163,15 +162,17 @@ lib/
     │                                  # conto bancario, un parser per banca)
     ├── altro/                         # altro_page (hub di navigazione
     │                                  # secondaria: Storico, Ricorrenze, Imp.)
-    ├── settings/                      # settings_page, categories_manage_page
+    ├── settings/                      # settings_page (sezioni: Configurazioni,
+    │                                  # Aspetto, M48), categories_manage_page
     │                                  # (blocco nomi duplicati + "Unisci con..."),
     │                                  # merchant_rules_page, export_page,
     │                                  # sync_page, gemini_page, theme_page,
-    │                                  # admin_page (import CSV, bridge Sheets,
-    │                                  # eliminazione definitiva/pulizia dati)
+    │                                  # admin_pin_gate (PIN, M48) + admin_page
+    │                                  # (import CSV, eliminazione definitiva/
+    │                                  # pulizia dati)
     └── shared_widgets/                # root_scaffold (bottom nav), linked_
                                         # expense_sheet (spesa collegata a un
-                                        # rimborso)
+                                        # rimborso), section_divider (M48)
 ```
 
 ---
@@ -2047,72 +2048,82 @@ codice)*
   dispositivo con una build volutamente più vecchia di quella pubblicata
   — non urgente, non blocca l'uso della feature).
 
-**M48 — 🔧 Proposta — Predisposizione alla condivisione: rimozione bridge
-Google Sheets, PIN pannello Admin, riorganizzazione Impostazioni**
+**M48 — ✅ Completata (2 set 2026) — Predisposizione alla condivisione:
+rimozione bridge Google Sheets, PIN pannello Admin, riorganizzazione
+Impostazioni, disabilitazione temporanea scan scontrino**
 *(richiesto da Mario, 2 set 2026)*
 - **Contesto**: primo passo verso poter dare l'app ad altre persone (ognuna
   col proprio database Turso/chiave Gemini — già possibile oggi, nessuna
   modifica di schema necessaria per questo: sync e Gemini sono già
   "bring your own" per dispositivo). Prima del vero obiettivo finale (un
-  wizard di primo avvio, milestone futura separata), vanno tolte le due
-  cose oggi cucite addosso solo a Mario e riorganizzata la navigazione di
-  Impostazioni.
+  wizard di primo avvio, milestone futura separata), tolte le due cose
+  cucite addosso solo a Mario e riorganizzata la navigazione di
+  Impostazioni. Confermato con Mario prima di sviluppare: "Configurazioni"
+  include anche Gemini (non solo Sync), PIN obbligatorio al primo accesso
+  senza possibilità di rimandarlo.
 - **1) Rimozione bridge Google Sheets** (non più usato attivamente da
   Mario nella vita di tutti i giorni, confermato con lui — non solo
   nascosto dietro un flag, **rimosso del tutto**: era comunque già
   segnato come "temporaneo, da rimuovere quando l'app sarà completa e
-  testata al 100%", condizione ormai raggiunta a 47 milestone):
-  - File da rimuovere: `data/services/google_sheets_service.dart`,
+  testata al 100%", condizione ormai raggiunta a 47 milestone). **Fatto**:
+  - Rimossi `data/services/google_sheets_service.dart`,
     `google_sheets_row_formatter.dart`, `google_sheets_credentials_store.dart`,
     `core/di/google_sheets_providers.dart`, sezione "Google Sheet spese
     (temporaneo)" in `admin_page.dart` (una delle 3 sezioni separate da
-    `_AdminSectionDivider`), test `google_sheets_service_test.dart`/
-    `google_sheets_row_formatter_test.dart`.
+    `_AdminSectionDivider`, ora ridotta a 2 — v. punto 3), test
+    `google_sheets_service_test.dart`/`google_sheets_row_formatter_test.dart`
+    (13 test in meno).
   - `core/di/transaction_providers.dart`: `addTransactionProvider` torna a
     essere una chiamata diretta all'usecase, senza il wrapper che copiava
     in background sul foglio (M9).
-  - `pubspec.yaml`: rimosse `googleapis`/`googleapis_auth` (nessun'altra
-    dipendenza le usa).
-  - Nessuna migrazione di schema/dato necessaria: il bridge non tocca
+  - `pubspec.yaml`: rimosse `googleapis`/`googleapis_auth` — con loro
+    spariscono anche `_discoveryapis_commons`, `google_cloud`,
+    `google_identity_services_web` (dipendenze transitive), 5 pacchetti in
+    meno in tutto.
+  - Nessuna migrazione di schema/dato necessaria: il bridge non toccava
     Drift, solo un servizio + UI + una chiave in `flutter_secure_storage`
-    (`google_sheets_service_account_json`) che semplicemente non verrà
-    più letta — resta orfana e innocua sui dispositivi che l'avevano
-    configurata, non serve un passo di pulizia esplicito.
-  - Documentazione: sezione "Bridge Google Sheets" tolta da CLAUDE.md/
-    README, sostituita da una nota storica breve (stesso stile della
-    rimozione tabella Merchants, M35) — non va riproposto senza un nuovo
-    caso d'uso concreto.
+    (`google_sheets_service_account_json`) che semplicemente non viene più
+    letta — resta orfana e innocua sui dispositivi che l'avevano
+    configurata, nessun passo di pulizia esplicito necessario.
 - **2) PIN per il pannello Admin** (oggi senza alcuna protezione, decisione
-  esplicita ma valida solo finché l'app restava a un solo utente):
-  - Un solo gate per l'INTERA sezione Admin (import CSV, backup, gestione
-    transazioni/hard-delete) — non un PIN diverso per bottone, stesso
-    principio "solo l'essenziale".
-  - **Locale al dispositivo, mai sincronizzato**: hash del PIN (mai il PIN
-    in chiaro) salvato in `flutter_secure_storage`, stesso meccanismo già
-    in uso per le altre chiavi/credenziali di questo progetto — non nella
-    tabella `Settings` (quella è per stato UI non sensibile, es. dismiss
-    dei banner). Struttura: chi installa l'app su un altro dispositivo,
-    con il proprio Turso, imposta un PIN che protegge SOLO quel
-    dispositivo — non esiste alcun canale per cui il PIN o le azioni di
-    un dispositivo possano mai toccare il database di un altro utente
-    (già garantito oggi dall'isolamento per database Turso separati, il
-    PIN è un gate UI in più, non un meccanismo di isolamento dati).
-  - **Primo accesso ad Admin senza PIN già impostato**: schermata "Imposta
-    un PIN" obbligatoria prima di procedere (niente accesso libero "per
-    ora", altrimenti il gate non protegge nulla finché qualcuno non lo
-    imposta di sua iniziativa). Ogni accesso successivo chiede il PIN.
-    Da dentro Admin (una volta sbloccato), voce "Cambia PIN"/"Rimuovi
-    PIN".
-  - Un PIN numerico semplice (4-6 cifre, dialog con `TextField`
-    offuscato) è proporzionato allo scopo dichiarato ("non far pasticciare
-    chi mi prende in mano il telefono", non resistere a un attaccante
-    determinato con accesso fisico al dispositivo) — niente biometria/
-    integrazione con lock screen di sistema in questa prima versione.
-- **3) Riorganizzazione Impostazioni** (`settings_page.dart`, oggi una
-  lista piatta di 8 voci): raggruppamento in sezioni, stesso pattern già
-  in uso in Admin (header `Text` in `titleMedium` + separatore — estratto
-  come widget condiviso `presentation/shared_widgets/section_divider.dart`
-  invece di duplicare `_AdminSectionDivider`, ora usato in 2 pagine).
+  esplicita ma valida solo finché l'app restava a un solo utente).
+  **Fatto**:
+  - `AdminPinStore` (`data/services/admin_pin_store.dart`): mai il PIN in
+    chiaro, solo il suo hash SHA-256 (pacchetto `crypto`, già transitivo
+    nel progetto — dichiarato ora diretto, `pubspec.yaml`) salvato in
+    `flutter_secure_storage` con lo stesso pattern delle altre credenziali
+    (`gemini_api_key_store.dart`). 8 nuovi test unitari
+    (`test/admin_pin_store_test.dart`, stesso test double ufficiale
+    `TestFlutterSecureStoragePlatform` già usato da
+    `safe_transaction_deletion_service_test.dart`): set/verify/clear,
+    cambio PIN, e la verifica esplicita che il valore salvato non sia mai
+    il PIN in chiaro.
+  - `AdminPinGate` (`presentation/settings/admin_pin_gate.dart`), nuovo
+    punto d'ingresso della route `/settings/admin` in `app_router.dart`
+    (`AdminPage` non è più raggiungibile direttamente dal router — solo
+    passando dal gate): se nessun PIN è mai stato impostato, schermata
+    "Imposta un PIN" obbligatoria (niente "salta per ora"); altrimenti
+    schermata "Inserisci il PIN", che sblocca `AdminPage` solo con la
+    combinazione corretta. Sbloccato resta valido solo per la
+    "sessione" (finché non si esce da Admin), nessun "ricordami" — un
+    solo gate per l'intera sezione (import CSV, backup, hard-delete), non
+    uno per bottone.
+  - Da dentro Admin (icona lucchetto in AppBar), "Cambia PIN"/"Rimuovi
+    PIN" — validazione lunghezza (`adminPinMinLength`/`adminPinMaxLength`,
+    4-6 cifre) centralizzata in `core/di/admin_pin_providers.dart`, un
+    solo punto invece di duplicare i numeri tra la schermata di primo
+    accesso e il dialog di cambio.
+  - PIN numerico semplice, proporzionato allo scopo dichiarato ("non far
+    pasticciare chi mi prende in mano il telefono", non resistere a un
+    attaccante determinato con accesso fisico) — niente biometria/lock
+    screen di sistema in questa prima versione.
+  - **Locale al dispositivo, mai sincronizzato** (nessuna chiave aggiunta
+    alla whitelist sync in `turso_sync_service.dart`): l'isolamento tra
+    utenti è comunque già garantito strutturalmente da database Turso
+    separati per persona, indipendentemente dal PIN — il PIN protegge
+    solo l'accesso locale a QUESTO dispositivo.
+- **3) Riorganizzazione Impostazioni** (`settings_page.dart`, prima una
+  lista piatta di 8 voci). **Fatto**, esattamente come proposto:
   ```
   Impostazioni
   ├─ Categorie e sottocategorie
@@ -2130,39 +2141,34 @@ Google Sheets, PIN pannello Admin, riorganizzazione Impostazioni**
   ── (divisore) ──────────────────────
   └─ Admin
   ```
-  - **"Configurazioni"** (richiesto esplicitamente da Mario): raggruppa
-    Sync e Gemini — criterio "integrazione esterna opzionale che richiede
-    una tua credenziale", non obbligatoria per usare l'app. Estesa a
-    Gemini oltre a Sync (non solo richiesto esplicitamente, ma stesso
-    identico criterio): entrambe richiedono di incollare una chiave/token
-    propri, entrambe hanno un fallback quando mancanti (sync disattivata
-    → banner in Home; Gemini mancante → OCR offline). Da confermare con
-    Mario se includerci anche altro o se preferisce lasciarla solo per
-    Sync.
-  - **Gruppo in cima, senza intestazione**: Categorie/Regole/Export CSV/
-    Import estratto conto — sono le voci più usate (gestione della
-    propria tassonomia + movimento dati), restano il primo contatto
-    visivo, nessuna etichetta "Generale" ridondante sopra la prima cosa
-    che si vede aprendo la pagina.
-  - **"Aspetto"**: solo Tema per ora, intestazione comunque utile per
-    orientarsi in una pagina che con la condivisione crescerà di
-    pubblico/uso.
-  - **Admin resta staccato in fondo**, separato da un divisore (non da
-    un'intestazione testuale: resta "fuori dal flusso normale", coerente
-    con la nota già in CLAUDE.md) — ora comunque protetto da PIN (punto 2
-    sopra), quindi la separazione visiva è meno l'unica barriera di
-    prima.
+  - Divisore estratto come widget condiviso
+    `presentation/shared_widgets/section_divider.dart` (`SectionDivider`)
+    invece di duplicare il precedente `_AdminSectionDivider` privato — ora
+    usato sia in Admin sia in Impostazioni. Intestazioni di sezione
+    (`_SectionHeader`, privato a `settings_page.dart`) nello stesso stile
+    `titleMedium` già in uso in Admin.
   - Nessun cambio di comportamento delle singole pagine collegate, solo
-    di posizione/raggruppamento nella lista.
-- Non tocca lo schema Drift, nessun `build_runner` necessario per questo
-  giro (a meno che il PIN finisca per richiedere un provider Riverpod con
-  code-gen invece di un `Provider` manuale — da confermare in fase di
-  sviluppo, stesso stile del resto del progetto: niente `@riverpod`
-  finora).
-- Da confermare con Mario prima di scrivere codice, in particolare: se
-  "Configurazioni" deve includere solo Sync o anche Gemini come proposto,
-  e conferma sul flusso PIN (obbligatorio al primo accesso, non
-  rimandabile).
+    di posizione/raggruppamento nella lista — nessun test dedicato (pura
+    presentazione, stesso principio già seguito per M26-M31).
+- **4) Disabilitazione temporanea "Scansiona scontrino"** (richiesto da
+  Mario nella stessa sessione: la lettura scontrino non funziona bene al
+  momento). **Fatto**: l'unico punto d'accesso reale nel codice era il
+  bottom sheet del FAB in Home (`home_page.dart`) — `ListTile` con
+  `enabled: false` (grigio, non cliccabile, gestito automaticamente da
+  Flutter) + sottotitolo "Temporaneamente non disponibile". Commento nel
+  codice con istruzioni per riabilitarlo quando il problema sarà risolto.
+  Non tocca Impostazioni → AI per scontrini (Gemini): resta configurabile
+  normalmente, solo il bottone che avvia la scansione è disattivato.
+- **Verificato**: `flutter analyze` pulito, **216/216 test** (208 dopo la
+  rimozione dei 13 test Google Sheets, +8 nuovi per `AdminPinStore`).
+  Build Windows release reale compilata ed eseguita: si avvia
+  correttamente (finestra con titolo valido, processo "Responding: True",
+  stesso controllo di sanità già descritto in CLAUDE.md per diagnosticare
+  un avvio bloccato). **Limite di questa verifica**: nessuno strumento di
+  automazione GUI disponibile in questa sessione per cliccare
+  effettivamente dentro l'app — la navigazione reale in Impostazioni/
+  Admin/PIN e l'aspetto del bottone disabilitato non sono stati osservati
+  a schermo, da controllare a mano da Mario.
 
 ### Processo per nuove milestone (da qui in avanti)
 

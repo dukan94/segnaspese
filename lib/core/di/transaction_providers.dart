@@ -13,7 +13,6 @@ import '../../domain/usecases/transaction/delete_transaction.dart';
 import '../../domain/usecases/transaction/search_transactions.dart';
 import '../../domain/usecases/transaction/update_transaction.dart';
 import 'database_provider.dart';
-import 'google_sheets_providers.dart';
 import 'sync_providers.dart';
 
 /// DAO delle transazioni, ricavato dall'istanza condivisa di [AppDatabase].
@@ -37,12 +36,6 @@ void _logPostSaveSyncError(Object error, StackTrace stackTrace) {
   debugPrint('Sync Turso fallita (dopo salvataggio transazione): $error\n$stackTrace');
 }
 
-/// Oltre a salvare la transazione, se il bridge Google Sheet (Impostazioni >
-/// Admin) è attivo ne invia in background una copia al foglio "Copia di
-/// Spese" configurato — bridge temporaneo finché l'app non lo sostituisce
-/// del tutto (v. CLAUDE.md). Un fallimento lì non tocca il salvataggio
-/// locale, già andato a buon fine a quel punto.
-///
 /// M32: dopo il salvataggio locale, lancia anche una sync Turso in
 /// background (oltre a quella già periodica ogni 5 minuti e a quella sui
 /// cambi di stato dell'app) — un inserimento/modifica non aspetta più fino
@@ -53,9 +46,6 @@ final addTransactionProvider =
   final syncService = ref.watch(syncServiceProvider);
   return (transaction) async {
     final id = await useCase.call(transaction);
-    unawaited(
-      pushTransactionToGoogleSheet(ref, transaction.copyWith(id: id)),
-    );
     unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
     return id;
   };
