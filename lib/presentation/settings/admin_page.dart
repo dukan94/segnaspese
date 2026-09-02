@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/di/admin_pin_providers.dart';
 import '../../core/di/category_providers.dart';
 import '../../core/di/database_backup_providers.dart';
+import '../../core/di/onboarding_providers.dart';
 import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
@@ -22,11 +23,12 @@ import '../shared_widgets/section_divider.dart';
 enum _PinAction { change, remove }
 
 /// Strumenti interni, fuori dal flusso normale di Impostazioni: import CSV
-/// (solo per sviluppo/backfill, non il vero import da estratto conto), il
-/// backup completo del database e gli strumenti di eliminazione definitiva.
-/// Protetta da PIN locale al dispositivo (M48): questo widget presuppone
-/// che il gate sia già stato superato, v. `admin_pin_gate.dart` (l'unico
-/// punto da cui questa pagina viene raggiunta nel router).
+/// (solo per sviluppo/backfill, non il vero import da estratto conto), un
+/// pulsante per rilanciare il wizard di primo avvio a scopo di test (M49),
+/// il backup completo del database e gli strumenti di eliminazione
+/// definitiva. Protetta da PIN locale al dispositivo (M48): questo widget
+/// presuppone che il gate sia già stato superato, v. `admin_pin_gate.dart`
+/// (l'unico punto da cui questa pagina viene raggiunta nel router).
 class AdminPage extends ConsumerStatefulWidget {
   const AdminPage({super.key});
 
@@ -314,9 +316,14 @@ class _AdminPageState extends ConsumerState<AdminPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    await ref.read(adminPinStoreProvider).setPin(pinController.text);
-    if (!mounted) return;
-    showSuccessSnackBar(context, 'PIN aggiornato');
+    try {
+      await ref.read(adminPinStoreProvider).setPin(pinController.text);
+      if (!mounted) return;
+      showSuccessSnackBar(context, 'PIN aggiornato');
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Errore durante il salvataggio del PIN: $e');
+    }
   }
 
   Future<void> _confirmAndRemovePin() async {
@@ -341,9 +348,14 @@ class _AdminPageState extends ConsumerState<AdminPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    await ref.read(adminPinStoreProvider).clear();
-    if (!mounted) return;
-    showSuccessSnackBar(context, 'PIN rimosso');
+    try {
+      await ref.read(adminPinStoreProvider).clear();
+      if (!mounted) return;
+      showSuccessSnackBar(context, 'PIN rimosso');
+    } catch (e) {
+      if (!mounted) return;
+      showErrorSnackBar(context, 'Errore durante la rimozione del PIN: $e');
+    }
   }
 
   @override
@@ -379,6 +391,27 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push('/settings/import'),
               ),
+            ),
+            const SectionDivider(),
+            Text('Wizard di primo avvio', style: theme.textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Riavvia il wizard mostrato solo su un\'installazione vuota '
+              '(M49), per testarlo senza dover ripulire il dispositivo. '
+              'Parte sempre dalla schermata "Benvenuto". Attenzione: se '
+              'arrivi allo step Sync e premi "Salva e continua" con dati '
+              'diversi dai tuoi, sovrascrivi le credenziali Turso reali di '
+              'questo dispositivo — per un test rapido usa "Salta per ora".',
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () async {
+                await ref.read(setOnboardingStepProvider)(onboardingStepWelcome);
+                if (context.mounted) context.push('/onboarding');
+              },
+              icon: const Icon(Icons.play_circle_outline),
+              label: const Text('Avvia wizard'),
             ),
             const SectionDivider(),
             Text('Backup completo', style: theme.textTheme.titleMedium),

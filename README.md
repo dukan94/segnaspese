@@ -114,7 +114,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M49 sono completate e verificate con run/build reali (M49: solo
+milestone M0-M50 sono completate e verificate con run/build reali (M49: solo
 la logica di innesco, non le schermate del wizard — v. CLAUDE.md).
 Integrazione
 continua attiva
@@ -172,6 +172,7 @@ continua attiva
 | **M47** | Avviso in-app quando è disponibile una versione più recente | ✅ Completata |
 | **M48** | Predisposizione alla condivisione: rimozione bridge Google Sheets, PIN pannello Admin, riorganizzazione Impostazioni | ✅ Completata |
 | **M49** | Wizard di primo avvio (Benvenuto, Sync Turso opzionale con istruzioni, Fine) | ✅ Completata |
+| **M50** | Audit completo del codice: 5 findings risolti (PIN Admin, ordine avvio, pulizia credenziali orfane) | ✅ Completata |
 
 ## Struttura del database
 
