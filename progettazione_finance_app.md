@@ -1787,8 +1787,8 @@ ti fermare alle prime occorrenze")*
   è introdotta un'eccezione al pattern esistente del file). `flutter
   analyze` pulito, **209/209 test** (nessuno nuovo, nessuno rotto).
 
-**M46 — 🔧 Parzialmente completata (Android ✅, Windows rimandata) — CI:
-pubblicazione automatica su release fisse (Android + Windows)**
+**M46 — ✅ Completata (Android + Windows) — CI: pubblicazione automatica
+su release fisse (Android + Windows)**
 *(richiesto da Mario, 20 ago 2026 — "facilitare l'aggiornamento e
 l'installazione su nuovi dispositivi")*
 - **Sequenza decisa con Mario dopo la stima dei minuti Actions** (v. sotto
@@ -1834,20 +1834,44 @@ l'installazione su nuovi dispositivi")*
   Non ancora verificato con una run reale (nessun lancio del workflow
   dopo la modifica): da controllare all'prossimo utilizzo che
   `gh release create`/`upload` funzionino come previsto.
-- **Windows — 🔧 Proposta, rimandata al 1° settembre 2026 (reset quota)**:
-  nuovo workflow `windows-build.yml`, `workflow_dispatch`,
-  `runs-on: windows-latest` — `flutter pub get` → `build_runner build` →
+- **Windows — ✅ Completata (2 set 2026, ripresa dopo il reset quota del 1°
+  settembre)**: nuovo `windows-build.yml`, `workflow_dispatch` (mai su
+  push, stesso principio di `android-build.yml`: costa 2x sul conteggio
+  minuti — Mario decide quando serve davvero una build aggiornata, non ad
+  ogni commit), `runs-on: windows-latest` — `flutter pub get` →
+  `build_runner build --delete-conflicting-outputs` →
   `flutter build windows --release` → `Compress-Archive` nello stesso
-  `Tally-Windows.zip` di sempre → pubblica/sostituisce sulla release
-  `windows-latest` già esistente (stesso comando `gh release upload
-  ... --clobber`, stesso `GITHUB_TOKEN`/permessi). Link fisso **invariato**
-  (stesso tag/nome file di M37: nessun bookmark di Mario da aggiornare).
-  Stima costo per pubblicazione: 8-12 minuti di build su runner Windows ×
-  moltiplicatore 2x = **16-24 minuti di quota per run** (contro gli 1-4
-  min circa di un run `ci.yml` su Linux) — non ancora implementato, da
-  riprendere dopo il 1° settembre, verificando i minuti effettivi
-  consumati alla prima run reale prima di stabilire una cadenza d'uso
-  abituale.
+  `build/windows/x64/runner/Release/*` → `Tally-Windows.zip` di sempre →
+  pubblica/sostituisce sulla release `windows-latest` già esistente (stesso
+  pattern `gh release view` per capire se creare o aggiornare, poi
+  `upload --clobber`/`edit --notes`, stesso `GITHUB_TOKEN`/permessi
+  `contents: write` di `android-build.yml`, nessun nuovo secret). Link fisso
+  **invariato** (stesso tag/nome file di M37: nessun bookmark di Mario da
+  aggiornare). Nessun `actions/upload-artifact`: si pubblica solo sulla
+  release (storage separato dalla quota Artifacts da 0.5GB, stesso
+  principio già applicato alla parte Android).
+  - **Cautela minuti, richiesta esplicita di Mario nel riprendere questa
+    milestone**: oltre al trigger solo manuale, aggiunta una `actions/
+    cache` sui pacchetti pub scaricati (`%LOCALAPPDATA%\Pub\Cache`, chiave
+    su hash di `pubspec.lock`) per accorciare — quindi ridurre i minuti
+    di — ogni run successiva alla prima quando le dipendenze non cambiano.
+    L'SDK Flutter stesso è già cachato da `subosito/flutter-action`
+    (`cache: true`, invariato). **Deliberatamente non cachato**:
+    `build_runner build` — va sempre rigenerato da zero per essere certi
+    che rispecchi il sorgente committato (stesso principio già seguito in
+    `ci.yml`/`android-build.yml`, mai in cache lì).
+  - Stima costo per pubblicazione: 8-12 minuti di build su runner Windows ×
+    moltiplicatore 2x = **16-24 minuti di quota per run** (contro gli 1-4
+    min circa di un run `ci.yml` su Linux) — **non ancora verificato con
+    una run reale**: sintassi YAML validata offline (`python -c
+    "yaml.safe_load(...)"`), ma nessun lancio del workflow ancora
+    effettuato. Scelta esplicita con Mario: un solo run di verifica quando
+    pronto (non più di uno, per contenere il consumo reale finché non si
+    conosce il tempo effettivo) — da lanciare a mano (tab Actions >
+    "Build Windows App" > "Run workflow") e da controllare che
+    `gh release create`/`upload` funzionino come previsto, stesso
+    controllo ancora pendente sul lato Android (v. sopra: nemmeno quello
+    verificato con una run reale dopo la modifica).
 - Non tocca `ci.yml` (resta il controllo qualità automatico ad ogni push).
 
 **M47 — 🔧 Proposta (in attesa della parte Windows di M46) — Avviso in-app
