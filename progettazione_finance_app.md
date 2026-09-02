@@ -1874,68 +1874,109 @@ l'installazione su nuovi dispositivi")*
     verificato con una run reale dopo la modifica).
 - Non tocca `ci.yml` (resta il controllo qualità automatico ad ogni push).
 
-**M47 — 🔧 Proposta (in attesa della parte Windows di M46) — Avviso in-app
-di aggiornamento disponibile**
-*(richiesto da Mario, 20 ago 2026, insieme a M46)*
-- **In attesa**: ha senso implementarla insieme alla parte Windows di M46
-  (stesso `version.json`/GitHub Pages per entrambe le piattaforme in un
-  colpo solo) invece che a metà solo per Android — ripresa dopo il
-  1° settembre insieme a M46-Windows.
+**M47 — ✅ Completata (2 set 2026) — Avviso in-app di aggiornamento
+disponibile**
+*(richiesto da Mario, 20 ago 2026, insieme a M46; ripresa il 2 set 2026
+prima della verifica reale di M46-Windows, su richiesta esplicita di
+Mario — ordine invertito rispetto al piano iniziale, nessun problema:
+M47 non dipende da un run reale di `windows-build.yml`, solo dal suo
+codice)*
 - Problema: anche con i link fissi di M46, sapere che è uscita una build
-  più recente richiede di controllare a mano. Mario vuole un banner
-  nell'app, stesso principio del banner soglia budget in Home (M40,
-  `_BudgetThresholdBanner`/`shouldShowBudgetAlert`).
-- **Perché non un semplice numero di versione da `pubspec.yaml`**: è fermo
-  a `0.1.0` da sempre (mai avuto disciplina di bump manuale attraverso 45
-  milestone) — usarlo per il confronto richiederebbe che Mario ricordi di
-  incrementarlo a ogni release, facile da dimenticare. **Approccio
-  proposto**: un numero di build monotono e automatico, non un numero di
-  versione semantico. `windows-build.yml`/`android-build.yml` passano
-  `github.run_number` (contatore che GitHub incrementa da solo a ogni run
-  di quello specifico workflow, mai a ritroso) come
-  `--dart-define=BUILD_NUMBER=<n>` alla build; nel codice Dart,
-  `const currentBuildNumber = int.fromEnvironment('BUILD_NUMBER',
-  defaultValue: 0)` — **nessuna nuova dipendenza** (niente
-  `package_info_plus`: `--dart-define` è nativo di Flutter, evita anche
-  l'incertezza su come i plugin di versione si comportino su Windows).
-- **Dove pubblicare il numero di build più recente, in chiaro (repo
-  privato)**: la sola pubblicazione della release GitHub (M46) non basta,
-  perché scaricare da un repo privato via API richiederebbe un token — da
-  non incorporare mai nell'app (stesso principio guida di M18 sulla API
-  key Gemini). Soluzione proposta: **GitHub Pages** sullo stesso repo
-  (Settings → Pages → Source: **GitHub Actions** — repo privato, ma le
-  pagine pubblicate sono **pubbliche di default sui piani gratuiti/Pro**,
-  a differenza di GitHub Enterprise dove possono restare private; nessun
-  codice dell'app finisce lì, solo un JSON con due numeri). Ogni run dei
-  due workflow, dopo la pubblicazione riuscita, scrive/aggiorna
-  `version.json` (`{"windows": <run_number>, "android": <run_number>}`)
-  e lo pubblica su Pages (`actions/upload-pages-artifact` +
-  `actions/deploy-pages`, permessi `pages: write`/`id-token: write`,
-  `GITHUB_TOKEN` di default — nessun nuovo secret). URL pubblico risultante
-  (esempio, da confermare dopo l'attivazione):
-  `https://dukan94.github.io/segnaspese/version.json`.
-- **In app**: nuovo provider che fa `http.get` (stesso package `http` già
-  usato per Turso, timeout breve stesso principio di M21) su quell'URL,
-  confronta il numero della piattaforma corrente con
-  `currentBuildNumber`; se maggiore, banner in Home (stesso posto/stile
-  del banner soglia budget M40, sopra o sotto di esso). "Aggiorna ora"
-  apre il link fisso della release (M46) nel browser di sistema
-  (`url_launcher` — **unica nuova dipendenza**, free/BSD, o alternativa
-  senza nuova dipendenza se già presente un meccanismo per apire URL
-  esterni, da verificare). Chiusura banner: stesso pattern Settings-key di
-  M40 (`updateBannerDismissedBuildSettingsKey`), ma dismiss **specifico
-  per numero di build** (non per mese): se poi esce una build ancora più
-  recente, il banner riappare da solo (a differenza del bottone chiudi di
-  M40, mensile per natura). Fallimento della richiesta HTTP (rete assente,
-  Pages non ancora propagato, ecc.) → nessun banner, nessun errore
-  mostrato (stesso principio isolamento errori non critici già seguito
-  per la sync/Google Sheets).
-- **Richiede un'azione manuale una tantum di Mario** (fuori dall'app, sul
-  repo GitHub): attivare GitHub Pages (Settings → Pages → Source: GitHub
-  Actions) — nessun'altra configurazione, nessun nuovo secret/token.
-- Da confermare con Mario prima di scrivere codice (v. processo sotto),
-  in particolare l'approccio GitHub Pages per il file `version.json`
-  pubblico.
+  più recente richiede di controllare a mano. Banner in Home, stesso
+  principio del banner soglia budget (M40, `_BudgetThresholdBanner`/
+  `shouldShowBudgetAlert`).
+- **Perché non un numero di versione da `pubspec.yaml`**: fermo a `0.1.0`
+  da sempre (mai avuto disciplina di bump manuale attraverso 46
+  milestone). **Fatto**: `currentBuildNumber` (`core/di/update_providers.
+  dart`) = `int.fromEnvironment('BUILD_NUMBER', defaultValue: 0)` — un
+  numero di build monotono e automatico, non semantico. `0` per una build
+  locale/di sviluppo (mai lanciata da CI): guardia esplicita in
+  `shouldShowUpdateBanner`, altrimenti il banner comparirebbe ad ogni
+  avvio in sviluppo (nessuna build reale con cui confrontarsi). Nessuna
+  nuova dipendenza per questo (niente `package_info_plus`: `--dart-define`
+  è nativo di Flutter). `android-build.yml`/`windows-build.yml` passano
+  `--dart-define=BUILD_NUMBER=${{ github.run_number }}` alla rispettiva
+  build (contatore che GitHub incrementa da solo ad ogni run di quello
+  specifico workflow, mai a ritroso).
+- **Pubblicazione del numero di build, in chiaro (repo privato)**:
+  **GitHub Pages** sullo stesso repo (Settings → Pages → Source: "GitHub
+  Actions" — pagine pubblicate pubbliche di default sui piani gratuiti/Pro
+  anche per un repo privato; nessun codice dell'app finisce lì, solo un
+  JSON con due numeri). **Fatto**: nuovo job `publish-version` in
+  entrambi i workflow (`needs: build`, così un problema qui non blocca la
+  pubblicazione della release, già avvenuta nel job precedente), **su
+  `ubuntu-latest` in entrambi i casi** (anche per `windows-build.yml`:
+  aggiornare un JSON non ha bisogno del runner Windows, farlo lì
+  raddoppierebbe il costo in minuti per nulla — precauzione aggiunta
+  apposta data la sensibilità di Mario sui minuti Actions in questo
+  periodo). Ogni job legge `https://dukan94.github.io/segnaspese/
+  version.json` esistente (`curl`, fallback `{}` se non ancora pubblicato/
+  propagato), aggiorna solo la propria chiave (`jq --argjson n
+  <run_number> '.android = $n'` o `.windows`), ripubblica
+  (`actions/upload-pages-artifact` + `actions/deploy-pages`, permessi
+  `pages: write`/`id-token: write` dichiarati solo su questo job — un
+  blocco `permissions` di job sostituisce quello di default del workflow,
+  non lo somma — `GITHUB_TOKEN` di default, nessun nuovo secret). Entrambi
+  i job usano lo stesso nome di `concurrency.group` (`pages-version-json`)
+  per serializzarsi tra loro se capitasse un doppio deploy quasi
+  contemporaneo da Android e Windows, evitando che il secondo sovrascriva
+  il JSON con un dato dell'altra piattaforma non ancora aggiornato. URL
+  pubblico: `https://dukan94.github.io/segnaspese/version.json`
+  (**non ancora verificato**: richiede prima l'attivazione di Pages da
+  parte di Mario e almeno un run reale di uno dei due workflow — nessuno
+  dei due è ancora stato lanciato dopo questa modifica, v. M46).
+- **In app — fatto**: `UpdateCheckService` (`data/services/
+  update_check_service.dart`) fa `http.get` con timeout breve (10s, più
+  corto dei 30s di Turso/Gemini: un file statico pubblico non deve far
+  percepire un ritardo aprendo la Home) sull'URL sopra, isolato in un
+  metodo `sendRequest` sovrascrivibile (stesso principio di
+  `GeminiVisionService`/`TursoHttpClient`). Qualunque errore (rete, Pages
+  non ancora propagato, JSON non valido) → `null`, mai un'eccezione
+  (stesso principio isolamento errori non critici di sync/Google Sheets):
+  nessun banner, nessun errore mostrato. Estrazione del numero per
+  piattaforma isolata in una funzione pura a parte,
+  `extractBuildNumberForPlatform(json, {required isAndroid})`
+  (`update_check_service.dart`) — separata dalla chiamata di rete apposta
+  per essere testabile senza dipendere da `Platform.isAndroid` (sempre
+  `false` in `flutter test`, eseguito sull'host, non su un dispositivo
+  Android). `latestBuildNumberProvider` (`core/di/update_providers.dart`,
+  `FutureProvider<int?>`): un solo controllo per sessione app, nessun
+  refresh periodico (banner non urgente).
+  - Banner `_UpdateAvailableBanner` in `home_page.dart`, stesso
+    posto/stile di `_BudgetThresholdBanner` (subito sotto, terzo banner
+    possibile dopo sync e soglia budget — priorità: configurazione >
+    avviso finanziario > suggerimento di aggiornamento). Tap apre il link
+    fisso della release (M46) per la piattaforma corrente nel browser di
+    sistema (`url_launcher`, **unica nuova dipendenza**, aggiunta —
+    `pubspec.yaml`). Chiusura: stesso pattern Settings-key di M40
+    (`updateBannerDismissedBuildSettingsKey`,
+    `dismissUpdateBannerProvider`), ma dismiss **specifico per numero di
+    build** (non per mese, v. `shouldShowUpdateBanner`): se poi esce una
+    build ancora più recente di quella chiusa, il banner riappare da solo.
+  - Funzione pura `shouldShowUpdateBanner` (`core/di/update_providers.
+    dart`) — stesso principio di `shouldShowBudgetAlert`: `false` se
+    `currentBuildNumber` è 0 (build locale), se non c'è una build remota
+    determinabile, se non è più recente di quella in esecuzione, o se
+    l'utente l'ha già chiusa per quello specifico numero.
+- **Richiede un'azione manuale una tantum di Mario** (non ancora fatta):
+  attivare GitHub Pages (Settings del repo → Pages → Source: "GitHub
+  Actions") prima che i job `publish-version` possano davvero pubblicare
+  `version.json` — nessun'altra configurazione, nessun nuovo secret/token.
+- **Verificato**: 12 nuovi test unitari, tutti su logica pura, nessuno
+  sulla chiamata di rete/wiring dei provider (stesso principio già seguito
+  per il trigger di sync in `addTransactionProvider`, M32/M42) —
+  `test/update_banner_test.dart` (7: build locale sempre false, nessuna
+  build remota, build remota uguale/più vecchia, build remota più recente
+  mai chiusa, chiuso per quella build, chiuso per una build precedente ma
+  ne è uscita una più recente → riappare) e
+  `test/update_check_service_test.dart` (5: lettura chiave
+  android/windows, chiave mancante, valore non intero, JSON vuoto).
+  `flutter analyze` pulito, **221/221 test** (209 + 12). Sintassi YAML dei
+  due workflow validata offline (`python -c "yaml.safe_load(...)"`) — **non
+  ancora verificato con un run reale**: né la pubblicazione di
+  `version.json` né la comparsa del banner sono state osservate a schermo,
+  in attesa dell'attivazione di GitHub Pages e del primo run di verifica
+  già pianificato per M46-Windows (v. sopra).
 
 ### Processo per nuove milestone (da qui in avanti)
 

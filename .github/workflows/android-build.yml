@@ -20,13 +20,25 @@ name: Build Android APK
 # (a differenza di un eventuale runner Windows, 2x) — costo per run
 # invariato rispetto a prima, solo la destinazione della pubblicazione
 # cambia.
+#
+# M47 (2 set 2026): dopo la pubblicazione, il job "publish-version" separato
+# aggiorna il numero di build corrente per Android su version.json (GitHub
+# Pages) — l'app lo confronta col proprio numero di build per mostrare un
+# banner "nuova versione disponibile" in Home. Job separato apposta, non
+# uno step in più nel job "build": stesso runner ubuntu-latest (nessun
+# costo aggiuntivo qui), ma isola un eventuale problema di GitHub Pages
+# (es. non ancora attivato nelle Settings del repo) dalla pubblicazione
+# della release vera e propria, che resta comunque riuscita.
 on:
   workflow_dispatch:
 
 # "contents: write" serve sia per ricommittare il keystore generato la
 # prima volta (v. step "Genera e salva" sotto) sia per pubblicare/
 # aggiornare la release fissa "android-latest" (nuovo, M46) con il
-# GITHUB_TOKEN di default — nessun nuovo secret.
+# GITHUB_TOKEN di default — nessun nuovo secret. Il job "publish-version"
+# sotto dichiara i propri permessi (pages/id-token), diversi da questi:
+# un blocco `permissions` a livello di job sostituisce quello di default
+# del workflow per quel job, non lo somma.
 permissions:
   contents: write
 
@@ -79,7 +91,13 @@ jobs:
       # disallineato (v. nota "BUILD" in progettazione_finance_app.md).
       - run: dart run build_runner build --delete-conflicting-outputs
 
-      - run: flutter build apk --debug
+      # --dart-define=BUILD_NUMBER (M47): github.run_number è un contatore
+      # monotono che GitHub incrementa da solo a ogni run di QUESTO
+      # workflow, mai a ritroso — usato in app (int.fromEnvironment) per
+      # confrontarsi col numero pubblicato su version.json e mostrare il
+      # banner di aggiornamento. Non un numero di versione semantico
+      # (pubspec.yaml resta fermo a 0.1.0, non affidabile per questo).
+      - run: flutter build apk --debug --dart-define=BUILD_NUMBER=${{ github.run_number }}
 
       # Pubblica su una release "rolling" a link fisso (M46, 20 ago 2026),
       # non più come Artifact della run: niente più consumo della quota
@@ -102,3 +120,44 @@ jobs:
             gh release create android-latest Tally-Android.apk --repo "${{ github.repository }}" \
               --title "Tally per Android" --notes "$NOTES"
           fi
+
+  # M47 (2 set 2026): pubblica il numero di build Android corrente su un
+  # piccolo version.json su GitHub Pages — repo privato, ma le pagine
+  # pubblicate sono pubbliche di default sui piani gratuiti/Pro (nessun
+  # codice dell'app finisce lì, solo due numeri). Richiede che Mario abbia
+  # attivato Pages una tantum (Settings del repo > Pages > Source: "GitHub
+  # Actions"); se non ancora attivato, questo job fallisce ma la release
+  # sopra è già stata pubblicata comunque (job separato, v. commento in
+  # cima al file).
+  publish-version:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    # Serializza contro un eventuale deploy Pages avviato nello stesso
+    # momento da windows-build.yml: senza, il secondo a terminare
+    # rischierebbe di sovrascrivere il version.json col dato dell'altra
+    # piattaforma non ancora aggiornato (letto prima che il primo deploy
+    # fosse visibile). Stesso nome di gruppo in entrambi i workflow.
+    concurrency:
+      group: pages-version-json
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Aggiorna version.json (chiave "android")
+        run: |
+          mkdir -p dist
+          curl -fsSL https://dukan94.github.io/segnaspese/version.json -o current.json || echo '{}' > current.json
+          jq --argjson n ${{ github.run_number }} '.android = $n' current.json > dist/version.json
+          cat dist/version.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

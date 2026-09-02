@@ -27,7 +27,8 @@ personale) con fallback **Google ML Kit** OCR offline · **Turso** (sync cloud
 multi-dispositivo via API HTTP) · `csv`+`excel`+`file_picker` (import/export,
 `excel` per gli estratti conto bancari in xlsx, v. sotto) ·
 `googleapis`/`googleapis_auth` (bridge temporaneo Google Sheets, v. sotto) ·
-`flutter_secure_storage` (credenziali) · `intl`/`uuid`/`collection`.
+`flutter_secure_storage` (credenziali) · `url_launcher` (apre il link di
+download del banner di aggiornamento, M47) · `intl`/`uuid`/`collection`.
 
 SDK Dart `>=3.4.0 <4.0.0`. Versione app `0.1.0`. Schema DB Drift: **v7**.
 
@@ -884,13 +885,79 @@ mantenere" già usato per l'APK Android (`android-build.yml`).
   sotto per il dettaglio e le precauzioni sui minuti.
 - V. M37/M46 in `progettazione_finance_app.md` per il dettaglio completo.
 
+## Avviso in-app di aggiornamento disponibile (M47)
+
+*(2 set 2026)* Banner in Home (`_UpdateAvailableBanner`, `home_page.dart`,
+stesso posto/stile del banner soglia budget M40) che confronta il numero
+di build in esecuzione con quello più recente pubblicato per la stessa
+piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
+
+- **Numero di build, non numero di versione**: `pubspec.yaml` resta fermo
+  a `0.1.0` da sempre — non affidabile per un confronto automatico.
+  `currentBuildNumber` (`core/di/update_providers.dart`) =
+  `int.fromEnvironment('BUILD_NUMBER', defaultValue: 0)`, valorizzato solo
+  dai workflow CI (`--dart-define=BUILD_NUMBER=${{ github.run_number }}`
+  in `android-build.yml`/`windows-build.yml`) — un contatore monotono per
+  workflow, mai deciso a mano. **`0` per una build locale/di sviluppo**
+  (mai lanciata da CI): `shouldShowUpdateBanner` lo tratta come "nessun
+  numero di build reale da confrontare", altrimenti il banner
+  comparirebbe ad ogni avvio in sviluppo (qualunque numero pubblicato
+  sarebbe "più recente" di 0).
+- **`version.json` su GitHub Pages, non nella release**: il repo è
+  privato, scaricare da lì via API richiederebbe un token — mai da
+  incorporare nell'app (stesso principio guida di M18 sulla API key
+  Gemini). Le pagine GitHub Pages sono invece pubbliche di default anche
+  per un repo privato (piani gratuiti/Pro), e non ci finisce altro che due
+  numeri. Ogni workflow ha un job `publish-version` (`needs: build`, così
+  un problema qui non blocca la release già pubblicata nel job
+  precedente) che legge il JSON esistente (fallback `{}` se non ancora
+  pubblicato), aggiorna solo la propria chiave (`android`/`windows`) con
+  `jq`, ripubblica (`actions/upload-pages-artifact` + `actions/
+  deploy-pages`). **Entrambi i job girano su `ubuntu-latest`, anche quello
+  di `windows-build.yml`**: aggiornare un JSON non ha bisogno del runner
+  Windows, farlo lì raddoppierebbe il costo in minuti per nulla — stessa
+  cautela sui minuti già applicata al resto di M46. Stesso
+  `concurrency.group` (`pages-version-json`) in entrambi i workflow, per
+  serializzare due deploy quasi contemporanei da Android e Windows (senza,
+  il secondo rischierebbe di sovrascrivere il JSON con un dato dell'altra
+  piattaforma non ancora aggiornato).
+- **Richiede un'azione manuale una tantum di Mario, non ancora fatta**:
+  attivare GitHub Pages (Settings del repo → Pages → Source: "GitHub
+  Actions"). Finché non è attivata, i job `publish-version` falliscono
+  (la pubblicazione della release resta comunque riuscita, job separato) e
+  l'app non troverà mai un `version.json` da leggere — nessun banner,
+  nessun errore visibile (v. sotto).
+- **Fallimenti isolati, stesso principio di sync/Google Sheets**:
+  `UpdateCheckService.fetchLatestBuildNumber` (`data/services/
+  update_check_service.dart`) non lancia mai un'eccezione — rete assente,
+  Pages non ancora propagato, JSON non valido: sempre e solo `null`,
+  niente banner, niente snackbar d'errore.
+- **Dismiss per numero di build, non per mese**: a differenza
+  dell'avviso soglia budget (M40, dismiss mensile), qui
+  `updateBannerDismissedBuildSettingsKey` memorizza lo specifico numero
+  di build chiuso — se ne esce una ancora più recente, il banner riappare
+  da solo (v. `shouldShowUpdateBanner`).
+- **Test**: `extractBuildNumberForPlatform` (lettura chiave
+  `android`/`windows` da un JSON già decodificato) è una funzione pura
+  separata dalla chiamata di rete apposta per essere testabile — non si
+  può testare passando da `Platform.isAndroid` reale, perché in
+  `flutter test` è sempre `false` (i test girano sull'host, non su un
+  dispositivo Android). `flutter analyze` pulito, 221/221 test (209 + 12:
+  `test/update_banner_test.dart` + `test/update_check_service_test.dart`).
+- **Non ancora verificato con un run reale**: nessuno dei due workflow è
+  stato lanciato dopo questa modifica — in attesa dell'attivazione di
+  GitHub Pages da parte di Mario e del run di verifica già pianificato
+  per M46-Windows (v. sezione CI sopra), da cui si vedrà anche se
+  `publish-version`/il banner funzionano davvero end-to-end.
+
 ## Stato attuale (2 set 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M46 completate, M47 in attesa (proposta)** (v.
+- **M0–M47 completate** (M47 in codice, ma in attesa dell'attivazione di
+  GitHub Pages e di un run di verifica reale, v. sotto) (v.
   `progettazione_finance_app.md` sezione 6 per il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -1022,14 +1089,19 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   `windows-latest`: trigger solo manuale + cache pacchetti pub, un solo
   run di verifica pianificato (non ancora eseguito) — v. sezione CI sotto
   per il dettaglio e `progettazione_finance_app.md` M46 per la cronologia
-  completa. **M47 (banner in-app "nuova versione disponibile") resta
-  proposta**, non ancora sviluppata: richiede tra l'altro l'attivazione
-  manuale di GitHub Pages da parte di Mario, da confermare con lui prima
-  di scrivere codice. **CI attiva** — `.github/workflows/ci.yml`: `flutter
+  completa. **Banner in-app "nuova versione disponibile" (M47, 2 set
+  2026, v. sezione dedicata sotto)**: `currentBuildNumber` (`--dart-define
+  =BUILD_NUMBER`, passato dai due workflow) confrontato con un
+  `version.json` pubblicato su GitHub Pages da un nuovo job
+  `publish-version` in ciascun workflow — codice completo e testato
+  (221/221), **ma non ancora verificato con un run reale**: richiede
+  prima che Mario attivi GitHub Pages (Settings del repo → Pages →
+  Source: "GitHub Actions"), azione manuale una tantum non ancora fatta.
+  **CI attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
-- Test in `test/` (30 file, 209 test): parser CSV, receipt parser, rule
+- Test in `test/` (32 file, 221 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -1057,7 +1129,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (`money_rounding_test.dart`, M42 — unico punto (`roundToCents`) per una
   formula prima duplicata in 3 file), backup completo
   (`database_backup_service_test.dart`, M43 — solo `suggestedFileName`,
-  unica vera logica del servizio) + 1 smoke widget test.
+  unica vera logica del servizio), avviso aggiornamento disponibile
+  (`update_banner_test.dart`/`update_check_service_test.dart`, M47 —
+  stesso principio: logica pura estratta in `shouldShowUpdateBanner`/
+  `extractBuildNumberForPlatform`) + 1 smoke widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)
 

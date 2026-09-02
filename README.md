@@ -54,6 +54,10 @@ desktop Windows** grazie a Flutter.
   attivi insieme (es. 2 PC Windows + 1 Android): le eliminazioni definitive
   vengono confermate direttamente dal server prima di essere fisiche, per
   evitare che un movimento cancellato ricompaia da un altro dispositivo.
+- **Aggiornamenti** — Android e Windows sono pubblicati automaticamente su
+  link fissi (release GitHub) dopo ogni build da CI; un banner in Home
+  avvisa quando è disponibile una build più recente di quella installata,
+  con un tocco per aprire il link di download.
 
 ## Stack tecnologico
 
@@ -71,6 +75,7 @@ desktop Windows** grazie a Flutter.
 - **googleapis** / **googleapis_auth** — bridge temporaneo (Impostazioni >
   Admin) verso il foglio Google usato finora per le spese, disattivabile;
   da rimuovere quando l'app sarà completa e testata al 100%
+- **url_launcher** — apre il link di download dal banner di aggiornamento
 
 ## Requisiti
 
@@ -108,8 +113,9 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M46 sono completate; M47 è proposta, in attesa di sviluppo.
-Integrazione continua attiva
+milestone M0-M47 sono completate (M47 richiede ancora un'attivazione manuale
+una tantum di GitHub Pages e la prima verifica reale, non ancora eseguita —
+v. CLAUDE.md). Integrazione continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
 | Milestone | Contenuto | Stato |
@@ -161,7 +167,7 @@ Integrazione continua attiva
 | **M44** | Dashboard: card Budget nel formato "attuale/budget" invece del solo tetto | ✅ Completata |
 | **M45** | Storico: filtri separati per data e importo (range), in AND col testo esistente | ✅ Completata |
 | **M46** | CI: pubblicazione automatica su release fisse per Android e Windows (`android-latest`/`windows-latest`) | ✅ Completata |
-| **M47** | Avviso in-app quando è disponibile una versione più recente | 🔧 Proposta |
+| **M47** | Avviso in-app quando è disponibile una versione più recente | ✅ Completata |
 
 ## Struttura del database
 

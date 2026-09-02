@@ -65,6 +65,12 @@ dependencies:
   collection: ^1.18.0
   excel: ^4.0.6
 
+  # Apre il link di download nel browser di sistema per il banner "nuova
+  # versione disponibile" (M47) — unica dipendenza aggiunta per questa
+  # milestone, nessuna alternativa senza dipendenza per aprire un URL
+  # esterno dal desktop Windows.
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
