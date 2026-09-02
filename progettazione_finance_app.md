@@ -2047,6 +2047,123 @@ codice)*
   dispositivo con una build volutamente più vecchia di quella pubblicata
   — non urgente, non blocca l'uso della feature).
 
+**M48 — 🔧 Proposta — Predisposizione alla condivisione: rimozione bridge
+Google Sheets, PIN pannello Admin, riorganizzazione Impostazioni**
+*(richiesto da Mario, 2 set 2026)*
+- **Contesto**: primo passo verso poter dare l'app ad altre persone (ognuna
+  col proprio database Turso/chiave Gemini — già possibile oggi, nessuna
+  modifica di schema necessaria per questo: sync e Gemini sono già
+  "bring your own" per dispositivo). Prima del vero obiettivo finale (un
+  wizard di primo avvio, milestone futura separata), vanno tolte le due
+  cose oggi cucite addosso solo a Mario e riorganizzata la navigazione di
+  Impostazioni.
+- **1) Rimozione bridge Google Sheets** (non più usato attivamente da
+  Mario nella vita di tutti i giorni, confermato con lui — non solo
+  nascosto dietro un flag, **rimosso del tutto**: era comunque già
+  segnato come "temporaneo, da rimuovere quando l'app sarà completa e
+  testata al 100%", condizione ormai raggiunta a 47 milestone):
+  - File da rimuovere: `data/services/google_sheets_service.dart`,
+    `google_sheets_row_formatter.dart`, `google_sheets_credentials_store.dart`,
+    `core/di/google_sheets_providers.dart`, sezione "Google Sheet spese
+    (temporaneo)" in `admin_page.dart` (una delle 3 sezioni separate da
+    `_AdminSectionDivider`), test `google_sheets_service_test.dart`/
+    `google_sheets_row_formatter_test.dart`.
+  - `core/di/transaction_providers.dart`: `addTransactionProvider` torna a
+    essere una chiamata diretta all'usecase, senza il wrapper che copiava
+    in background sul foglio (M9).
+  - `pubspec.yaml`: rimosse `googleapis`/`googleapis_auth` (nessun'altra
+    dipendenza le usa).
+  - Nessuna migrazione di schema/dato necessaria: il bridge non tocca
+    Drift, solo un servizio + UI + una chiave in `flutter_secure_storage`
+    (`google_sheets_service_account_json`) che semplicemente non verrà
+    più letta — resta orfana e innocua sui dispositivi che l'avevano
+    configurata, non serve un passo di pulizia esplicito.
+  - Documentazione: sezione "Bridge Google Sheets" tolta da CLAUDE.md/
+    README, sostituita da una nota storica breve (stesso stile della
+    rimozione tabella Merchants, M35) — non va riproposto senza un nuovo
+    caso d'uso concreto.
+- **2) PIN per il pannello Admin** (oggi senza alcuna protezione, decisione
+  esplicita ma valida solo finché l'app restava a un solo utente):
+  - Un solo gate per l'INTERA sezione Admin (import CSV, backup, gestione
+    transazioni/hard-delete) — non un PIN diverso per bottone, stesso
+    principio "solo l'essenziale".
+  - **Locale al dispositivo, mai sincronizzato**: hash del PIN (mai il PIN
+    in chiaro) salvato in `flutter_secure_storage`, stesso meccanismo già
+    in uso per le altre chiavi/credenziali di questo progetto — non nella
+    tabella `Settings` (quella è per stato UI non sensibile, es. dismiss
+    dei banner). Struttura: chi installa l'app su un altro dispositivo,
+    con il proprio Turso, imposta un PIN che protegge SOLO quel
+    dispositivo — non esiste alcun canale per cui il PIN o le azioni di
+    un dispositivo possano mai toccare il database di un altro utente
+    (già garantito oggi dall'isolamento per database Turso separati, il
+    PIN è un gate UI in più, non un meccanismo di isolamento dati).
+  - **Primo accesso ad Admin senza PIN già impostato**: schermata "Imposta
+    un PIN" obbligatoria prima di procedere (niente accesso libero "per
+    ora", altrimenti il gate non protegge nulla finché qualcuno non lo
+    imposta di sua iniziativa). Ogni accesso successivo chiede il PIN.
+    Da dentro Admin (una volta sbloccato), voce "Cambia PIN"/"Rimuovi
+    PIN".
+  - Un PIN numerico semplice (4-6 cifre, dialog con `TextField`
+    offuscato) è proporzionato allo scopo dichiarato ("non far pasticciare
+    chi mi prende in mano il telefono", non resistere a un attaccante
+    determinato con accesso fisico al dispositivo) — niente biometria/
+    integrazione con lock screen di sistema in questa prima versione.
+- **3) Riorganizzazione Impostazioni** (`settings_page.dart`, oggi una
+  lista piatta di 8 voci): raggruppamento in sezioni, stesso pattern già
+  in uso in Admin (header `Text` in `titleMedium` + separatore — estratto
+  come widget condiviso `presentation/shared_widgets/section_divider.dart`
+  invece di duplicare `_AdminSectionDivider`, ora usato in 2 pagine).
+  ```
+  Impostazioni
+  ├─ Categorie e sottocategorie
+  ├─ Regole di classificazione scontrini
+  ├─ Esporta operazioni in CSV
+  ├─ Importa estratto conto bancario
+  │
+  ├─ Configurazioni ──────────────────
+  ├─ Sync multi-dispositivo (Turso)
+  ├─ AI per scontrini (Gemini)
+  │
+  ├─ Aspetto ──────────────────────────
+  ├─ Tema
+  │
+  ── (divisore) ──────────────────────
+  └─ Admin
+  ```
+  - **"Configurazioni"** (richiesto esplicitamente da Mario): raggruppa
+    Sync e Gemini — criterio "integrazione esterna opzionale che richiede
+    una tua credenziale", non obbligatoria per usare l'app. Estesa a
+    Gemini oltre a Sync (non solo richiesto esplicitamente, ma stesso
+    identico criterio): entrambe richiedono di incollare una chiave/token
+    propri, entrambe hanno un fallback quando mancanti (sync disattivata
+    → banner in Home; Gemini mancante → OCR offline). Da confermare con
+    Mario se includerci anche altro o se preferisce lasciarla solo per
+    Sync.
+  - **Gruppo in cima, senza intestazione**: Categorie/Regole/Export CSV/
+    Import estratto conto — sono le voci più usate (gestione della
+    propria tassonomia + movimento dati), restano il primo contatto
+    visivo, nessuna etichetta "Generale" ridondante sopra la prima cosa
+    che si vede aprendo la pagina.
+  - **"Aspetto"**: solo Tema per ora, intestazione comunque utile per
+    orientarsi in una pagina che con la condivisione crescerà di
+    pubblico/uso.
+  - **Admin resta staccato in fondo**, separato da un divisore (non da
+    un'intestazione testuale: resta "fuori dal flusso normale", coerente
+    con la nota già in CLAUDE.md) — ora comunque protetto da PIN (punto 2
+    sopra), quindi la separazione visiva è meno l'unica barriera di
+    prima.
+  - Nessun cambio di comportamento delle singole pagine collegate, solo
+    di posizione/raggruppamento nella lista.
+- Non tocca lo schema Drift, nessun `build_runner` necessario per questo
+  giro (a meno che il PIN finisca per richiedere un provider Riverpod con
+  code-gen invece di un `Provider` manuale — da confermare in fase di
+  sviluppo, stesso stile del resto del progetto: niente `@riverpod`
+  finora).
+- Da confermare con Mario prima di scrivere codice, in particolare: se
+  "Configurazioni" deve includere solo Sync o anche Gemini come proposto,
+  e conferma sul flusso PIN (obbligatorio al primo accesso, non
+  rimandabile).
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
