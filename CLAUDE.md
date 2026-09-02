@@ -991,11 +991,12 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   `flutter test` è sempre `false` (i test girano sull'host, non su un
   dispositivo Android). `flutter analyze` pulito, 221/221 test (209 + 12:
   `test/update_banner_test.dart` + `test/update_check_service_test.dart`).
-- **Non ancora verificato con un run reale**: nessuno dei due workflow è
-  stato lanciato dopo questa modifica — in attesa dell'attivazione di
-  GitHub Pages da parte di Mario e del run di verifica già pianificato
-  per M46-Windows (v. sezione CI sopra), da cui si vedrà anche se
-  `publish-version`/il banner funzionano davvero end-to-end.
+- **Verificato lato Android con una run reale (2 set 2026)**: repo reso
+  pubblico, GitHub Pages attivato, `android-build.yml` lanciato —
+  `publish-version` verde, `version.json` raggiungibile e corretto. Ancora
+  da verificare: il lato Windows (v. sezione CI sopra) e la comparsa
+  reale del banner a schermo (richiede una build volutamente più vecchia
+  di quella pubblicata).
 
 ## Stato attuale (2 set 2026)
 
@@ -1141,10 +1142,13 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   =BUILD_NUMBER`, passato dai due workflow) confrontato con un
   `version.json` pubblicato su GitHub Pages da un nuovo job
   `publish-version` in ciascun workflow — codice completo e testato
-  (221/221), **ma non ancora verificato con un run reale**: richiede
-  prima che Mario attivi GitHub Pages (Settings del repo → Pages →
-  Source: "GitHub Actions"), azione manuale una tantum non ancora fatta.
-  **CI attiva** — `.github/workflows/ci.yml`: `flutter
+  (221/221). Richiedeva GitHub Pages attivo: scoperto che serve un repo
+  **pubblico** sul piano Free (assunzione iniziale sbagliata) — deciso con
+  Mario di rendere pubblico `dukan94/segnaspese` (v. sopra) invece di
+  pagare un piano. **Verificato lato Android con una run reale (2 set
+  2026)**: `publish-version` verde, `version.json` raggiungibile e
+  corretto. Lato Windows in attesa dello stesso run di verifica di M46
+  sopra. **CI attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).

@@ -1831,9 +1831,9 @@ l'installazione su nuovi dispositivi")*
   hanno uno storage separato e molto più ampio, non condiviso con quella
   quota). Link fisso risultante:
   `https://github.com/dukan94/segnaspese/releases/download/android-latest/Tally-Android.apk`.
-  Non ancora verificato con una run reale (nessun lancio del workflow
-  dopo la modifica): da controllare all'prossimo utilizzo che
-  `gh release create`/`upload` funzionino come previsto.
+  **Verificato con una run reale (2 set 2026, dopo i fix dell'audit
+  pre-verifica sotto)**: `gh release upload` ha aggiornato correttamente
+  la release esistente (note con l'hash del commit corretto), job verde.
 - **Windows — ✅ Completata (2 set 2026, ripresa dopo il reset quota del 1°
   settembre)**: nuovo `windows-build.yml`, `workflow_dispatch` (mai su
   push, stesso principio di `android-build.yml`: costa 2x sul conteggio
@@ -2035,12 +2035,15 @@ codice)*
   ne è uscita una più recente → riappare) e
   `test/update_check_service_test.dart` (5: lettura chiave
   android/windows, chiave mancante, valore non intero, JSON vuoto).
-  `flutter analyze` pulito, **221/221 test** (209 + 12). Sintassi YAML dei
-  due workflow validata offline (`python -c "yaml.safe_load(...)"`) — **non
-  ancora verificato con un run reale**: né la pubblicazione di
-  `version.json` né la comparsa del banner sono state osservate a schermo,
-  in attesa dell'attivazione di GitHub Pages e del primo run di verifica
-  già pianificato per M46-Windows (v. sopra).
+  `flutter analyze` pulito, **221/221 test** (209 + 12). **Verificato con
+  una run reale lato Android (2 set 2026)**: repo reso pubblico, GitHub
+  Pages attivato, `android-build.yml` lanciato — `publish-version` verde,
+  `https://dukan94.github.io/segnaspese/version.json` raggiungibile e
+  corretto (`{"android": 76}`). **Ancora da verificare**: il lato Windows
+  (v. M46 sopra, run pianificata ma non ancora lanciata) e la comparsa
+  reale del banner in Home (richiede un dispositivo con una build
+  volutamente più vecchia di quella pubblicata — non ancora testato a
+  schermo).
 
 ### Processo per nuove milestone (da qui in avanti)
 
