@@ -2123,17 +2123,20 @@ Impostazioni, disabilitazione temporanea scan scontrino**
     separati per persona, indipendentemente dal PIN — il PIN protegge
     solo l'accesso locale a QUESTO dispositivo.
 - **3) Riorganizzazione Impostazioni** (`settings_page.dart`, prima una
-  lista piatta di 8 voci). **Fatto**, esattamente come proposto:
+  lista piatta di 8 voci). **Fatto**, con un aggiustamento rispetto alla
+  proposta iniziale deciso dopo la prima verifica a schermo (v. punto 4):
   ```
   Impostazioni
   ├─ Categorie e sottocategorie
-  ├─ Regole di classificazione scontrini
   ├─ Esporta operazioni in CSV
   ├─ Importa estratto conto bancario
   │
+  ├─ Lettura scontrini (disabilitata) ─
+  ├─ Regole di classificazione scontrini
+  ├─ AI per scontrini (Gemini)
+  │
   ├─ Configurazioni ──────────────────
   ├─ Sync multi-dispositivo (Turso)
-  ├─ AI per scontrini (Gemini)
   │
   ├─ Aspetto ──────────────────────────
   ├─ Tema
@@ -2146,29 +2149,38 @@ Impostazioni, disabilitazione temporanea scan scontrino**
     invece di duplicare il precedente `_AdminSectionDivider` privato — ora
     usato sia in Admin sia in Impostazioni. Intestazioni di sezione
     (`_SectionHeader`, privato a `settings_page.dart`) nello stesso stile
-    `titleMedium` già in uso in Admin.
+    `titleMedium` già in uso in Admin, con un parametro `disabled` in più
+    (v. punto 4) che attenua il colore del testo (`theme.disabledColor`).
   - Nessun cambio di comportamento delle singole pagine collegate, solo
     di posizione/raggruppamento nella lista — nessun test dedicato (pura
     presentazione, stesso principio già seguito per M26-M31).
-- **4) Disabilitazione temporanea "Scansiona scontrino"** (richiesto da
-  Mario nella stessa sessione: la lettura scontrino non funziona bene al
-  momento). **Fatto**: l'unico punto d'accesso reale nel codice era il
-  bottom sheet del FAB in Home (`home_page.dart`) — `ListTile` con
-  `enabled: false` (grigio, non cliccabile, gestito automaticamente da
-  Flutter) + sottotitolo "Temporaneamente non disponibile". Commento nel
-  codice con istruzioni per riabilitarlo quando il problema sarà risolto.
-  Non tocca Impostazioni → AI per scontrini (Gemini): resta configurabile
-  normalmente, solo il bottone che avvia la scansione è disattivato.
-- **Verificato**: `flutter analyze` pulito, **216/216 test** (208 dopo la
-  rimozione dei 13 test Google Sheets, +8 nuovi per `AdminPinStore`).
-  Build Windows release reale compilata ed eseguita: si avvia
-  correttamente (finestra con titolo valido, processo "Responding: True",
-  stesso controllo di sanità già descritto in CLAUDE.md per diagnosticare
-  un avvio bloccato). **Limite di questa verifica**: nessuno strumento di
-  automazione GUI disponibile in questa sessione per cliccare
-  effettivamente dentro l'app — la navigazione reale in Impostazioni/
-  Admin/PIN e l'aspetto del bottone disabilitato non sono stati osservati
-  a schermo, da controllare a mano da Mario.
+- **4) Disabilitazione temporanea "Scansiona scontrino" — estesa a tutta
+  la sua configurazione** (richiesto da Mario nella stessa sessione: la
+  lettura scontrino non funziona bene al momento). **Fatto in due
+  passaggi**, il secondo dopo la prima verifica a schermo:
+  1. Bottom sheet del FAB in Home (`home_page.dart`) — `ListTile` con
+     `enabled: false` (grigio, non cliccabile, gestito automaticamente da
+     Flutter) + sottotitolo "Temporaneamente non disponibile". Prima
+     versione: lasciava configurabili Regole/Gemini in Impostazioni pur
+     non potendoli usare.
+  2. **Estensione richiesta da Mario dopo aver visto l'app**: anche "AI
+     per scontrini (Gemini)" e poi "Regole di classificazione scontrini"
+     disabilitate — a quel punto, invece di due voci disabilitate sparse
+     (una in "Configurazioni", una nel gruppo in cima), spostate insieme
+     in una **nuova sezione dedicata "Lettura scontrini"**, con anche
+     l'intestazione della sezione visivamente disabilitata (non solo le
+     singole voci) — segnale più chiaro di "questo blocco intero è
+     spento" rispetto a due `ListTile` grigi in mezzo a voci attive.
+  - Commenti nel codice con istruzioni per riabilitare insieme (bottone +
+    sezione) quando il problema sarà risolto.
+- **Verificato**: `flutter analyze` pulito, **216/216 test** invariati
+  (208 dopo la rimozione dei 13 test Google Sheets, +8 nuovi per
+  `AdminPinStore` — punti 3/4 sono pura presentazione, nessun test
+  aggiuntivo necessario). Build Windows release reale compilata e
+  **usata a schermo da Mario** (non solo avviata): PIN Admin, sezioni di
+  Impostazioni e la sezione "Lettura scontrini" disabilitata confermati
+  funzionanti/corretti a video, dopo un giro di rebuild+riavvio per
+  ciascuna delle due richieste di estensione.
 
 ### Processo per nuove milestone (da qui in avanti)
 

@@ -1021,29 +1021,32 @@ primo avvio) resta una milestone futura separata.
   persona), protegge solo l'accesso a QUESTO dispositivo.
 - **Impostazioni riorganizzate in sezioni** (`settings_page.dart`, prima
   lista piatta di 8 voci): gruppo in cima senza intestazione (Categorie,
-  Regole, Export CSV, Import estratto conto — le voci più usate), poi
-  **"Configurazioni"** (Sync + Gemini, criterio "integrazione esterna
-  opzionale con una tua credenziale, non obbligatoria per usare l'app"),
-  poi **"Aspetto"** (Tema), poi Admin staccato in fondo da un divisore
-  (nessuna intestazione testuale, resta "fuori dal flusso normale").
-  Divisore estratto come widget condiviso
-  (`presentation/shared_widgets/section_divider.dart`, `SectionDivider`)
-  al posto del precedente `_AdminSectionDivider` privato — ora usato in 2
-  pagine.
-- **"Scansiona scontrino" disabilitato temporaneamente** (la lettura
-  scontrino non funziona bene al momento): unico punto d'accesso reale,
-  il bottom sheet del FAB in Home — `ListTile(enabled: false)` con
-  sottotitolo "Temporaneamente non disponibile", commento nel codice con
-  istruzioni per riabilitarlo. Impostazioni → Gemini resta comunque
-  configurabile normalmente.
+  Export CSV, Import estratto conto — le voci più usate), poi **"Lettura
+  scontrini"** (Regole di classificazione + Gemini, v. punto sotto — sezione
+  intera disabilitata, non solo le singole voci), poi **"Configurazioni"**
+  (solo Sync per ora, criterio "integrazione esterna opzionale con una tua
+  credenziale, non obbligatoria per usare l'app"), poi **"Aspetto"** (Tema),
+  poi Admin staccato in fondo da un divisore (nessuna intestazione
+  testuale, resta "fuori dal flusso normale"). Divisore estratto come
+  widget condiviso (`presentation/shared_widgets/section_divider.dart`,
+  `SectionDivider`) al posto del precedente `_AdminSectionDivider`
+  privato — ora usato in 2 pagine.
+- **"Scansiona scontrino" e tutto ciò che lo configura, disabilitati
+  temporaneamente** (la lettura scontrino non funziona bene al momento —
+  esteso da Mario dopo aver visto la prima versione, che lasciava
+  configurabili Regole/Gemini pur non potendoli usare): bottom sheet del
+  FAB in Home (`ListTile(enabled: false)`), più l'intera sezione "Lettura
+  scontrini" in Impostazioni (Regole di classificazione scontrini + AI per
+  scontrini Gemini) — qui anche l'intestazione della sezione è visivamente
+  attenuata (`_SectionHeader(disabled: true)`, `theme.disabledColor`), non
+  solo le singole voci. Stesso sottotitolo "Temporaneamente non
+  disponibile" ovunque, commenti nel codice con istruzioni per riabilitare
+  insieme quando il problema sarà risolto.
 - **Verificato**: `flutter analyze` pulito, **216/216 test** (208 dopo la
   rimozione dei 13 test Google Sheets, +8 nuovi su `AdminPinStore`). Build
-  Windows release compilata ed eseguita: si avvia correttamente (finestra
-  con titolo valido, processo "Responding: True"). **Non verificato**:
-  nessuno strumento di automazione GUI disponibile in questa sessione per
-  cliccare dentro l'app — la navigazione reale in Impostazioni/Admin/PIN
-  e l'aspetto del bottone disabilitato restano da controllare a mano da
-  Mario.
+  Windows release compilata e usata a schermo da Mario (non solo avviata):
+  PIN Admin, riorganizzazione Impostazioni e sezione "Lettura scontrini"
+  disabilitata tutti confermati funzionanti/corretti a video.
 
 ## Stato attuale (2 set 2026)
 
@@ -1197,9 +1200,11 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   condivisione (M48, 2 set 2026, v. sezione dedicata sopra)**: rimosso il
   bridge Google Sheets (non più usato attivamente), PIN per l'intero
   pannello Admin (`AdminPinGate`, hash salvato in `flutter_secure_storage`,
-  mai in chiaro), Impostazioni riorganizzate in sezioni (nuova
-  "Configurazioni" per Sync/Gemini, "Aspetto" per Tema), scan scontrino
-  disabilitato temporaneamente in UI (bug noto, non ancora risolto). **CI
+  mai in chiaro), Impostazioni riorganizzate in sezioni ("Lettura
+  scontrini" disabilitata in blocco, "Configurazioni" per Sync,
+  "Aspetto" per Tema), scan scontrino e tutto ciò che lo configura
+  (Regole/Gemini) disabilitati temporaneamente in UI (bug noto, non
+  ancora risolto). **CI
   attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
