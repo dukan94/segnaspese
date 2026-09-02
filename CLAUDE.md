@@ -637,15 +637,35 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
     la stessa transazione DOPO quel punto, non c'è modo di riconoscerla come
     duplicata — irrilevante finché quel dispositivo resta non risincronizzato.
 
-## CI — build Android APK, quota storage/minuti Artifacts
+## CI — build Android/Windows, quota storage/minuti Artifacts
 
-`.github/workflows/android-build.yml` builda un APK **debug** e lo carica
-come artifact scaricabile (v. commento nel file per il perché del keystore
-committato) — **solo su richiesta manuale** (`workflow_dispatch`, tab
-Actions > "Build Android APK" > "Run workflow"), non più ad ogni push su
-`main` (v. bug reale sotto, 17 ago 2026). `ci.yml` (`flutter analyze` +
-`flutter test`) resta invece automatico ad ogni push/PR: è il vero
-controllo qualità, e costa molto meno in minuti.
+`.github/workflows/android-build.yml` builda un APK **debug** (v. commento
+nel file per il perché del keystore committato) e `windows-build.yml`
+builda la release desktop Windows (M46, parte Windows, 2 set 2026) —
+entrambi pubblicano/sostituiscono l'asset su una release GitHub fissa
+(`android-latest`/`windows-latest`, v. sezioni Admin/Distribuzione Windows
+sopra), **non** più come Artifact scaricabile della run. Entrambi **solo su
+richiesta manuale** (`workflow_dispatch`, tab Actions > "Build Android
+APK"/"Build Windows App" > "Run workflow"), mai su push (v. bug reale
+sotto, 17 ago 2026). `ci.yml` (`flutter analyze` + `flutter test`) resta
+invece automatico ad ogni push/PR: è il vero controllo qualità, e costa
+molto meno in minuti.
+
+- **`windows-build.yml` costa 2x sul conteggio minuti** (runner
+  `windows-latest`, contro 1x di `ubuntu-latest`): stima 16-24 minuti di
+  quota per pubblicazione (8-12 min di build reale × 2). Precauzioni
+  aggiunte apposta nel riprendere questa milestone (richiesta esplicita di
+  Mario, 2 set 2026, dopo i ripetuti incidenti di quota di agosto):
+  **trigger solo manuale** (Mario decide quando serve davvero una build
+  aggiornata, non un automatismo su ogni push) e una **cache dei pacchetti
+  pub** (`actions/cache` su `%LOCALAPPDATA%\Pub\Cache`, chiave su hash di
+  `pubspec.lock`) per accorciare le run successive alla prima quando le
+  dipendenze non cambiano — l'SDK Flutter stesso è già cachato da
+  `subosito/flutter-action` (`cache: true`). **Non ancora verificato con
+  una run reale**: solo sintassi YAML validata offline. Concordato con
+  Mario un solo run di verifica quando pronto, non ripetuto a piacere,
+  proprio per contenere il consumo reale finché non si conosce il tempo
+  effettivo di una build su questo runner.
 
 - **Bug reale (5 ago 2026)**: build fallita in fase `actions/upload-artifact`
   con `Artifact storage quota has been hit`. Il job Flutter (`flutter build
@@ -858,21 +878,20 @@ mantenere" già usato per l'APK Android (`android-build.yml`).
   `gh release upload windows-latest Tally-Windows.zip --repo
   dukan94/segnaspese --clobber` dopo build+zip, nessun passaggio da
   browser. `--clobber` sostituisce l'asset esistente mantenendo lo stesso
-  nome file/link. Un workflow `workflow_dispatch` che builda e pubblica in
-  automatico da GitHub Actions (sul modello di `android-build.yml`) resta
-  comunque un'estensione futura possibile, non richiesta ora.
-- V. M37 in `progettazione_finance_app.md` per il dettaglio completo.
+  nome file/link. **Automatizzato da GitHub Actions (M46, parte Windows, 2
+  set 2026)**: `.github/workflows/windows-build.yml`, `workflow_dispatch`
+  (mai su push), stesso modello di `android-build.yml` — v. sezione CI
+  sotto per il dettaglio e le precauzioni sui minuti.
+- V. M37/M46 in `progettazione_finance_app.md` per il dettaglio completo.
 
-## Stato attuale (20 ago 2026)
+## Stato attuale (2 set 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M45 completate, M46 parzialmente completata (solo parte Android),
-  M47 in attesa** (v. `progettazione_finance_app.md` sezione 6 per il
-  dettaglio completo, incluso perché M46-Windows e M47 sono state
-  deliberatamente rimandate al 1° settembre 2026). M0-M8:
+- **M0–M46 completate, M47 in attesa (proposta)** (v.
+  `progettazione_finance_app.md` sezione 6 per il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
   sync Turso + build desktop/Android, rifinitura (fix bug critici sync,
@@ -988,24 +1007,27 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   <budget>` invece del solo tetto — speso in grassetto (stesso colore di
   stato verde/rosso/outline di prima), tetto più piccolo e non in
   grassetto dopo "/", nessun "/ ..." se il budget non è impostato.
-  **Android: pubblicazione su release fissa (M46, parte Android, 20 ago
-  2026)**: `android-build.yml` non carica più l'APK come Artifact della
-  run (3 giorni di retention, quota storage 0.5GB) — lo pubblica/sostituisce
-  su una release GitHub "rolling" (`gh` CLI, già preinstallata sui runner
-  GitHub-hosted, nessun nuovo secret), tag `android-latest`:
+  **Pubblicazione automatica su release fissa, Android + Windows (M46,
+  completata — parte Android 20 ago 2026, parte Windows 2 set 2026)**:
+  `android-build.yml`/`windows-build.yml` non caricano più i binari come
+  Artifact della run (3 giorni di retention, quota storage 0.5GB) — li
+  pubblicano/sostituiscono su release GitHub "rolling" (`gh` CLI, già
+  preinstallata sui runner GitHub-hosted, nessun nuovo secret), tag
+  `android-latest`/`windows-latest`:
   `https://github.com/dukan94/segnaspese/releases/download/android-latest/Tally-Android.apk`
-  — stesso principio del link fisso Windows (M37), stesso trigger
-  `workflow_dispatch` e stesso build **debug** di sempre, nessun cambio di
-  costo in minuti Actions. **Parte Windows di M46 (workflow che automatizza
-  build+pubblicazione, oggi manuale) e M47 (banner in-app "nuova versione
-  disponibile") rimandate al 1° settembre 2026**: la build Windows su
-  runner `windows-latest` costa 2x sul conteggio minuti Actions, e la
-  quota gratuita mensile (2.000 min) era già sotto pressione da più
-  incidenti recenti nel ciclo corrente (v. sezione CI sotto) — v.
-  `progettazione_finance_app.md` M46/M47 per il dettaglio completo e la
-  stima dei minuti. **CI attiva** — `.github/workflows/ci.yml`: `flutter
+  e `.../windows-latest/Tally-Windows.zip` — stesso trigger
+  `workflow_dispatch` per entrambi (mai su push), stesso build **debug**
+  Android di sempre. Parte Windows ripresa dopo il reset quota del 1°
+  settembre con precauzioni esplicite di Mario per il costo 2x su
+  `windows-latest`: trigger solo manuale + cache pacchetti pub, un solo
+  run di verifica pianificato (non ancora eseguito) — v. sezione CI sotto
+  per il dettaglio e `progettazione_finance_app.md` M46 per la cronologia
+  completa. **M47 (banner in-app "nuova versione disponibile") resta
+  proposta**, non ancora sviluppata: richiede tra l'altro l'attivazione
+  manuale di GitHub Pages da parte di Mario, da confermare con lui prima
+  di scrivere codice. **CI attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
-  (`android-build.yml` solo su richiesta manuale, v. sezione dedicata
+  (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
 - Test in `test/` (30 file, 209 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,

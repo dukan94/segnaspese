@@ -1,0 +1,93 @@
+name: Build Windows App
+
+# Compila la build desktop Windows e la pubblica su una release GitHub
+# fissa, senza bisogno che Mario la ricompili/zippi/carichi a mano dal suo
+# PC (M46, parte Windows, ripresa il 2 set 2026 dopo il reset della quota
+# minuti Actions). Stesso link fisso già esistente da M37, solo la
+# pubblicazione diventa automatica:
+# https://github.com/dukan94/segnaspese/releases/download/windows-latest/Tally-Windows.zip
+#
+# COSTO IN MINUTI — runner windows-latest conta 2x sul totale mensile
+# (2.000 min gratis/mese): una run qui costa quanto ~2 run equivalenti su
+# ubuntu-latest. Per questo, a differenza di ci.yml:
+# - Solo `workflow_dispatch` (mai su push): Mario lancia questo workflow
+#   solo quando vuole davvero pubblicare una build aggiornata, non ad ogni
+#   commit — stesso principio già seguito da android-build.yml.
+# - Cache dei pacchetti pub (`actions/cache` sotto) tra una run e l'altra:
+#   evita di riscaricare da zero le stesse dipendenze quando pubspec.lock
+#   non cambia, per accorciare il tempo (quindi i minuti) di ogni run
+#   successiva. Il cache della cache dell'SDK Flutter stesso lo fa già
+#   `subosito/flutter-action` con `cache: true`.
+# - Nessun `actions/upload-artifact`: si pubblica solo sulla release fissa
+#   (storage Releases, separato e molto più ampio della quota Artifacts da
+#   0.5GB già causa di un incidente passato, v. CLAUDE.md).
+on:
+  workflow_dispatch:
+
+# Serve solo per pubblicare/aggiornare la release fissa "windows-latest"
+# col GITHUB_TOKEN di default — nessun nuovo secret (stesso principio di
+# android-build.yml).
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      # Cache dei pacchetti pub scaricati (non l'SDK Flutter, già gestito
+      # sopra): invalidata solo quando pubspec.lock cambia, altrimenti
+      # `flutter pub get` sotto riusa quanto già presente invece di
+      # riscaricare tutto da zero ad ogni run.
+      - name: Cache pacchetti pub
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.LOCALAPPDATA }}\Pub\Cache
+          key: pub-windows-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-windows-
+
+      - run: flutter pub get
+
+      # Rigenera i file *.g.dart (Drift/Riverpod): se qualcuno ha
+      # dimenticato di rilanciarlo dopo una modifica a schema/provider
+      # prima di committare, la build fallisce qui invece che silenziosamente
+      # con codice generato disallineato (stesso principio di ci.yml/
+      # android-build.yml). Deliberatamente MAI messo in cache: rigenerarlo
+      # sempre da zero è l'unico modo per essere certi che rispecchi il
+      # sorgente committato.
+      - run: dart run build_runner build --delete-conflicting-outputs
+
+      - run: flutter build windows --release
+
+      # Stesso contenuto/percorso che Mario comprime a mano da M37: la
+      # cartella build di Flutter è già portabile, non serve un installer
+      # (v. CLAUDE.md "Distribuzione Windows").
+      - name: Comprimi la build in zip
+        run: |
+          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath Tally-Windows.zip -Force
+
+      # gh CLI è già preinstallata sui runner GitHub-hosted (a differenza
+      # del PC aziendale di Mario, v. CLAUDE.md "Distribuzione Windows").
+      # Stesso pattern di android-build.yml: aggiorna la release esistente
+      # se c'è già, altrimenti la crea la prima volta.
+      - name: Pubblica su release fissa windows-latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $notes = "Build Windows, pubblicata automaticamente da CI. Ultimo aggiornamento: commit ${{ github.sha }}."
+          gh release view windows-latest --repo "${{ github.repository }}" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload windows-latest Tally-Windows.zip --repo "${{ github.repository }}" --clobber
+            gh release edit windows-latest --repo "${{ github.repository }}" --notes "$notes"
+          } else {
+            gh release create windows-latest Tally-Windows.zip --repo "${{ github.repository }}" `
+              --title "Tally per Windows" --notes "$notes"
+          }
