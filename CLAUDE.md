@@ -1048,13 +1048,59 @@ primo avvio) resta una milestone futura separata.
   PIN Admin, riorganizzazione Impostazioni e sezione "Lettura scontrini"
   disabilitata tutti confermati funzionanti/corretti a video.
 
+## Wizard di primo avvio (M49)
+
+*(2 set 2026)* 3 schermate (`presentation/onboarding/onboarding_page.dart`):
+Benvenuto → Sync Turso (istruzioni passo-passo + link a turso.tech, campi
+URL/token) → Fine. Mostrato **solo** su un'installazione davvero vuota.
+
+- **`resolveNeedsOnboarding`** (`data/local/seed/onboarding_check.dart`):
+  se l'onboarding risulta già completato (riga Settings), esce subito —
+  altrimenti, se esiste già una transazione o Turso è già configurato,
+  marca completato **in silenzio** (backfill una tantum, stesso principio
+  di `kSeedVersion`) senza mai mostrare il wizard. Nessun utente esistente
+  (incluso te) lo vedrà mai comparire.
+- **Persistenza dello step** (`onboardingStepProvider`, valori `welcome`/
+  `turso`/`done`): se esci dall'app per creare il database Turso sul
+  browser e il processo viene ucciso (comune su Android in background), al
+  ritorno riprendi dalla stessa schermata — le credenziali, se già
+  salvate, sono comunque già in `flutter_secure_storage` tramite lo stesso
+  `TursoSyncService.configure()` della pagina Sync normale.
+- **Decisione presa una sola volta in `main.dart`, prima di `runApp()`**,
+  non un `redirect` reattivo di go_router — stessa cautela già imposta
+  dai bug reali M17/M22 in quest'area. `appRouter` (prima un `final`
+  top-level fisso) è diventato `buildAppRouter({required
+  initialLocation})`; `FinanceApp` accetta il router già costruito come
+  parametro. Fallimento del controllo → fallback sempre "nessun wizard"
+  (mai il contrario): più sicuro sbagliare verso un utente nuovo che
+  configura da Impostazioni, che disturbare un utente esistente.
+- **Gemini escluso dallo scope** (confermato con Mario): lo scan scontrino
+  è disabilitato (M48, bug non risolto) — non ha senso guidare la
+  configurazione di qualcosa che non si può ancora usare. Uno step Gemini
+  sarà una milestone a parte quando il bug sarà risolto.
+- **Creazione del database Turso resta manuale** (fuori scope
+  volontariamente): il wizard guida solo l'inserimento di URL+token già
+  ottenuti da turso.tech, non li crea via API — provisioning automatico
+  richiederebbe una nuova integrazione, non fatta in questo giro.
+- **Verificato**: `flutter analyze` pulito, **220/220 test** (216 + 4 su
+  `resolveNeedsOnboarding`, `test/onboarding_check_test.dart`). Build
+  Windows reale confermata: il dispositivo di Mario (dati e Turso già
+  presenti) continua ad aprirsi direttamente su Home, nessuna regressione
+  sull'avvio. **Non verificate le 3 schermate del wizard a schermo**:
+  richiede un'installazione davvero vuota, che nessun dispositivo
+  disponibile in questa sessione ha più — da provare su un dispositivo/
+  emulatore pulito quando comodo, non urgente (logica di innesco coperta
+  dai test).
+
 ## Stato attuale (2 set 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M48 completate e verificate con run/build reali** (v.
+- **M0–M49 completate e verificate con run/build reali** (M49: solo la
+  logica di innesco del wizard verificata a schermo, non le 3 schermate —
+  v. sezione dedicata sotto) (v.
   `progettazione_finance_app.md` sezione 6 per il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -1204,12 +1250,17 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   scontrini" disabilitata in blocco, "Configurazioni" per Sync,
   "Aspetto" per Tema), scan scontrino e tutto ciò che lo configura
   (Regole/Gemini) disabilitati temporaneamente in UI (bug noto, non
-  ancora risolto). **CI
+  ancora risolto). **Wizard di primo avvio (M49, 2 set 2026, v. sezione
+  dedicata sopra)**: 3 schermate (Benvenuto → Sync Turso con istruzioni
+  passo-passo → Fine), mostrato solo su un'installazione davvero vuota
+  (mai a un utente esistente, backfill automatico), decisione presa una
+  sola volta in `main.dart` prima di `runApp()` (`buildAppRouter`, non più
+  un router singleton fisso). **CI
   attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
-- Test in `test/` (31 file, 216 test): parser CSV, receipt parser, rule
+- Test in `test/` (32 file, 220 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -1241,7 +1292,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   stesso principio: logica pura estratta in `shouldShowUpdateBanner`/
   `extractBuildNumberForPlatform`), PIN Admin
   (`admin_pin_store_test.dart`, M48 — set/verify/clear, cambio PIN, mai
-  il PIN salvato in chiaro) + 1 smoke widget test.
+  il PIN salvato in chiaro), wizard di primo avvio
+  (`onboarding_check_test.dart`, M49 — quando mostrarlo, backfill silenzioso
+  per utenti esistenti, short-circuit se già completato) + 1 smoke widget
+  test.
 
 ### Processo per nuove modifiche (da qui in avanti)
 

@@ -21,6 +21,7 @@ import '../../presentation/settings/sync_page.dart';
 import '../../presentation/settings/theme_page.dart';
 import '../../presentation/settings/gemini_page.dart';
 import '../../presentation/settings/admin_pin_gate.dart';
+import '../../presentation/onboarding/onboarding_page.dart';
 import '../../presentation/shared_widgets/root_scaffold.dart';
 
 /// Configurazione di navigazione dell'app.
@@ -31,9 +32,20 @@ import '../../presentation/shared_widgets/root_scaffold.dart';
 /// top-level (con pulsante Indietro), fuori dallo StatefulShellRoute. In
 /// questo modo i loro percorsi restano invariati (es. /settings/categories),
 /// e la barra non supera le 5 voci consigliate da Material.
-final appRouter = GoRouter(
-  initialLocation: '/home',
+///
+/// `initialLocation` non è più fissa (M49): `main.dart` decide una volta
+/// sola, prima di `runApp()`, se mostrare `/onboarding` (wizard di primo
+/// avvio, installazione davvero vuota) o `/home` — una decisione presa una
+/// tantum all'avvio, non un `redirect` reattivo di go_router: più semplice
+/// e meno a rischio di bug sottili, coerente con la cautela già richiesta
+/// dal codice di avvio in questo file (v. `main.dart`/M17/M22 in CLAUDE.md).
+GoRouter buildAppRouter({required String initialLocation}) => GoRouter(
+  initialLocation: initialLocation,
   routes: [
+    GoRoute(
+      path: '/onboarding',
+      builder: (context, state) => const OnboardingPage(),
+    ),
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return RootScaffold(navigationShell: navigationShell);

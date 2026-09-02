@@ -8,7 +8,9 @@ import 'app.dart';
 import 'core/di/database_provider.dart';
 import 'core/di/recurring_providers.dart';
 import 'core/di/sync_providers.dart';
+import 'core/router/app_router.dart';
 import 'data/local/seed/dedupe_default_taxonomy.dart';
+import 'data/local/seed/onboarding_check.dart';
 import 'data/local/seed/repair_orphaned_subcategories.dart';
 import 'data/local/seed/seed_runner.dart';
 import 'presentation/home/home_providers.dart';
@@ -67,6 +69,26 @@ Future<void> main() async {
   await _runStartupStep('generazione ricorrenze dovute',
       () => container.read(generateDueRecurringProvider).call());
 
+  // Wizard di primo avvio (M49): mostrato SOLO su un'installazione davvero
+  // vuota (nessuna transazione, sync non ancora configurata) — v.
+  // resolveNeedsOnboarding per il dettaglio del backfill silenzioso sui
+  // dispositivi già in uso. Fallback `false` (nessun wizard) se il
+  // controllo stesso fallisce: mostrarlo per errore a un utente esistente
+  // sarebbe più fastidioso che ometterlo per uno nuovo, che può comunque
+  // configurare tutto in un secondo momento da Impostazioni.
+  var needsOnboarding = false;
+  try {
+    needsOnboarding = await resolveNeedsOnboarding(
+      db,
+      isTursoConfigured: () => container.read(syncServiceProvider).isConfigured(),
+    );
+  } catch (error, stackTrace) {
+    debugPrint('Avvio: "controllo onboarding" fallito, si continua comunque: $error\n$stackTrace');
+  }
+  final router = buildAppRouter(
+    initialLocation: needsOnboarding ? '/onboarding' : '/home',
+  );
+
   // Sync Turso (Milestone M7): non deve mai bloccare l'avvio né far
   // crashare l'app se non configurata o offline, quindi fire-and-forget con
   // try/catch (ma loggato, non silenzioso: altrimenti un errore di sync in
@@ -88,7 +110,7 @@ Future<void> main() async {
   runApp(
     UncontrolledProviderScope(
       container: container,
-      child: const FinanceApp(),
+      child: FinanceApp(router: router),
     ),
   );
 }
