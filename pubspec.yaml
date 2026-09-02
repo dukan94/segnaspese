@@ -39,14 +39,11 @@ dependencies:
   # data/services/turso_http_client.dart e turso_sync_service.dart.
   http: ^1.2.0
   flutter_secure_storage: ^11.0.0
-
-  # Bridge temporaneo verso Google Sheets (Admin > foglio "Copia di Spese",
-  # v. CLAUDE.md): autenticazione service account, non OAuth interattivo
-  # (google_sign_in non supporta Windows desktop). Pacchetti Dart puri
-  # mantenuti da Google, nessuna toolchain nativa (stesso principio già
-  # seguito per Turso).
-  googleapis_auth: ^2.3.3
-  googleapis: ^16.0.0
+  # Hash del PIN del pannello Admin (M48) — mai il PIN in chiaro, nemmeno in
+  # flutter_secure_storage. Già una dipendenza transitiva di questo
+  # progetto (tirata dentro da altri pacchetti); dichiarata qui diretta
+  # perché ora importata direttamente nel codice.
+  crypto: ^3.0.3
 
   # OCR offline scontrini
   google_mlkit_text_recognition: ^0.17.0

@@ -2,28 +2,31 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/di/admin_pin_providers.dart';
 import '../../core/di/category_providers.dart';
 import '../../core/di/database_backup_providers.dart';
-import '../../core/di/google_sheets_providers.dart';
 import '../../core/di/transaction_providers.dart';
 import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../data/local/database/tables/categories_table.dart';
-import '../../data/services/google_sheets_service.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../home/home_providers.dart';
 import '../shared_widgets/content_width_limiter.dart';
+import '../shared_widgets/section_divider.dart';
 
-enum _SheetsTestStatus { unknown, testing, valid, invalid }
+enum _PinAction { change, remove }
 
 /// Strumenti interni, fuori dal flusso normale di Impostazioni: import CSV
 /// (solo per sviluppo/backfill, non il vero import da estratto conto), il
-/// bridge temporaneo verso il foglio Google "Copia di Spese" (v. CLAUDE.md),
-/// disattivabile da qui, e gli strumenti di eliminazione definitiva.
+/// backup completo del database e gli strumenti di eliminazione definitiva.
+/// Protetta da PIN locale al dispositivo (M48): questo widget presuppone
+/// che il gate sia già stato superato, v. `admin_pin_gate.dart` (l'unico
+/// punto da cui questa pagina viene raggiunta nel router).
 class AdminPage extends ConsumerStatefulWidget {
   const AdminPage({super.key});
 
@@ -32,13 +35,6 @@ class AdminPage extends ConsumerStatefulWidget {
 }
 
 class _AdminPageState extends ConsumerState<AdminPage> {
-  final _credentialsController = TextEditingController();
-  final _spreadsheetController = TextEditingController();
-  final _sheetNameController = TextEditingController();
-  bool _fieldsLoaded = false;
-  bool _busy = false;
-  bool _alreadyConfigured = false;
-  _SheetsTestStatus _testStatus = _SheetsTestStatus.unknown;
   bool _backupBusy = false;
 
   final _deleteSearchController = TextEditingController();
@@ -47,30 +43,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
   int? _hardDeletingId;
 
   @override
-  void initState() {
-    super.initState();
-    _loadExisting();
-  }
-
-  Future<void> _loadExisting() async {
-    final configured =
-        await ref.read(googleSheetsCredentialsStoreProvider).isConfigured();
-    if (!mounted) return;
-    setState(() => _alreadyConfigured = configured);
-  }
-
-  void _fillFieldsOnce(String spreadsheetId, String sheetName) {
-    if (_fieldsLoaded) return;
-    _fieldsLoaded = true;
-    _spreadsheetController.text = spreadsheetId;
-    _sheetNameController.text = sheetName;
-  }
-
-  @override
   void dispose() {
-    _credentialsController.dispose();
-    _spreadsheetController.dispose();
-    _sheetNameController.dispose();
     _deleteSearchController.dispose();
     super.dispose();
   }
@@ -206,44 +179,6 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     }).toList();
   }
 
-  Future<void> _save() async {
-    final credentials = _credentialsController.text.trim();
-    final spreadsheetInput = _spreadsheetController.text.trim();
-    final sheetName = _sheetNameController.text.trim();
-
-    if (credentials.isEmpty && !_alreadyConfigured) {
-      showErrorSnackBar(context, 'Incolla la chiave JSON del service account');
-      return;
-    }
-    if (spreadsheetInput.isEmpty) {
-      showErrorSnackBar(context, 'Inserisci l\'URL o l\'id del foglio Google');
-      return;
-    }
-    if (sheetName.isEmpty) {
-      showErrorSnackBar(context, 'Inserisci il nome del tab');
-      return;
-    }
-
-    setState(() => _busy = true);
-    try {
-      if (credentials.isNotEmpty) {
-        await ref.read(googleSheetsCredentialsStoreProvider).write(credentials);
-      }
-      final spreadsheetId =
-          GoogleSheetsService.extractSpreadsheetId(spreadsheetInput);
-      await ref.read(setGoogleSheetsSpreadsheetIdProvider)(spreadsheetId);
-      await ref.read(setGoogleSheetsSheetNameProvider)(sheetName);
-      if (!mounted) return;
-      setState(() => _alreadyConfigured = true);
-      showSuccessSnackBar(context, 'Configurazione salvata');
-    } catch (e) {
-      if (!mounted) return;
-      showErrorSnackBar(context, 'Errore durante il salvataggio: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   /// Backup completo del database (M43): stesso pattern di salvataggio file
   /// già usato dall'export CSV (`export_page.dart`) — su mobile il plugin
   /// scrive già il file dai byte passati, su desktop `saveFile` restituisce
@@ -283,60 +218,149 @@ class _AdminPageState extends ConsumerState<AdminPage> {
     }
   }
 
-  Future<void> _toggleGoogleSheetsEnabled(bool value) async {
-    try {
-      await ref.read(setGoogleSheetsEnabledProvider)(value);
-    } catch (e) {
-      if (!mounted) return;
-      showErrorSnackBar(context, 'Errore nel salvare lo stato del bridge: $e');
+  /// Menu "Cambia PIN"/"Rimuovi PIN" (M48) — l'unica azione di gestione del
+  /// gate raggiungibile da dentro Admin, una volta già sbloccato.
+  Future<void> _showPinSettings() async {
+    final choice = await showDialog<_PinAction>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: const Text('PIN Admin'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(_PinAction.change),
+            child: const Text('Cambia PIN'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.of(context).pop(_PinAction.remove),
+            child: const Text('Rimuovi PIN'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == _PinAction.change) {
+      await _showChangePinDialog();
+    } else {
+      await _confirmAndRemovePin();
     }
   }
 
-  Future<void> _testConnection() async {
-    var credentials = _credentialsController.text.trim();
-    if (credentials.isEmpty) {
-      credentials =
-          await ref.read(googleSheetsCredentialsStoreProvider).read() ?? '';
-    }
-    final spreadsheetInput = _spreadsheetController.text.trim();
-    final sheetName = _sheetNameController.text.trim();
+  Future<void> _showChangePinDialog() async {
+    final pinController = TextEditingController();
+    final confirmController = TextEditingController();
+    String? error;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Cambia PIN'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: pinController,
+                obscureText: true,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(adminPinMaxLength),
+                ],
+                decoration: const InputDecoration(labelText: 'Nuovo PIN'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmController,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(adminPinMaxLength),
+                ],
+                decoration: const InputDecoration(labelText: 'Conferma PIN'),
+              ),
+              if (error != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Annulla'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (pinController.text.length < adminPinMinLength) {
+                  setDialogState(() =>
+                      error = 'Il PIN deve avere almeno $adminPinMinLength cifre');
+                  return;
+                }
+                if (pinController.text != confirmController.text) {
+                  setDialogState(
+                      () => error = 'I due PIN inseriti non coincidono');
+                  return;
+                }
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Salva'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(adminPinStoreProvider).setPin(pinController.text);
     if (!mounted) return;
-    if (credentials.isEmpty || spreadsheetInput.isEmpty || sheetName.isEmpty) {
-      showErrorSnackBar(context, 'Compila prima tutti i campi');
-      return;
-    }
+    showSuccessSnackBar(context, 'PIN aggiornato');
+  }
 
-    setState(() => _testStatus = _SheetsTestStatus.testing);
-    try {
-      await ref.read(googleSheetsServiceProvider).testConnection(
-            serviceAccountJson: credentials,
-            spreadsheetId:
-                GoogleSheetsService.extractSpreadsheetId(spreadsheetInput),
-            sheetName: sheetName,
-          );
-      if (!mounted) return;
-      setState(() => _testStatus = _SheetsTestStatus.valid);
-      showSuccessSnackBar(context, 'Connessione riuscita');
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _testStatus = _SheetsTestStatus.invalid);
-      showErrorSnackBar(context, 'Connessione fallita: $e');
-    }
+  Future<void> _confirmAndRemovePin() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rimuovi PIN'),
+        content: const Text(
+          'Chiunque avrà accesso a questo dispositivo potrà aprire Admin '
+          'senza restrizioni. Continuare?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Rimuovi'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(adminPinStoreProvider).clear();
+    if (!mounted) return;
+    showSuccessSnackBar(context, 'PIN rimosso');
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final enabledAsync = ref.watch(googleSheetsEnabledProvider);
-    final enabled = enabledAsync.valueOrNull ?? false;
-    final spreadsheetIdAsync = ref.watch(googleSheetsSpreadsheetIdProvider);
-    final sheetNameAsync = ref.watch(googleSheetsSheetNameProvider);
-    if (spreadsheetIdAsync.hasValue && sheetNameAsync.hasValue) {
-      _fillFieldsOnce(spreadsheetIdAsync.value!, sheetNameAsync.value!);
-    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin')),
+      appBar: AppBar(
+        title: const Text('Admin'),
+        actions: [
+          IconButton(
+            onPressed: _showPinSettings,
+            icon: const Icon(Icons.password_outlined),
+            tooltip: 'Cambia/rimuovi PIN',
+          ),
+        ],
+      ),
       body: ContentWidthLimiter(
         // Più larga del default (640): la ricerca transazioni in fondo ha
         // righe piuttosto dense (importo, data, azione di eliminazione).
@@ -356,7 +380,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
                 onTap: () => context.push('/settings/import'),
               ),
             ),
-            const _AdminSectionDivider(),
+            const SectionDivider(),
             Text('Backup completo', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
@@ -379,103 +403,7 @@ class _AdminPageState extends ConsumerState<AdminPage> {
               label: Text(
                   _backupBusy ? 'Esportazione...' : 'Esporta backup completo'),
             ),
-            const _AdminSectionDivider(),
-            Text('Google Sheet spese (temporaneo)',
-                style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(
-              'Finché l\'app non è completa e testata al 100%, ogni entrata/uscita '
-              'inserita a mano o da scontrino può essere copiata anche sul foglio '
-              'Google usato finora, seguendo lo stesso schema di colonne. Non '
-              'copre i movimenti generati dalle ricorrenze, né le modifiche o '
-              'cancellazioni fatte dopo il salvataggio: il foglio può divergere '
-              'dall\'app in quei casi. Da disattivare qui quando non serve più.',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            Card(
-              child: SwitchListTile(
-                title: const Text('Bridge attivo'),
-                subtitle: Text(_alreadyConfigured
-                    ? 'Configurato'
-                    : 'Configura prima le credenziali qui sotto'),
-                value: enabled && _alreadyConfigured,
-                onChanged:
-                    !_alreadyConfigured ? null : _toggleGoogleSheetsEnabled,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _credentialsController,
-              maxLines: 4,
-              decoration: InputDecoration(
-                labelText: 'Chiave JSON del service account',
-                hintText: _alreadyConfigured
-                    ? 'Già configurata — lascia vuoto per non cambiarla'
-                    : '{ "type": "service_account", ... }',
-                border: const OutlineInputBorder(),
-                alignLabelWithHint: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _spreadsheetController,
-              decoration: const InputDecoration(
-                labelText: 'URL o id del foglio Google',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _sheetNameController,
-              decoration: const InputDecoration(
-                labelText: 'Nome del tab',
-                hintText: googleSheetsSheetNameDefault,
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton.icon(
-              onPressed: _busy ? null : _save,
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Salva'),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: _testStatus == _SheetsTestStatus.testing
-                  ? null
-                  : _testConnection,
-              icon: _testStatus == _SheetsTestStatus.testing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.wifi_tethering_outlined),
-              label: const Text('Testa connessione'),
-            ),
-            if (_testStatus == _SheetsTestStatus.valid ||
-                _testStatus == _SheetsTestStatus.invalid) ...[
-              const SizedBox(height: 12),
-              Card(
-                color: _testStatus == _SheetsTestStatus.valid
-                    ? theme.colorScheme.surfaceContainerHigh
-                    : theme.colorScheme.errorContainer,
-                child: ListTile(
-                  leading: Icon(
-                    _testStatus == _SheetsTestStatus.valid
-                        ? Icons.check_circle_outline
-                        : Icons.error_outline,
-                  ),
-                  title: Text(
-                    _testStatus == _SheetsTestStatus.valid
-                        ? 'Foglio raggiungibile'
-                        : 'Connessione fallita',
-                  ),
-                ),
-              ),
-            ],
-            const _AdminSectionDivider(),
+            const SectionDivider(),
             Text('Gestione transazioni', style: theme.textTheme.titleMedium),
             const SizedBox(height: 4),
             Text(
@@ -607,21 +535,6 @@ class _AdminPageState extends ConsumerState<AdminPage> {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Distacco visivo tra le 3 sezioni di Admin (import CSV, Google Sheet,
-/// gestione transazioni): più respiro di un semplice SizedBox, con una riga
-/// a separare chiaramente dove finisce una sezione e inizia la successiva.
-class _AdminSectionDivider extends StatelessWidget {
-  const _AdminSectionDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 28),
-      child: Divider(height: 1),
     );
   }
 }

@@ -72,9 +72,6 @@ desktop Windows** grazie a Flutter.
 - **fl_chart** — grafici della dashboard
 - **Turso** — sincronizzazione cloud multi-dispositivo via API HTTP (Hrana),
   non tramite client nativo libSQL (evita la toolchain Rust in build)
-- **googleapis** / **googleapis_auth** — bridge temporaneo (Impostazioni >
-  Admin) verso il foglio Google usato finora per le spese, disattivabile;
-  da rimuovere quando l'app sarà completa e testata al 100%
 - **url_launcher** — apre il link di download dal banner di aggiornamento
 
 ## Requisiti
@@ -113,7 +110,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M47 sono completate e verificate con run reali. Integrazione
+milestone M0-M48 sono completate e verificate con run/build reali. Integrazione
 continua attiva
 (`.github/workflows/ci.yml`): `flutter analyze` + `flutter test` a ogni push/PR.
 
@@ -167,6 +164,7 @@ continua attiva
 | **M45** | Storico: filtri separati per data e importo (range), in AND col testo esistente | ✅ Completata |
 | **M46** | CI: pubblicazione automatica su release fisse per Android e Windows (`android-latest`/`windows-latest`) | ✅ Completata |
 | **M47** | Avviso in-app quando è disponibile una versione più recente | ✅ Completata |
+| **M48** | Predisposizione alla condivisione: rimozione bridge Google Sheets, PIN pannello Admin, riorganizzazione Impostazioni | ✅ Completata |
 
 ## Struttura del database
 

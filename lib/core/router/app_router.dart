@@ -20,7 +20,7 @@ import '../../presentation/statement_import/statement_import_page.dart';
 import '../../presentation/settings/sync_page.dart';
 import '../../presentation/settings/theme_page.dart';
 import '../../presentation/settings/gemini_page.dart';
-import '../../presentation/settings/admin_page.dart';
+import '../../presentation/settings/admin_pin_gate.dart';
 import '../../presentation/shared_widgets/root_scaffold.dart';
 
 /// Configurazione di navigazione dell'app.
@@ -156,7 +156,7 @@ final appRouter = GoRouter(
         ),
         GoRoute(
           path: 'admin',
-          builder: (context, state) => const AdminPage(),
+          builder: (context, state) => const AdminPinGate(),
         ),
       ],
     ),

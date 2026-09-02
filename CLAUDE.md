@@ -28,11 +28,12 @@ Windows**, da un'unica base di codice.
 Flutter/Dart · **Drift** (SQLite locale, codice generato) · **Riverpod**
 (state + DI) · **go_router** · **Material 3** (tema chiaro/scuro) ·
 **fl_chart** (grafici) · **Google Gemini** (lettura scontrini via cloud, key
-personale) con fallback **Google ML Kit** OCR offline · **Turso** (sync cloud
+personale) con fallback **Google ML Kit** OCR offline (scan scontrino
+temporaneamente disabilitato in UI, M48 — v. sotto) · **Turso** (sync cloud
 multi-dispositivo via API HTTP) · `csv`+`excel`+`file_picker` (import/export,
 `excel` per gli estratti conto bancari in xlsx, v. sotto) ·
-`googleapis`/`googleapis_auth` (bridge temporaneo Google Sheets, v. sotto) ·
-`flutter_secure_storage` (credenziali) · `url_launcher` (apre il link di
+`flutter_secure_storage` (credenziali, incluso l'hash del PIN Admin, M48) ·
+`crypto` (hash SHA-256 del PIN Admin, M48) · `url_launcher` (apre il link di
 download del banner di aggiornamento, M47) · `intl`/`uuid`/`collection`.
 
 SDK Dart `>=3.4.0 <4.0.0`. Versione app `0.1.0`. Schema DB Drift: **v7**.
@@ -245,8 +246,7 @@ macchina. Non reintrodurre `libsql_dart`.
   fire-and-forget del resto, nessun blocco della UI, nessun errore mostrato
   all'utente). Fuori da questo trigger: l'import CSV bulk (Admin) e le
   transazioni generate dalle ricorrenze all'avvio, che chiamano
-  repository/DAO direttamente — stesso perimetro già escluso dal bridge
-  Google Sheets sotto.
+  repository/DAO direttamente.
 - Ogni tabella sincronizzata ha campi `updatedAt`, `isDeleted` (soft delete) e
   `syncId` (UUID stabile tra dispositivi). Le FK intere locali diventano
   colonne testuali `*_sync_id` lato remoto.
@@ -579,29 +579,22 @@ flusso normale di Impostazioni, nessuna password) raccoglie strumenti interni:
   `-shm` da doversi preoccupare di includere nella copia. Percorso del
   file condiviso con `_openConnection` tramite `resolveDatabaseFile()`
   (`app_database.dart`), un solo punto invece di duplicare la logica.
-- **Bridge Google Sheets** verso il foglio "Copia di Spese" già usato a mano:
-  finché attivo, ogni transazione salvata tramite `addTransactionProvider`
-  (non l'import CSV, che resta un bulk tool separato) viene copiata in
-  background anche lì, stesso schema colonne (`data/services/
-  google_sheets_row_formatter.dart`, ricalca `spese.csv`). **Temporaneo**:
-  da disattivare col relativo switch quando l'app sarà completa e testata al
-  100% — non va esteso oltre questo scopo.
-  - Autenticazione **service account** (`google_sheets_service.dart`), non
-    OAuth interattivo: `google_sign_in` non supporta Windows desktop, e
-    l'app gira da un'unica codebase su Windows+Android. Setup (fuori
-    dall'app, a cura di Mario): service account su Google Cloud, foglio
-    condiviso con la sua email come Editor.
-  - Fallimenti di rete/permessi qui sono isolati e non bloccano/non fanno
-    fallire il salvataggio locale (stesso principio della sync Turso).
-  - Copre solo `addTransactionProvider` (inserimento manuale/da scontrino):
-    **non** copre le transazioni generate dalle ricorrenze (`RecurringDao.
-    generateDue` inserisce direttamente via DAO), né modifiche o
-    cancellazioni fatte dopo il salvataggio. Il foglio può divergere
-    dall'app in quei casi (comunicato in UI).
-  - `testConnection` verifica anche che l'intestazione reale del tab
-    combaci con `GoogleSheetsService.expectedHeader` (stesso ordine di
-    `GoogleSheetsRowFormatter`), non solo che il tab esista — altrimenti le
-    righe finirebbero silenziosamente nelle colonne sbagliate.
+- **Bridge Google Sheets — rimosso (M48, 2 set 2026)**: c'era un bridge
+  verso il foglio "Copia di Spese" (schema colonne in un formatter
+  dedicato, autenticazione service account, switch attivo/disattivo) che
+  copiava in background ogni transazione salvata a mano/da scontrino.
+  Era dichiaratamente temporaneo fin dall'inizio ("da rimuovere quando
+  l'app sarà completa e testata al 100%") — a 47 milestone completate e
+  non più usato attivamente da Mario, rimosso del tutto (non solo
+  disattivato) per preparare l'app alla condivisione con altre persone,
+  per cui non avrebbe avuto senso (punterebbe comunque al foglio di
+  Mario). **Non riesumarlo** senza un nuovo caso d'uso concreto — se
+  serve di nuovo, va ripensato come integrazione opzionale per-utente,
+  non un bridge fisso verso un foglio specifico.
+- **Pannello Admin ora protetto da PIN (M48)**: `AdminPinGate`
+  (`presentation/settings/admin_pin_gate.dart`) è l'unico punto
+  d'ingresso della route `/settings/admin` — `AdminPage` non è più
+  raggiungibile direttamente. V. sezione dedicata sotto per il dettaglio.
 - **Gestione transazioni** (`data/services/safe_transaction_deletion_service.dart`):
   il DB fa di norma solo soft delete (serve a propagare le cancellazioni in
   sync). Da Admin si può eliminare per sempre (irreversibile): una
@@ -963,7 +956,7 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   (la pubblicazione della release resta comunque riuscita, job separato) e
   l'app non troverà mai un `version.json` da leggere — nessun banner,
   nessun errore visibile (v. sotto).
-- **Fallimenti isolati, stesso principio di sync/Google Sheets**:
+- **Fallimenti isolati, stesso principio della sync Turso**:
   `UpdateCheckService.fetchLatestBuildNumber` (`data/services/
   update_check_service.dart`) non lancia mai un'eccezione — rete assente,
   Pages non ancora propagato, JSON non valido: sempre e solo `null`,
@@ -1000,14 +993,65 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   reale del banner a schermo (richiede una build volutamente più vecchia
   di quella pubblicata).
 
+## Predisposizione alla condivisione (M48)
+
+*(2 set 2026)* Primo passo per poter dare l'app ad altre persone (ognuna
+col proprio database Turso/chiave Gemini — già possibile oggi, "bring your
+own" per dispositivo, nessuna modifica di schema necessaria). Tolte le due
+cose cucite addosso solo a Mario, riorganizzata Impostazioni, disabilitato
+temporaneamente lo scan scontrino. Il vero obiettivo finale (un wizard di
+primo avvio) resta una milestone futura separata.
+
+- **Bridge Google Sheets rimosso del tutto** — v. sezione Admin sopra per
+  il dettaglio, non riesumarlo senza un nuovo caso d'uso concreto.
+- **PIN per l'intero pannello Admin**: `AdminPinStore` (`data/services/
+  admin_pin_store.dart`) salva solo l'hash SHA-256 del PIN (mai in
+  chiaro) in `flutter_secure_storage`, stesso pattern delle altre
+  credenziali. `AdminPinGate` (`presentation/settings/admin_pin_gate.dart`)
+  è l'unico punto d'ingresso di `/settings/admin` nel router — primo
+  accesso senza PIN impostato: schermata "Imposta un PIN" obbligatoria
+  (nessun modo di saltarla); accessi successivi: schermata "Inserisci il
+  PIN". Sbloccato resta valido solo finché non si esce da Admin (nessun
+  "ricordami"). Da dentro Admin, icona lucchetto in AppBar per "Cambia
+  PIN"/"Rimuovi PIN" — validazione lunghezza centralizzata
+  (`adminPinMinLength`/`adminPinMaxLength` in `core/di/
+  admin_pin_providers.dart`), non duplicata tra le due schermate.
+  **Locale al dispositivo, mai sincronizzato**: non è un meccanismo di
+  isolamento dati (quello è già garantito da database Turso separati per
+  persona), protegge solo l'accesso a QUESTO dispositivo.
+- **Impostazioni riorganizzate in sezioni** (`settings_page.dart`, prima
+  lista piatta di 8 voci): gruppo in cima senza intestazione (Categorie,
+  Regole, Export CSV, Import estratto conto — le voci più usate), poi
+  **"Configurazioni"** (Sync + Gemini, criterio "integrazione esterna
+  opzionale con una tua credenziale, non obbligatoria per usare l'app"),
+  poi **"Aspetto"** (Tema), poi Admin staccato in fondo da un divisore
+  (nessuna intestazione testuale, resta "fuori dal flusso normale").
+  Divisore estratto come widget condiviso
+  (`presentation/shared_widgets/section_divider.dart`, `SectionDivider`)
+  al posto del precedente `_AdminSectionDivider` privato — ora usato in 2
+  pagine.
+- **"Scansiona scontrino" disabilitato temporaneamente** (la lettura
+  scontrino non funziona bene al momento): unico punto d'accesso reale,
+  il bottom sheet del FAB in Home — `ListTile(enabled: false)` con
+  sottotitolo "Temporaneamente non disponibile", commento nel codice con
+  istruzioni per riabilitarlo. Impostazioni → Gemini resta comunque
+  configurabile normalmente.
+- **Verificato**: `flutter analyze` pulito, **216/216 test** (208 dopo la
+  rimozione dei 13 test Google Sheets, +8 nuovi su `AdminPinStore`). Build
+  Windows release compilata ed eseguita: si avvia correttamente (finestra
+  con titolo valido, processo "Responding: True"). **Non verificato**:
+  nessuno strumento di automazione GUI disponibile in questa sessione per
+  cliccare dentro l'app — la navigazione reale in Impostazioni/Admin/PIN
+  e l'aspetto del bottone disabilitato restano da controllare a mano da
+  Mario.
+
 ## Stato attuale (2 set 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M47 completate** (M47 in codice, ma in attesa dell'attivazione di
-  GitHub Pages e di un run di verifica reale, v. sotto) (v.
+- **M0–M48 completate e verificate con run/build reali** (v.
   `progettazione_finance_app.md` sezione 6 per il dettaglio completo). M0-M8:
   setup + Clean Architecture, core transazioni, categorie/budget, scontrini
   (Gemini + fallback OCR), dashboard, ricorrenti, ricerca/import-export CSV,
@@ -1149,18 +1193,24 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   Mario di rendere pubblico `dukan94/segnaspese` (v. sopra) invece di
   pagare un piano. **Verificato con run reali su entrambe le piattaforme
   (2 set 2026)**: entrambi i job `publish-version` verdi, `version.json`
-  raggiungibile con entrambe le chiavi corrette. **CI attiva** — `.github/workflows/ci.yml`: `flutter
+  raggiungibile con entrambe le chiavi corrette. **Predisposizione alla
+  condivisione (M48, 2 set 2026, v. sezione dedicata sopra)**: rimosso il
+  bridge Google Sheets (non più usato attivamente), PIN per l'intero
+  pannello Admin (`AdminPinGate`, hash salvato in `flutter_secure_storage`,
+  mai in chiaro), Impostazioni riorganizzate in sezioni (nuova
+  "Configurazioni" per Sync/Gemini, "Aspetto" per Tema), scan scontrino
+  disabilitato temporaneamente in UI (bug noto, non ancora risolto). **CI
+  attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
-- Test in `test/` (32 file, 221 test): parser CSV, receipt parser, rule
+- Test in `test/` (31 file, 216 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
   transazioni (date-math, riordino, upsert, filtri ricerca, hard
   delete/purge, unione categorie/sottocategorie, numero di occorrenze
-  finito), formatter e servizio Google Sheets (header matching),
-  SafeTransactionDeletionService (con `FakeTursoHttpClient` + test double
+  finito), SafeTransactionDeletionService (con `FakeTursoHttpClient` + test double
   ufficiale di `FlutterSecureStorage`), parser estratto conto BancoPosta e
   duplicate matcher (fixture xlsx sintetiche), migrazione locale
   idempotente (`app_database_migration_test.dart`, M17 **+ rimozione
@@ -1184,7 +1234,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   unica vera logica del servizio), avviso aggiornamento disponibile
   (`update_banner_test.dart`/`update_check_service_test.dart`, M47 —
   stesso principio: logica pura estratta in `shouldShowUpdateBanner`/
-  `extractBuildNumberForPlatform`) + 1 smoke widget test.
+  `extractBuildNumberForPlatform`), PIN Admin
+  (`admin_pin_store_test.dart`, M48 — set/verify/clear, cambio PIN, mai
+  il PIN salvato in chiaro) + 1 smoke widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)
 
@@ -1212,8 +1264,8 @@ in `progettazione_finance_app.md`, fondo sezione 6.
 - **Font importi**: `PublicSans` (OFL) al posto di Aptos Display (proprietario,
   non ridistribuibile). Font variabile, un solo file per tutti i pesi.
 - **Lint**: `package:flutter_lints/flutter.yaml` (`analysis_options.yaml`).
-- **Segreti** (credenziali Turso, API key Gemini, chiave JSON service account
-  Google Sheets): solo in `flutter_secure_storage`, mai committati.
+- **Segreti** (credenziali Turso, API key Gemini, hash PIN Admin M48): solo
+  in `flutter_secure_storage`, mai committati.
 
 ## Come lavorare su questo progetto
 
@@ -1265,5 +1317,9 @@ non solo quella in cui sono state date:
 - **Reset locale (Android)**: `android:allowBackup` resta al default (non
   disattivarlo) — deciso esplicitamente il 29 lug 2026, non riproporlo salvo
   nuovo contesto.
-- **Pannello Admin senza password**: deciso esplicitamente (v. sezione Admin
-  sopra) — non riproporre un gate a password salvo richiesta esplicita.
+- **Pannello Admin ora protetto da PIN (M48, 2 set 2026)**: la precedente
+  decisione "nessuna password" (29 lug 2026) valeva solo finché l'app
+  restava a un solo utente — superata dalla richiesta esplicita di Mario
+  in preparazione alla condivisione con altre persone. V. sezione
+  dedicata "Predisposizione alla condivisione (M48)" sopra per il
+  dettaglio del gate.

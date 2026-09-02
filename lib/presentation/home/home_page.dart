@@ -188,13 +188,15 @@ class HomePage extends ConsumerWidget {
                 context.push('/home/add-transaction');
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Scansiona scontrino'),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                context.push('/home/scan-receipt');
-              },
+            // Disabilitato temporaneamente (2 set 2026, richiesto da
+            // Mario): la lettura scontrino non funziona bene al momento.
+            // Riabilitare (togliere `enabled: false`/subtitle/onTap: null)
+            // quando il problema sarà risolto.
+            const ListTile(
+              enabled: false,
+              leading: Icon(Icons.camera_alt_outlined),
+              title: Text('Scansiona scontrino'),
+              subtitle: Text('Temporaneamente non disponibile'),
             ),
             const SizedBox(height: 8),
           ],
