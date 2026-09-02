@@ -2264,6 +2264,90 @@ predisposizione alla condivisione)*
   dispositivo di test, quando comodo — non urgente, la logica di innesco
   è coperta dai test automatici.
 
+**M50 — ✅ Completata (2 set 2026) — Audit completo del codice: 5 findings
+risolti**
+*(richiesto da Mario: "fai un audit completo su tutto il progetto", stesso
+spirito di M42)*
+- Eseguito con lo skill `code-review` puntato su `lib/` a copertura
+  massima, con contesto sulle aree toccate nella sessione (M46-M49). 10
+  findings totali, 8 angoli di ricerca coperti su 8 (dopo un primo giro
+  incompleto — "simplification"/"altitude" più lenti del previsto, il
+  report finale è arrivato comunque con correttezza già coperta al 100%
+  dagli altri 6 angoli). Risolti i 5 più gravi, in ordine, ognuno con
+  `flutter analyze` + `flutter test` dopo la modifica prima di passare al
+  successivo (stesso metodo di M42):
+  1. **`admin_pin_gate.dart` senza gestione errori sul secure storage**:
+     un fallimento in `_checkPinSet`/`_SetPinScreenState._submit`/
+     `_EnterPinScreenState._submit` lasciava rispettivamente uno spinner
+     infinito o un bottone disabilitato per sempre, Admin diventava
+     irraggiungibile senza alcun messaggio. Fix: try/catch su tutt'e tre,
+     nuova `_PinErrorScreen` con pulsante "Riprova" per il primo caso
+     (il gate non ha ancora nessuna Scaffold/snackbar utilizzabile a
+     quel punto), `showErrorSnackBar`-equivalente inline per gli altri
+     due (reset di `_busy`/`_loading` sempre garantito).
+  2. **Stesso problema in `admin_page.dart`**: `_showChangePinDialog`/
+     `_confirmAndRemovePin` (PIN) non avevano il try/catch che il codice
+     sostituito (vecchio salvataggio credenziali Google Sheets) aveva —
+     regressione rispetto al pattern già in uso nello stesso file prima
+     di M48. Fix: stesso try/catch + `showErrorSnackBar`.
+  3. **`resolveNeedsOnboarding` girava dopo `runSeed`**, che può
+     cancellare fisicamente tutte le transazioni se cambia
+     `kSeedVersion` (verificato leggendo `seed_runner.dart`: reale, non
+     solo teorico). Su un device esistente che aggiornasse a una build
+     che cambia contemporaneamente tassonomia e arriva al primissimo
+     avvio post-M49, rischiava di vedersi svuotare i dati e poi mostrare
+     "Benvenuto" come se fosse un'installazione vuota — nessun segnale
+     d'errore. Fix: il controllo onboarding in `main.dart` è stato
+     spostato **prima** di `runSeed` (subito dopo l'apertura del
+     database), così `hasTransactions` legge sempre lo stato
+     pre-migrazione.
+  4. **Bridge Google Sheets rimosso (M48) senza ripulire quanto aveva
+     già scritto**: sul dispositivo reale di Mario (bridge attivo dal
+     29/07) restava indefinitamente la chiave di servizio Google in
+     `flutter_secure_storage` più 3 righe Settings, irraggiungibili da
+     qualsiasi UI — l'opposto dell'obiettivo dichiarato di M48. Fix:
+     nuovo `cleanup_google_sheets_secrets.dart`
+     (`cleanupGoogleSheetsSecrets`), startup step innocuo se rilanciato
+     (stesso principio di `dedupe_default_taxonomy.dart`), 5 nuovi test.
+     Eseguito realmente sul dispositivo di Mario con la build di
+     verifica di questa milestone.
+  5. **Il pulsante "Avvia wizard" in Admin (M49) non tornava davvero ad
+     Admin** se il test veniva completato fino in fondo: il pulsante
+     finale del wizard faceva sempre `context.go('/home')`
+     (sostituisce l'intero stack), scartando anche la route Admin/il
+     gate PIN già superato — bisognava reinserire il PIN al prossimo
+     accesso. Fix: se `Navigator.canPop()` è vero (wizard raggiunto con
+     `push`, cioè per test), il pulsante fa `Navigator.pop()` invece di
+     `go('/home')`; su un vero primo avvio (nulla su cui tornare) il
+     comportamento resta invariato.
+  - **Non risolti, solo annotati** (scelta deliberata, non dimenticanza):
+    - PIN Admin senza salt/rate-limiting — corrisponde esattamente alla
+      scelta di scope già discussa in M48 ("non deve resistere a un
+      attaccante fisico determinato"), non cambiata senza una nuova
+      richiesta esplicita.
+    - `/settings/rules`/`/settings/gemini` restano route tecnicamente
+      raggiungibili anche con la sezione "Lettura scontrini" disabilitata
+      in UI (M48) — coerente col fatto che è una disabilitazione
+      dichiaratamente temporanea, non un blocco architetturale
+      permanente da introdurre ora.
+    - Icona elimina disabilitata in `recent_transactions_list.dart` che
+      potrebbe "lasciar passare" il tap al nuovo onTap del `ListTile` —
+      rischio basso (nessuna transazione senza id in questa lista oggi),
+      rimandato.
+    - `extractBuildNumberForPlatform` accetta solo `int` esatto da JSON
+      — brittle ma la pipeline di pubblicazione (`jq --argjson`) produce
+      sempre un intero vero oggi, rimandato.
+  - Angoli "simplification"/"altitude" del giro di audit non tornati in
+    tempo utile: nessun'azione ulteriore richiesta da Mario per ora, da
+    rilanciare separatamente se servisse in futuro.
+- **Verificato**: `flutter analyze` pulito, **225/225 test** (220 + 5 nuovi
+  su `cleanupGoogleSheetsSecrets`). Build Windows release reale compilata
+  ed eseguita sul dispositivo vero di Mario dopo tutti e 5 i fix (verifica
+  mirata sul riordino di `main.dart`, l'area più delicata di questo
+  giro): si avvia correttamente, nessuna regressione — e la pulizia delle
+  credenziali Google Sheets orfane (fix 4) è stata eseguita per davvero
+  su quel dispositivo in questo stesso avvio.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

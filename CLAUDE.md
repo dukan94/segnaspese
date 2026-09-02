@@ -1098,7 +1098,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M49 completate e verificate con run/build reali** (M49: solo la
+- **M0–M50 completate e verificate con run/build reali** (M49: solo la
   logica di innesco del wizard verificata a schermo, non le 3 schermate —
   v. sezione dedicata sotto) (v.
   `progettazione_finance_app.md` sezione 6 per il dettaglio completo). M0-M8:
@@ -1255,12 +1255,20 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   passo-passo → Fine), mostrato solo su un'installazione davvero vuota
   (mai a un utente esistente, backfill automatico), decisione presa una
   sola volta in `main.dart` prima di `runApp()` (`buildAppRouter`, non più
-  un router singleton fisso). **CI
+  un router singleton fisso). **Audit completo del codice (M50, 2 set
+  2026)**: 5 findings risolti (in ordine di gravità) — gestione errori
+  mancante sul PIN Admin (spinner/bottone bloccati per sempre in caso di
+  errore secure storage), controllo onboarding riordinato per girare
+  prima di `runSeed` (che può cancellare le transazioni su un bump di
+  `kSeedVersion`), pulizia delle credenziali Google Sheets rimaste
+  orfane dopo la rimozione M48, e il pulsante "Avvia wizard" (Admin) che
+  ora torna davvero ad Admin a fine test invece di finire sempre in
+  Home. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
-- Test in `test/` (32 file, 220 test): parser CSV, receipt parser, rule
+- Test in `test/` (33 file, 225 test): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/
@@ -1294,8 +1302,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   (`admin_pin_store_test.dart`, M48 — set/verify/clear, cambio PIN, mai
   il PIN salvato in chiaro), wizard di primo avvio
   (`onboarding_check_test.dart`, M49 — quando mostrarlo, backfill silenzioso
-  per utenti esistenti, short-circuit se già completato) + 1 smoke widget
-  test.
+  per utenti esistenti, short-circuit se già completato), pulizia
+  credenziali Google Sheets orfane (`cleanup_google_sheets_secrets_test.dart`,
+  M50 — audit post-M48) + 1 smoke widget test.
 
 ### Processo per nuove modifiche (da qui in avanti)
 

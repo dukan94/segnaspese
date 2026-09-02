@@ -9,6 +9,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../data/local/database/app_database.dart';
 import '../../../domain/entities/transaction_entity.dart';
 import '../../shared_widgets/linked_expense_sheet.dart';
+import '../../transaction/add_transaction_page.dart';
 import '../home_providers.dart';
 
 /// Lista "Ultime operazioni" della Home. Risolve categoria/icona tramite
@@ -89,6 +90,11 @@ class _TransactionTile extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
+        // Stesso comportamento dello Storico: tocca la riga per modificare
+        // l'operazione (le icone in trailing restano tappabili a parte).
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => AddTransactionPage(existing: transaction)),
+        ),
         leading: CircleAvatar(
           backgroundColor: theme.colorScheme.surfaceContainerHighest,
           child: Text(categoryIcon ?? '💶', style: const TextStyle(fontSize: 18)),

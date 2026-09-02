@@ -9,7 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/di/onboarding_providers.dart';
 import '../../core/di/sync_providers.dart';
 import '../../core/utils/app_snackbar.dart';
-import '../../data/services/sync_service.dart' show SyncStatus;
 import '../shared_widgets/content_width_limiter.dart';
 
 /// Wizard di primo avvio (M49): mostrato SOLO su un'installazione davvero
@@ -41,6 +40,12 @@ class _WelcomeStep extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
+      // Niente titolo: l'AppBar serve solo a dare una freccia Indietro
+      // automatica quando si può tornare a una schermata precedente (es.
+      // avviato per test da Admin, M49) — su un vero primo avvio non c'è
+      // nulla su cui tornare (`/onboarding` è la route iniziale), quindi
+      // Flutter non la mostra da sola.
+      appBar: AppBar(),
       body: Center(
         child: ContentWidthLimiter(
           maxWidth: 480,
@@ -49,25 +54,49 @@ class _WelcomeStep extends ConsumerWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.account_balance_wallet_outlined,
-                    size: 64, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(height: 24),
+                // Icona in un cerchio con sfondo tenue invece che nuda: stesso
+                // "peso" visivo di un logo, look più curato di una semplice
+                // icona Material fluttuante (richiesto da Mario, M49).
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.account_balance_wallet_outlined,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 40),
                 Text(
                   'Benvenuto in Tally',
-                  style: Theme.of(context).textTheme.headlineSmall,
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 Text(
                   'Tieni sotto controllo le tue spese: categorizzazione '
-                  'automatica, dashboard, budget e movimenti ricorrenti — '
-                  'tutto salvato solo su questo dispositivo, a meno che tu '
-                  'non decida di collegare un tuo database per sincronizzare '
-                  'più dispositivi.',
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  'automatica, dashboard, budget e movimenti ricorrenti.',
+                  style: Theme.of(context).textTheme.bodyLarge,
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 16),
+                Text(
+                  'Tutto resta salvato solo su questo dispositivo. Nel '
+                  'prossimo passo potrai collegare un database gratuito: '
+                  'serve solo se vuoi usare Tally su più dispositivi con gli '
+                  'stessi dati — con uno solo puoi saltarlo tranquillamente.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
                 FilledButton(
                   onPressed: () =>
                       ref.read(setOnboardingStepProvider)(onboardingStepTurso),
@@ -117,6 +146,7 @@ class _TursoStepState extends ConsumerState<_TursoStep> {
       unawaited(ref.read(syncServiceProvider).syncNow());
       TextInput.finishAutofillContext();
       if (!mounted) return;
+      ref.read(wizardTursoOutcomeProvider.notifier).state = true;
       await ref.read(setOnboardingStepProvider)(onboardingStepDone);
     } catch (e) {
       if (!mounted) return;
@@ -127,6 +157,7 @@ class _TursoStepState extends ConsumerState<_TursoStep> {
   }
 
   Future<void> _skip() async {
+    ref.read(wizardTursoOutcomeProvider.notifier).state = false;
     await ref.read(setOnboardingStepProvider)(onboardingStepDone);
   }
 
@@ -264,9 +295,13 @@ class _DoneStep extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(syncStatusProvider).valueOrNull;
-    final tursoConfigured = status != null && status != SyncStatus.offline;
+    // Esito di QUESTA sessione del wizard (v. wizardTursoOutcomeProvider),
+    // non lo stato Turso già presente sul dispositivo: altrimenti "Salta
+    // per ora" su un dispositivo che ha già Turso configurato da prima
+    // (es. testando da Admin, M49) mostrerebbe comunque "configurata".
+    final tursoConfigured = ref.watch(wizardTursoOutcomeProvider) ?? false;
     return Scaffold(
+      appBar: AppBar(), // v. commento in _WelcomeStep
       body: Center(
         child: ContentWidthLimiter(
           maxWidth: 480,
@@ -296,7 +331,20 @@ class _DoneStep extends ConsumerWidget {
                 FilledButton(
                   onPressed: () async {
                     await ref.read(completeOnboardingProvider)();
-                    if (context.mounted) context.go('/home');
+                    if (!context.mounted) return;
+                    // Se il wizard è stato aperto per test da Admin (push,
+                    // c'è una route su cui tornare), torna lì invece di
+                    // andare comunque in Home — altrimenti il pulsante
+                    // "Avvia wizard" (M49) non riporterebbe mai ad Admin
+                    // come promesso, e servirebbe reinserire il PIN (audit,
+                    // 2 set 2026). Su un vero primo avvio (`/onboarding` è
+                    // la route iniziale, niente su cui tornare) resta
+                    // `context.go('/home')` come prima.
+                    if (Navigator.of(context).canPop()) {
+                      Navigator.of(context).pop();
+                    } else {
+                      context.go('/home');
+                    }
                   },
                   child: const Text('Inizia a usare Tally'),
                 ),

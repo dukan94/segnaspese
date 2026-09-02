@@ -9,6 +9,7 @@ import 'core/di/database_provider.dart';
 import 'core/di/recurring_providers.dart';
 import 'core/di/sync_providers.dart';
 import 'core/router/app_router.dart';
+import 'data/local/seed/cleanup_google_sheets_secrets.dart';
 import 'data/local/seed/dedupe_default_taxonomy.dart';
 import 'data/local/seed/onboarding_check.dart';
 import 'data/local/seed/repair_orphaned_subcategories.dart';
@@ -44,34 +45,17 @@ Future<void> main() async {
   final container = ProviderContainer();
   final db = container.read(appDatabaseProvider);
 
-  // Applica i dati di default. Al primo avvio popola categorie,
-  // sottocategorie e regole; se la tassonomia di default è cambiata
-  // (kSeedVersion) esegue un reset pulito e ripopola (v. seed_runner.dart).
-  await _runStartupStep('seed dati di default', () => runSeed(db));
-
-  // Ripara eventuali doppioni di categorie/sottocategorie/regole di default
-  // creati da dispositivi che hanno seedato la tassonomia indipendentemente
-  // prima di sincronizzare (v. dedupe_default_taxonomy.dart). Innocuo e
-  // veloce quando non ce ne sono.
-  await _runStartupStep(
-      'dedupe tassonomia di default', () => dedupeDefaultTaxonomy(db));
-
-  // Ripara sottocategorie rimaste attive con una categoria padre cancellata
-  // (v. repair_orphaned_subcategories.dart). Va dopo dedupeDefaultTaxonomy:
-  // pulisce anche eventuali incoerenze che il re-pointing del dedupe stesso
-  // potrebbe rivelare.
-  await _runStartupStep('riparazione sottocategorie orfane',
-      () => repairOrphanedSubCategories(db));
-
-  // Genera le transazioni dovute dai movimenti ricorrenti attivi (recupera
-  // anche le occorrenze arretrate se l'app non veniva aperta da più periodi).
-  // v. domain/usecases/recurring/generate_due_recurring.dart
-  await _runStartupStep('generazione ricorrenze dovute',
-      () => container.read(generateDueRecurringProvider).call());
-
-  // Wizard di primo avvio (M49): mostrato SOLO su un'installazione davvero
-  // vuota (nessuna transazione, sync non ancora configurata) — v.
-  // resolveNeedsOnboarding per il dettaglio del backfill silenzioso sui
+  // Wizard di primo avvio (M49): DEVE girare prima di `runSeed` sotto, non
+  // dopo (bug reale trovato in audit, 2 set 2026) — `runSeed` può cancellare
+  // fisicamente tutte le transazioni se cambia `kSeedVersion` (v. "reset
+  // pulito" in seed_runner.dart). Se il controllo onboarding girasse dopo,
+  // su un device esistente che aggiorna a una build che cambia
+  // contemporaneamente sia la tassonomia sia arriva al primissimo avvio
+  // post-M49, si vedrebbe cancellare i dati e poi mostrare "Benvenuto" come
+  // se fosse un'installazione vuota, invece di un qualunque segnale
+  // d'errore. Qui invece `hasTransactions` viene letto sullo stato
+  // pre-migrazione, sempre corretto. Mostrato SOLO su un'installazione
+  // davvero vuota — v. resolveNeedsOnboarding per il backfill silenzioso sui
   // dispositivi già in uso. Fallback `false` (nessun wizard) se il
   // controllo stesso fallisce: mostrarlo per errore a un utente esistente
   // sarebbe più fastidioso che ometterlo per uno nuovo, che può comunque
@@ -88,6 +72,37 @@ Future<void> main() async {
   final router = buildAppRouter(
     initialLocation: needsOnboarding ? '/onboarding' : '/home',
   );
+
+  // Applica i dati di default. Al primo avvio popola categorie,
+  // sottocategorie e regole; se la tassonomia di default è cambiata
+  // (kSeedVersion) esegue un reset pulito e ripopola (v. seed_runner.dart).
+  await _runStartupStep('seed dati di default', () => runSeed(db));
+
+  // Ripara eventuali doppioni di categorie/sottocategorie/regole di default
+  // creati da dispositivi che hanno seedato la tassonomia indipendentemente
+  // prima di sincronizzare (v. dedupe_default_taxonomy.dart). Innocuo e
+  // veloce quando non ce ne sono.
+  await _runStartupStep(
+      'dedupe tassonomia di default', () => dedupeDefaultTaxonomy(db));
+
+  // Pulizia una tantum (ma innocua se rilanciata) delle credenziali/righe
+  // rimaste orfane dal bridge Google Sheets rimosso in M48 (audit, 2 set
+  // 2026) — v. cleanup_google_sheets_secrets.dart.
+  await _runStartupStep(
+      'pulizia credenziali Google Sheets orfane', () => cleanupGoogleSheetsSecrets(db));
+
+  // Ripara sottocategorie rimaste attive con una categoria padre cancellata
+  // (v. repair_orphaned_subcategories.dart). Va dopo dedupeDefaultTaxonomy:
+  // pulisce anche eventuali incoerenze che il re-pointing del dedupe stesso
+  // potrebbe rivelare.
+  await _runStartupStep('riparazione sottocategorie orfane',
+      () => repairOrphanedSubCategories(db));
+
+  // Genera le transazioni dovute dai movimenti ricorrenti attivi (recupera
+  // anche le occorrenze arretrate se l'app non veniva aperta da più periodi).
+  // v. domain/usecases/recurring/generate_due_recurring.dart
+  await _runStartupStep('generazione ricorrenze dovute',
+      () => container.read(generateDueRecurringProvider).call());
 
   // Sync Turso (Milestone M7): non deve mai bloccare l'avvio né far
   // crashare l'app se non configurata o offline, quindi fire-and-forget con

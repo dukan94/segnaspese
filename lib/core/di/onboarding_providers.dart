@@ -35,6 +35,15 @@ final setOnboardingStepProvider = Provider<Future<void> Function(String)>(
   },
 );
 
+/// Esito della configurazione Turso in QUESTA sessione del wizard — `true`
+/// se appena configurata con successo, `false` se saltata, `null` se non
+/// ancora deciso. Non persistito apposta: la schermata "Fine" deve
+/// mostrare il messaggio giusto in base a cosa ha fatto l'utente in questo
+/// passaggio, non allo stato Turso già presente sul dispositivo (che può
+/// essere configurato da prima — es. testando il wizard da Admin, M49 —
+/// indipendentemente da "Salva e continua"/"Salta per ora" appena scelti).
+final wizardTursoOutcomeProvider = StateProvider<bool?>((ref) => null);
+
 /// Marca l'onboarding come completato (fine wizard, "Salta per ora"
 /// incluso — saltare è comunque una scelta consapevole, non va richiesta
 /// di nuovo al prossimo avvio).

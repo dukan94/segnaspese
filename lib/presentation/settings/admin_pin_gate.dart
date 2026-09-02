@@ -29,6 +29,7 @@ class _AdminPinGateState extends ConsumerState<AdminPinGate> {
   bool _loading = true;
   bool _pinAlreadySet = false;
   bool _unlocked = false;
+  String? _error;
 
   @override
   void initState() {
@@ -37,12 +38,28 @@ class _AdminPinGateState extends ConsumerState<AdminPinGate> {
   }
 
   Future<void> _checkPinSet() async {
-    final isSet = await ref.read(adminPinStoreProvider).isSet();
-    if (!mounted) return;
     setState(() {
-      _pinAlreadySet = isSet;
-      _loading = false;
+      _loading = true;
+      _error = null;
     });
+    try {
+      final isSet = await ref.read(adminPinStoreProvider).isSet();
+      if (!mounted) return;
+      setState(() {
+        _pinAlreadySet = isSet;
+        _loading = false;
+      });
+    } catch (e) {
+      // Senza questo catch, un errore qui (es. il keystore di sistema non
+      // risponde) lasciava _loading a true per sempre: spinner infinito,
+      // Admin diventava irraggiungibile senza nessun messaggio (audit, 2 set
+      // 2026).
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Impossibile verificare il PIN: $e';
+      });
+    }
   }
 
   void _unlock() => setState(() => _unlocked = true);
@@ -52,12 +69,51 @@ class _AdminPinGateState extends ConsumerState<AdminPinGate> {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    if (_error != null) {
+      return _PinErrorScreen(message: _error!, onRetry: _checkPinSet);
+    }
     if (_unlocked) {
       return const AdminPage();
     }
     return _pinAlreadySet
         ? _EnterPinScreen(onUnlocked: _unlock)
         : _SetPinScreen(onSet: _unlock);
+  }
+}
+
+/// Mostrata se anche solo verificare se un PIN è già impostato fallisce
+/// (es. errore del secure storage di sistema) — mai un'app bloccata su uno
+/// spinner infinito senza spiegazione.
+class _PinErrorScreen extends StatelessWidget {
+  const _PinErrorScreen({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Admin')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.error_outline,
+                    size: 40, color: Theme.of(context).colorScheme.error),
+                const SizedBox(height: 16),
+                Text(message, textAlign: TextAlign.center),
+                const SizedBox(height: 20),
+                FilledButton(onPressed: onRetry, child: const Text('Riprova')),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -99,9 +155,17 @@ class _SetPinScreenState extends ConsumerState<_SetPinScreen> {
       _error = null;
       _busy = true;
     });
-    await ref.read(adminPinStoreProvider).setPin(pin);
-    if (!mounted) return;
-    widget.onSet();
+    try {
+      await ref.read(adminPinStoreProvider).setPin(pin);
+      if (!mounted) return;
+      widget.onSet();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Errore durante il salvataggio del PIN: $e';
+      });
+    }
   }
 
   @override
@@ -209,17 +273,25 @@ class _EnterPinScreenState extends ConsumerState<_EnterPinScreen> {
       _error = null;
       _busy = true;
     });
-    final correct = await ref.read(adminPinStoreProvider).verify(pin);
-    if (!mounted) return;
-    if (correct) {
-      widget.onUnlocked();
-      return;
+    try {
+      final correct = await ref.read(adminPinStoreProvider).verify(pin);
+      if (!mounted) return;
+      if (correct) {
+        widget.onUnlocked();
+        return;
+      }
+      _pinController.clear();
+      setState(() {
+        _error = 'PIN errato';
+        _busy = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = 'Errore durante la verifica del PIN: $e';
+      });
     }
-    _pinController.clear();
-    setState(() {
-      _error = 'PIN errato';
-      _busy = false;
-    });
   }
 
   @override
