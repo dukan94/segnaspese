@@ -41,4 +41,28 @@ jobs:
 
       - run: flutter analyze
 
-      - run: flutter test
+      # Retry mirato: il pacchetto sqlite3 scarica ad ogni `flutter test` il
+      # binario nativo precompilato da GitHub Releases (v. CLAUDE.md "SQLite
+      # nativo") — occasionalmente fallisce per un blip di rete del runner
+      # ("Connection reset by peer" verso release-assets.githubusercontent.com),
+      # non per un problema di codice/test. Si ritenta SOLO su quella firma di
+      # errore, non su un vero fallimento dei test: altrimenti un test rotto
+      # verrebbe rilanciato 3 volte, triplicando inutilmente il consumo di
+      # minuti Actions (v. sezione "Parsimonia minuti").
+      - name: flutter test
+        run: |
+          for i in 1 2 3; do
+            output=$(flutter test 2>&1)
+            status=$?
+            echo "$output"
+            if [ $status -eq 0 ]; then
+              exit 0
+            fi
+            if echo "$output" | grep -q "attepted to download.*libsqlite3"; then
+              echo "::warning::Download del binario nativo sqlite3 fallito (tentativo $i/3), nuovo tentativo tra 10s..."
+              sleep 10
+              continue
+            fi
+            exit $status
+          done
+          exit 1

@@ -749,6 +749,22 @@ molto meno in minuti.
   lavorati in parallelo dai due PC), rimosso `pull_request:` (mai usate PR
   in questo repo, trigger morto). `on: push` resta senza filtro di branch
   — invariato, per non rompere il caso d'uso sopra.
+- **Bug reale, download SQLite fallito su `flutter test` (3 set 2026)**:
+  `ci.yml` fallito con `Unhandled exception: ... attepted to download
+  https://github.com/simolus3/sqlite3.dart/releases/download/.../
+  libsqlite3.x64.linux.so` → `SocketException: Connection reset by peer`
+  verso `release-assets.githubusercontent.com`. Non un bug di
+  codice/schema/provider: il pacchetto `sqlite3` (v. "SQLite nativo — niente
+  più `sqlite3_flutter_libs`" sopra) scarica il binario nativo precompilato
+  ad ogni `flutter test` tramite i build hook di Dart, senza cache tra le
+  run — un blip di rete del runner nello scaricarlo fa fallire l'intero job
+  anche se `flutter analyze` e il codice sono a posto. Fix in `ci.yml`: lo
+  step `flutter test` ritenta (max 3 volte, pausa 10s) **solo** se l'output
+  contiene quella firma di errore specifica (`attepted to download.*
+  libsqlite3`) — un vero fallimento dei test esce subito al primo tentativo,
+  per non triplicare il consumo di minuti su un fallimento reale (v.
+  "Parsimonia minuti" sopra). Se ricompare un errore diverso su questo step,
+  non è coperto da questo retry mirato.
 
 ## Layout desktop-adattivo (M26-M31)
 
