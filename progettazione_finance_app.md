@@ -2047,10 +2047,12 @@ codice)*
   `https://dukan94.github.io/segnaspese/version.json` raggiungibile e con
   entrambe le chiavi corrette (`{"android": 76, "windows": 1}`, ognuna
   scritta dal proprio workflow senza cancellare l'altra — v. fix "max"
-  dell'audit pre-verifica, confermato funzionante). **Ancora da
-  verificare**: la comparsa reale del banner in Home (richiede un
-  dispositivo con una build volutamente più vecchia di quella pubblicata
-  — non urgente, non blocca l'uso della feature).
+  dell'audit pre-verifica, confermato funzionante). **Comparsa reale del
+  banner verificata (7 set 2026)**: telefono Android di Mario con una
+  build non ancora aggiornata rispetto a `version.json` — riaperta l'app,
+  banner comparso correttamente in Home (v. M51 sotto per il contesto:
+  verifica fatta insieme all'aggiunta del numero di build in
+  Impostazioni).
 
 **M48 — ✅ Completata (2 set 2026) — Predisposizione alla condivisione:
 rimozione bridge Google Sheets, PIN pannello Admin, riorganizzazione

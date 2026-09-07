@@ -1004,10 +1004,10 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   `windows-build.yml` lanciati — entrambi i job `publish-version` verdi,
   `version.json` raggiungibile con entrambe le chiavi corrette
   (`{"android": 76, "windows": 1}`, il fix "max" dell'audit ha funzionato:
-  nessuna chiave persa tra un deploy e l'altro). Ancora da verificare: la
-  comparsa
-  reale del banner a schermo (richiede una build volutamente più vecchia
-  di quella pubblicata).
+  nessuna chiave persa tra un deploy e l'altro). **Comparsa reale del
+  banner verificata (7 set 2026)**: sul telefono Android di Mario, non
+  ancora aggiornato a una build pubblicata più di recente — riaperta
+  l'app, banner comparso correttamente in Home.
 - **Numero di build visibile in Impostazioni (M51, 7 set 2026)**: in fondo
   a `settings_page.dart`, "Build `currentBuildNumber`" (stesso valore
   confrontato con `version.json`) o "Build locale (sviluppo)" se 0 — per
