@@ -2348,6 +2348,25 @@ spirito di M42)*
   credenziali Google Sheets orfane (fix 4) è stata eseguita per davvero
   su quel dispositivo in questo stesso avvio.
 
+**M51 — ✅ Completata (7 set 2026) — Numero di build visibile in
+Impostazioni**
+*(richiesto da Mario per poter controllare più facilmente se una build
+installata è aggiornata, senza dover aprire GitHub Actions/`version.json`
+a mano — v. M47 per il meccanismo di confronto già esistente)*
+- Piccola estensione di M47, nessuna nuova milestone di design/schema:
+  `settings_page.dart` mostra ora, in fondo alla pagina, "Build
+  `currentBuildNumber`" (lo stesso valore già confrontato con
+  `version.json` dal banner in Home), oppure "Build locale (sviluppo)"
+  quando `currentBuildNumber` è 0 (build locale, mai lanciata da CI).
+  **Non** il numero di `pubspec.yaml` (fermo a 0.1.0 da sempre, non
+  affidabile per un confronto — stesso motivo per cui M47 usa il numero
+  di build CI e non quello).
+- Nessuna nuova dipendenza (niente `package_info_plus`): riusa la
+  costante `currentBuildNumber` già esposta da
+  `core/di/update_providers.dart`.
+- **Verificato**: `flutter analyze` pulito, **225/225 test** (nessun test
+  nuovo — solo testo statico in UI, nessuna logica pura da estrarre).
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
