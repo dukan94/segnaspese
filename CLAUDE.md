@@ -1008,6 +1008,12 @@ piattaforma, letto da un piccolo `version.json` pubblico su GitHub Pages.
   comparsa
   reale del banner a schermo (richiede una build volutamente più vecchia
   di quella pubblicata).
+- **Numero di build visibile in Impostazioni (M51, 7 set 2026)**: in fondo
+  a `settings_page.dart`, "Build `currentBuildNumber`" (stesso valore
+  confrontato con `version.json`) o "Build locale (sviluppo)" se 0 — per
+  poter controllare a colpo d'occhio se l'installazione è aggiornata,
+  senza aprire GitHub Actions. Nessuna nuova dipendenza, nessun test nuovo
+  (solo testo statico, nessuna logica pura da estrarre).
 
 ## Predisposizione alla condivisione (M48)
 
@@ -1114,7 +1120,7 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
-- **M0–M50 completate e verificate con run/build reali** (M49: solo la
+- **M0–M51 completate e verificate con run/build reali** (M49: solo la
   logica di innesco del wizard verificata a schermo, non le 3 schermate —
   v. sezione dedicata sotto) (v.
   `progettazione_finance_app.md` sezione 6 per il dettaglio completo). M0-M8:
@@ -1279,7 +1285,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   `kSeedVersion`), pulizia delle credenziali Google Sheets rimaste
   orfane dopo la rimozione M48, e il pulsante "Avvia wizard" (Admin) che
   ora torna davvero ad Admin a fine test invece di finire sempre in
-  Home. **CI
+  Home. **Numero di build in Impostazioni (M51, 7 set 2026, v. sezione
+  M47 sopra)**: "Build `<currentBuildNumber>`" in fondo alla pagina, per
+  confrontarlo a colpo d'occhio con `version.json` senza aprire GitHub
+  Actions. **CI
   attiva** — `.github/workflows/ci.yml`: `flutter
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata

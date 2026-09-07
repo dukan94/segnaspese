@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/di/update_providers.dart';
 import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/section_divider.dart';
 
@@ -93,6 +94,25 @@ class SettingsPage extends StatelessWidget {
               title: const Text('Admin'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => context.push('/settings/admin'),
+            ),
+            // Numero di build in esecuzione (M47/M51): stesso valore
+            // confrontato con `version.json` per il banner di aggiornamento
+            // in Home, mostrato qui per poterlo controllare a colpo
+            // d'occhio senza aprire GitHub Actions. Non il numero di
+            // versione di `pubspec.yaml` (fermo a 0.1.0, non affidabile,
+            // v. `update_providers.dart`).
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
+              child: Center(
+                child: Text(
+                  currentBuildNumber > 0
+                      ? 'Build $currentBuildNumber'
+                      : 'Build locale (sviluppo)',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).disabledColor,
+                      ),
+                ),
+              ),
             ),
           ],
         ),
