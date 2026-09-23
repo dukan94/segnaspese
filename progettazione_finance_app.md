@@ -2450,6 +2450,44 @@ altri dispositivi)*
     remoto di righe più vecchie. È uno scenario solo di sviluppo (il reset
     cancella anche le transazioni), non affrontato qui.
 
+**M53 — ✅ Completata (23 set 2026, approvata da Mario) — Salvare un form
+di modifica non deve resuscitare un elemento eliminato**
+*(trovato indagando un sospetto emerso durante M52)*
+- **Sospetto iniziale, smentito**: si temeva che modificare un elemento ne
+  azzerasse il `syncId` (la documentazione di `replace()` di Drift dice
+  che i campi assenti tornano "a default o a null"). L'implementazione
+  reale (Drift 2.34.3, `update.dart`) riporta al default solo le colonne
+  **che hanno un default**: `syncId` non ne ha e resta intatto. Verificato
+  con test su tutti e cinque i tipi.
+- **Bug vero**: i cinque metodi di modifica dei DAO (`updateTransaction`,
+  `updateCategory`, `updateSubCategory`, `updateRule`, `updateRecurring`)
+  usano `replace()` con companion che non includono `isDeleted` (default
+  `false`). Se un elemento viene eliminato mentre il suo form di modifica
+  è aperto (es. l'eliminazione arriva via sync da un altro dispositivo),
+  premere Salva lo riporta attivo, con un `updatedAt` nuovo che vince alla
+  sync successiva: ricompare su tutti i dispositivi. Stesso meccanismo per
+  `createdAt` delle transazioni (azzerato a ogni modifica), innocuo perché
+  mai letto.
+- **Fix**: `write()` (aggiorna solo i campi passati) al posto di
+  `replace()` nei cinque metodi, filtrando per id. Un elemento già
+  eliminato resta eliminato (le modifiche del form vengono salvate su di
+  esso, senza riportarlo in vita).
+- **Test**: `test/update_preserves_sync_id_test.dart` (conservazione del
+  `syncId`, già verde) esteso con un caso "eliminato mentre il form era
+  aperto" per ciascun tipo e con la conservazione di `createdAt`.
+- **Fatto davvero**: come da piano. I cinque metodi ora fanno
+  `(update(t)..where(id = entry.id)).write(entry)` e tornano ancora
+  `Future<bool>` (righe aggiornate > 0), quindi nessun chiamante cambia.
+  I campi nullable azzerati di proposito dal form (es. `subCategoryId` o
+  `refundOfId` a null) restano azzerati: il companion li passa come
+  `Value(null)`, e `write` ignora solo i `Value.absent()`.
+- **Verificato**: i 5 nuovi test erano rossi sul codice vecchio (bug
+  confermato su tutti i tipi) e sono verdi ora. `flutter analyze` pulito,
+  **239/239 test** (229 + 10 nuovi in
+  `test/update_preserves_sync_id_test.dart`). Nessuna verifica a runtime:
+  lo scenario (eliminazione via sync con un form aperto) non è
+  riproducibile a mano in modo affidabile.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
