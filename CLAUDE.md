@@ -1153,13 +1153,29 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
 - **M52 (23 set 2026, v. "Sync (Turso) — dettaglio critico" sopra)**: un
   dispositivo appena installato non resuscita più sul server categorie/
-  sottocategorie già unite o eliminate. Verificato solo con test
-  automatici, non ancora con una build reale.
-- **PC di lavoro (aziendale), 23 set 2026**: ora ha Flutter 3.47.5 in
-  `C:\Users\mario.costa\flutter` (clonato, nel PATH utente) — `flutter
-  analyze`/`flutter test` funzionano anche da qui. Manca ancora Visual
-  Studio (workload C++), quindi niente `flutter build windows` locale su
-  questo PC: per una build usare `windows-build.yml`.
+  sottocategorie già unite o eliminate. Verificato con test automatici e
+  con una build reale, simulando un'installazione vuota collegata al Turso
+  vero: nessuna riga inviata al server. Dettaglio in
+  `progettazione_finance_app.md`, M52.
+- **PC di lavoro (aziendale), 23 set 2026**: allestito per lavorare in
+  autonomia.
+  - **Progetto in `C:\Dev\finance_app`**, come sul vecchio PC. **Non**
+    usare la vecchia copia dentro OneDrive: lì il percorso è così lungo
+    che `flutter build windows` supera il limite di 260 caratteri di
+    MSBuild, e OneDrive sporca `build/`, `.dart_tool/` e
+    `windows/flutter/ephemeral` con file generati su altri PC.
+  - **Strumenti installati**:
+    - Flutter 3.47.5 in `C:\Users\mario.costa\flutter`;
+    - gh CLI portable in `C:\Users\mario.costa\gh-cli`, con login
+      `dukan94` (entrambi nel PATH utente);
+    - Visual Studio Build Tools 2022 con il workload VCTools **e** il
+      componente ATL (`Microsoft.VisualStudio.Component.VC.ATL`), senza
+      il quale `flutter_secure_storage_windows` non compila (`atlstr.h`
+      mancante);
+    - Modalità sviluppatore attiva.
+  - **Account senza diritti di amministratore**: le installazioni di
+    sistema le fa Mario, e qualunque modifica di sistema (unità virtuali,
+    registro, PATH) va chiesta prima.
 - **M0–M51 completate e verificate con run/build reali** (M49: solo la
   logica di innesco del wizard verificata a schermo, non le 3 schermate —
   v. sezione dedicata sotto) (v.

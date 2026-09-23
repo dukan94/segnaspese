@@ -114,7 +114,7 @@ flutter doctor
 Sviluppo per milestone incrementali, ognuna progettata e documentata prima di
 scrivere codice (v. `progettazione_finance_app.md`, sezione 6, per il
 dettaglio di ciascuna e per il processo da seguire per le prossime). Tutte le
-milestone M0-M52 sono completate e verificate (M52: con test automatici, non ancora a runtime; M49: solo
+milestone M0-M52 sono completate e verificate (M52: con test automatici e build reale; M49: solo
 la logica di innesco, non le schermate del wizard — v. CLAUDE.md).
 Integrazione
 continua attiva

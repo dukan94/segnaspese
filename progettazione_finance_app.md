@@ -2428,9 +2428,22 @@ altri dispositivi)*
   - **Verificato**: `flutter analyze` pulito, **229/229 test** (225 + 4),
     eseguiti per la prima volta sul PC di lavoro (Flutter 3.47.5 appena
     installato in `C:\Users\mario.costa\flutter`).
-  - **Non verificato a runtime**: nessuna build Windows locale (manca
-    Visual Studio sul PC di lavoro). Da provare con la build CI su un
-    dispositivo nuovo o con dati Admin azzerati.
+  - **Verificato a runtime (23 set 2026)**: build Windows release reale
+    sul PC di lavoro, scenario vero simulato col consenso di Mario.
+    - Preparazione: database reale rinominato in
+      `finance_app.sqlite.backup-2026-09-23-pre-test-m52`; le credenziali
+      Turso già salvate sono rimaste, quindi la prima sync è partita
+      subito, senza wizard.
+    - Risultato sul database di prova: 0 righe col timestamp di seed (B
+      ha scartato tutta la tassonomia di default); 0 righe create o
+      modificate durante il test; nessuna filigrana `sync_push_*`. Quindi
+      il dispositivo "nuovo" non ha inviato nulla al server, e la
+      tassonomia è arrivata solo dal pull.
+    - I doppioni ancora visibili (`Salute`/`Viaggio`, default +
+      personalizzata) sono lo stato già presente sul server, cioè il danno
+      del primo avvio di Mario su questo PC, da ripulire a mano.
+    - Chiusura: database originale ripristinato identico; quello di prova
+      conservato accanto come `finance_app.sqlite.test-m52-2026-09-23`.
   - **Limite noto, non coperto**: un dispositivo *già in uso* che subisce
     un "reset pulito" per un bump di `kSeedVersion` riseeda i default,
     ma con la filigrana di pull già avanzata non riceve di nuovo lo stato
