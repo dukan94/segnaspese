@@ -7,6 +7,7 @@ import '../local/database/app_database.dart';
 import '../local/database/tables/budgets_table.dart';
 import '../local/database/tables/categories_table.dart';
 import '../local/database/tables/recurring_table.dart';
+import '../local/seed/default_seed_timestamp.dart';
 import 'sync_service.dart';
 import 'transaction_duplicate_finder.dart';
 import 'turso_http_client.dart';
@@ -219,6 +220,13 @@ class TursoSyncService implements SyncService {
       }
     }
 
+    // Prima di qualunque push (M52): un dispositivo appena installato che si
+    // collega a un database già in uso scarta la tassonomia di default
+    // seedata in locale, così la riceve solo dal server. Se fallisce, il push
+    // resta comunque sicuro per i default con syncId deterministico (v.
+    // kDefaultSeedUpdatedAt): qui non serve bloccare il resto del giro.
+    await runStep('prepare_first_sync', _discardPristineSeedIfJoiningExistingRemote);
+
     // Push: l'ordine non è rilevante, ogni riga traduce le proprie FK
     // guardando i genitori in locale, che esistono sempre (vincoli FK locali).
     await runStep('push_categories', _pushCategories);
@@ -333,6 +341,68 @@ class TursoSyncService implements SyncService {
         result.first.asMaps().map((row) => row['name'] as String).toSet();
     if (existingColumns.contains(column)) return;
     await _client!.execute([TursoStatement('ALTER TABLE $table ADD COLUMN $column $definition')]);
+  }
+
+  // --- Primo collegamento di un dispositivo nuovo (M52) ---
+
+  /// Alla primissima sync di un dispositivo appena installato (mai
+  /// completato un pull di categorie, nessuna transazione/budget/ricorrenza
+  /// propria), se il server ha già una tassonomia: elimina fisicamente in
+  /// locale la tassonomia di default creata da `runSeed` e mai modificata
+  /// (riconosciuta da [kDefaultSeedUpdatedAt]), così arriva tutta dal pull.
+  ///
+  /// Bug reale (23 set 2026): i default seedati sul dispositivo nuovo
+  /// venivano spinti sul server prima del pull, resuscitando categorie già
+  /// unite/eliminate altrove. [kDefaultSeedUpdatedAt] da solo lo impedisce
+  /// per i default con lo stesso syncId deterministico sul server; questo
+  /// passo copre anche un server i cui default hanno syncId diversi (creati
+  /// prima che diventassero deterministici), che altrimenti arriverebbero
+  /// sul server come righe nuove e poi come doppioni ovunque.
+  ///
+  /// Eliminazione fisica, non soft delete: queste righe non sono mai state
+  /// sincronizzate, e un tombstone con un syncId deterministico finirebbe
+  /// per cancellare sul server la riga corrispondente ancora in uso. Non
+  /// tocca righe modificate dall'utente (timestamp diverso) né righe di
+  /// default ancora referenziate da una sua regola o sottocategoria.
+  Future<void> _discardPristineSeedIfJoiningExistingRemote() async {
+    final alreadyPulled = await (_db.select(_db.settings)
+          ..where((s) => s.key.equals('sync_pull_categories')))
+        .getSingleOrNull();
+    if (alreadyPulled != null) return;
+
+    final hasOwnData =
+        (await (_db.select(_db.transactions)..limit(1)).get()).isNotEmpty ||
+            (await (_db.select(_db.budgets)..limit(1)).get()).isNotEmpty ||
+            (await (_db.select(_db.recurringTransactions)..limit(1)).get()).isNotEmpty;
+    if (hasOwnData) return;
+
+    final remote = await _client!.execute([
+      const TursoStatement('SELECT sync_id FROM sync_categories WHERE updated_at > ?', [-1]),
+    ]);
+    if (remote.first.rows.isEmpty) return; // server vuoto: i default vanno spinti
+
+    final seedStamp = kDefaultSeedUpdatedAt;
+    await _db.transaction(() async {
+      await (_db.delete(_db.merchantRules)
+            ..where((r) => r.isUserDefined.equals(false) & r.updatedAt.equals(seedStamp)))
+          .go();
+      await (_db.delete(_db.subCategories)
+            ..where((s) =>
+                s.updatedAt.equals(seedStamp) &
+                s.id.isNotInQuery(_db.selectOnly(_db.merchantRules)
+                  ..addColumns([_db.merchantRules.subCategoryId])
+                  ..where(_db.merchantRules.subCategoryId.isNotNull()))))
+          .go();
+      await (_db.delete(_db.categories)
+            ..where((c) =>
+                c.isDefault.equals(true) &
+                c.updatedAt.equals(seedStamp) &
+                c.id.isNotInQuery(_db.selectOnly(_db.subCategories)
+                  ..addColumns([_db.subCategories.categoryId])) &
+                c.id.isNotInQuery(_db.selectOnly(_db.merchantRules)
+                  ..addColumns([_db.merchantRules.categoryId]))))
+          .go();
+    });
   }
 
   // --- Helpers di conversione ---

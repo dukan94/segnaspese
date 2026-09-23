@@ -272,6 +272,37 @@ macchina. Non reintrodurre `libsql_dart`.
   riprodurre il bug prima del fix.
 - Conflict resolution: **last-write-wins** su `updatedAt` (nessuna protezione
   clock-skew, accettato per uso personale).
+- **Insidia: righe create "in automatico" con `updatedAt` = adesso (M52, bug
+  reale 23 set 2026)**. Mario ha installato l'app su un PC nuovo e l'ha
+  collegata al suo Turso già in uso: sono ricomparse categorie e
+  sottocategorie già unite con "Unisci con...", prima sul PC nuovo e dopo la
+  sync su tutti gli altri dispositivi. Il motivo: `runSeed` creava i default
+  con `syncId` deterministici (uguali ovunque) ma con `updatedAt` = adesso.
+  Alla prima sync il push avviene **prima** del pull, quindi l'upsert
+  last-write-wins riportava sul server `is_deleted = 0` (e i nomi di
+  default) sopra le cancellazioni fatte altrove.
+  Fix in due parti:
+  1. i seed usano `kDefaultSeedUpdatedAt` (1/1/2000,
+     `data/local/seed/default_seed_timestamp.dart`), così lo stato già sul
+     server vince sempre;
+  2. alla primissima sync di un dispositivo senza dati propri, se il server
+     ha già categorie, `_discardPristineSeedIfJoiningExistingRemote`
+     elimina fisicamente in locale i default mai modificati, e tutta la
+     tassonomia arriva dal pull.
+
+  **Regola generale**: qualunque riga creata dall'app senza un'azione
+  dell'utente e con un `syncId` che può già esistere sul server (seed,
+  migrazioni, backfill) non deve avere `updatedAt` = adesso, altrimenti
+  sovrascrive lo stato remoto al primo push. `_backfillSyncIds` usa `now`
+  di proposito, ma solo perché genera `syncId` nuovi e casuali, quindi non
+  collide con nulla. Test: `test/first_sync_seed_test.dart`.
+
+  **Il merge in sé non era coinvolto**: si sincronizza correttamente,
+  verificato il 2 ago.
+
+  **Pulizia dei dati già rovinati sul server**: dopo aver installato il fix,
+  rieseguire unione/eliminazione delle categorie resuscitate da un solo
+  dispositivo.
 - Ogni push/pull di tabella è isolato: un errore su una tabella non blocca le
   altre. Banner di avviso in Home se la sync non è configurata o è in errore.
 - **Storico locale con doppioni preesistenti** (scoperto 31 lug 2026, v.
@@ -1114,12 +1145,21 @@ URL/token) → Fine. Mostrato **solo** su un'installazione davvero vuota.
   emulatore pulito quando comodo, non urgente (logica di innesco coperta
   dai test).
 
-## Stato attuale (2 set 2026)
+## Stato attuale (23 set 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M52 (23 set 2026, v. "Sync (Turso) — dettaglio critico" sopra)**: un
+  dispositivo appena installato non resuscita più sul server categorie/
+  sottocategorie già unite o eliminate. Verificato solo con test
+  automatici, non ancora con una build reale.
+- **PC di lavoro (aziendale), 23 set 2026**: ora ha Flutter 3.47.5 in
+  `C:\Users\mario.costa\flutter` (clonato, nel PATH utente) — `flutter
+  analyze`/`flutter test` funzionano anche da qui. Manca ancora Visual
+  Studio (workload C++), quindi niente `flutter build windows` locale su
+  questo PC: per una build usare `windows-build.yml`.
 - **M0–M51 completate e verificate con run/build reali** (M49: solo la
   logica di innesco del wizard verificata a schermo, non le 3 schermate —
   v. sezione dedicata sotto) (v.
@@ -1293,7 +1333,8 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
-- Test in `test/` (33 file, 225 test): parser CSV, receipt parser, rule
+- Test in `test/` (34 file, 229 test — M52 ha aggiunto
+  `first_sync_seed_test.dart`): parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/

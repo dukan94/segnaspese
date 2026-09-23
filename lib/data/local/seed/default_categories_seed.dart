@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
+import 'default_seed_timestamp.dart';
 import '../database/tables/categories_table.dart';
 
 /// Categorie di default proposte al primo avvio, secondo la tassonomia
@@ -45,6 +46,7 @@ Future<void> seedDefaultCategories(AppDatabase db) async {
               type: TransactionKind.income,
               color: color,
               isDefault: const Value(true),
+              updatedAt: Value(kDefaultSeedUpdatedAt),
               syncId: Value(_defaultCategorySyncId(name, TransactionKind.income)),
             ),
           );
@@ -57,6 +59,7 @@ Future<void> seedDefaultCategories(AppDatabase db) async {
               type: TransactionKind.expense,
               color: color,
               isDefault: const Value(true),
+              updatedAt: Value(kDefaultSeedUpdatedAt),
               syncId: Value(_defaultCategorySyncId(name, TransactionKind.expense)),
             ),
           );
