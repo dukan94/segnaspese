@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
+import 'default_seed_timestamp.dart';
 
 /// Regole di classificazione di default (v. progettazione, sezione
 /// "Regole di classificazione"). Sono un punto di partenza: l'utente può
@@ -58,6 +59,7 @@ Future<void> seedDefaultMerchantRules(AppDatabase db) async {
               categoryId: categoryId,
               subCategoryId: Value(subCategoryId),
               isUserDefined: const Value(false),
+              updatedAt: Value(kDefaultSeedUpdatedAt),
               syncId: Value(_defaultRuleSyncId(pattern)),
             ),
           );

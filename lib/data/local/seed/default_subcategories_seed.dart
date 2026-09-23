@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 import '../database/app_database.dart';
+import 'default_seed_timestamp.dart';
 
 /// Sottocategorie di default, seedate al primo avvio subito dopo le
 /// categorie principali (v. seedDefaultCategories, deve essere chiamata
@@ -74,6 +75,7 @@ Future<void> seedDefaultSubCategories(AppDatabase db) async {
               categoryId: categoryIdByName(categoryName),
               name: name,
               icon: Value(icon),
+              updatedAt: Value(kDefaultSeedUpdatedAt),
               syncId: Value(_defaultSubCategorySyncId(categoryName, name)),
             ),
           );

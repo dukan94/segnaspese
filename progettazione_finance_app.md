@@ -2369,6 +2369,74 @@ a mano — v. M47 per il meccanismo di confronto già esistente)*
 - **Verificato**: `flutter analyze` pulito, **225/225 test** (nessun test
   nuovo — solo testo statico in UI, nessuna logica pura da estrarre).
 
+**M52 — ✅ Completata (23 set 2026, approccio A+B approvato da Mario) —
+Un dispositivo nuovo non deve più resuscitare categorie già unite/
+eliminate**
+*(bug reale segnalato da Mario: installata l'app Windows su un PC nuovo,
+fatto il wizard con Turso, sono ricomparse categorie/sottocategorie già
+unite in passato con "Unisci con..." — e dopo la sync anche su tutti gli
+altri dispositivi)*
+- **Causa**: al primo avvio `runSeed` crea la tassonomia di default con
+  `syncId` deterministici (UUID v5, uguali su ogni dispositivo) ma con
+  `updatedAt` = "adesso" (default `currentDateAndTime`). Alla prima sync il
+  push avviene prima del pull: sul server le stesse righe (stesso `syncId`)
+  eliminate/unite da tempo hanno un `updated_at` più vecchio, quindi il
+  last-write-wins dell'upsert le sovrascrive con `is_deleted = 0` (e
+  riporta nome/icona/colore di default se erano stati rinominati). Il pull
+  successivo porta anche le categorie personalizzate → doppioni, e le
+  righe "resuscitate" si propagano agli altri dispositivi.
+  `dedupeDefaultTaxonomy` non copre il caso (fonde solo default con
+  default). Il merge in sé NON è coinvolto: si sincronizza correttamente.
+- **A — timestamp di seed fisso e vecchio**: categorie/sottocategorie/
+  regole di default create con `updatedAt` = costante 1/1/2000 invece di
+  "adesso". Su un server vuoto vengono inserite come prima; su un server
+  già in uso qualunque stato remoto (eliminazione, merge, rinomina) vince
+  sempre, al push come al pull.
+- **B — primo collegamento a un database già in uso**: alla prima sync di
+  un dispositivo (nessun pull categorie mai completato) senza dati propri
+  (nessuna transazione/budget/ricorrenza), se il server ha già categorie
+  la tassonomia di default appena seedata e mai modificata (riconosciuta
+  dal timestamp di seed di A) viene eliminata fisicamente in locale prima
+  del push — mai sincronizzata, niente da propagare — e tutta la
+  tassonomia arriva dal pull. Copre anche il caso di default remoti con
+  `syncId` casuali (creati prima che diventassero deterministici), che A
+  da solo non proteggerebbe.
+- **Pulizia dei dati già rovinati**: dopo il rilascio del fix, Mario
+  elimina/unisce di nuovo le categorie resuscitate da un solo dispositivo
+  (si propaga agli altri come di consueto).
+- **Test**: regressione su server con default eliminato + dispositivo
+  appena installato (A), e su server con tassonomia sotto `syncId`
+  diversi (B), più il caso "server vuoto" (i default devono comunque
+  arrivare sul remoto).
+- **Fatto davvero**:
+  - A: nuova costante `kDefaultSeedUpdatedAt` (`data/local/seed/
+    default_seed_timestamp.dart`, `DateTime.utc(2000, 1, 1)`), passata come
+    `updatedAt` dai tre seed (categorie, sottocategorie, regole).
+  - B: `TursoSyncService._discardPristineSeedIfJoiningExistingRemote`,
+    nuovo passo `prepare_first_sync` eseguito prima di ogni push (isolato
+    come gli altri passi: se fallisce, il push resta sicuro grazie ad A).
+    Condizioni: nessuna filigrana `sync_pull_categories`, nessuna
+    transazione/budget/ricorrenza locale, `sync_categories` remota non
+    vuota. Eliminazione fisica (mai sincronizzate; un soft delete con
+    syncId deterministico cancellerebbe la riga ancora in uso sul server)
+    solo delle righe con timestamp di seed, e solo se non più referenziate
+    da una regola/sottocategoria dell'utente.
+  - Test: `test/first_sync_seed_test.dart` (4 test). Scritti prima del fix
+    e verificati rossi sul codice vecchio: il test A riproduceva
+    esattamente il bug (`is_deleted` remoto da 1 a 0 dopo la prima sync),
+    il test B il doppione "Casa".
+  - **Verificato**: `flutter analyze` pulito, **229/229 test** (225 + 4),
+    eseguiti per la prima volta sul PC di lavoro (Flutter 3.47.5 appena
+    installato in `C:\Users\mario.costa\flutter`).
+  - **Non verificato a runtime**: nessuna build Windows locale (manca
+    Visual Studio sul PC di lavoro). Da provare con la build CI su un
+    dispositivo nuovo o con dati Admin azzerati.
+  - **Limite noto, non coperto**: un dispositivo *già in uso* che subisce
+    un "reset pulito" per un bump di `kSeedVersion` riseeda i default,
+    ma con la filigrana di pull già avanzata non riceve di nuovo lo stato
+    remoto di righe più vecchie. È uno scenario solo di sviluppo (il reset
+    cancella anche le transazioni), non affrontato qui.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
