@@ -254,8 +254,13 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
     return into(categories).insert(entry);
   }
 
-  Future<bool> updateCategory(CategoriesCompanion entry) {
-    return update(categories).replace(entry);
+  /// `write`, non `replace`: v. `TransactionDao.updateTransaction` (M53) —
+  /// `replace()` riportava `isDeleted` a false, resuscitando una categoria
+  /// eliminata mentre il suo form di modifica era aperto.
+  Future<bool> updateCategory(CategoriesCompanion entry) async {
+    final updated =
+        await (update(categories)..where((c) => c.id.equals(entry.id.value))).write(entry);
+    return updated > 0;
   }
 
   /// Soft delete della categoria e, in cascata, di tutte le sue
@@ -277,8 +282,11 @@ class CategoryDao extends DatabaseAccessor<AppDatabase>
     return into(subCategories).insert(entry);
   }
 
-  Future<bool> updateSubCategory(SubCategoriesCompanion entry) {
-    return update(subCategories).replace(entry);
+  /// `write`, non `replace`: stesso motivo di [updateCategory] (M53).
+  Future<bool> updateSubCategory(SubCategoriesCompanion entry) async {
+    final updated = await (update(subCategories)..where((s) => s.id.equals(entry.id.value)))
+        .write(entry);
+    return updated > 0;
   }
 
   Future<int> softDeleteSubCategory(int id) {

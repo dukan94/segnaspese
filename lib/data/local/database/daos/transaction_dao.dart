@@ -105,8 +105,20 @@ class TransactionDao extends DatabaseAccessor<AppDatabase>
     await batch((b) => b.insertAll(transactions, entries));
   }
 
-  Future<bool> updateTransaction(TransactionsCompanion entry) {
-    return update(transactions).replace(entry);
+  /// Aggiorna solo i campi presenti in [entry] (`write`, non `replace`).
+  ///
+  /// Bug reale trovato in M53 (23 set 2026): `replace()` riporta al valore di
+  /// default ogni colonna non passata che ne ha uno — tra cui `isDeleted`
+  /// (default false) e `createdAt`, che il companion di modifica non include.
+  /// Se la transazione veniva eliminata mentre il suo form era aperto (es.
+  /// eliminazione arrivata via sync da un altro dispositivo), Salva la
+  /// riportava attiva con un `updatedAt` nuovo, che vinceva alla sync
+  /// successiva: ricompariva su tutti i dispositivi. Stesso fix negli altri
+  /// DAO (categorie, sottocategorie, regole, ricorrenze).
+  Future<bool> updateTransaction(TransactionsCompanion entry) async {
+    final updated =
+        await (update(transactions)..where((t) => t.id.equals(entry.id.value))).write(entry);
+    return updated > 0;
   }
 
   /// Soft delete: imposta isDeleted = true e aggiorna updatedAt, così la

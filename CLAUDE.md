@@ -1151,6 +1151,20 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M53 (23 set 2026)**: salvare un form di modifica non resuscita più un
+  elemento eliminato nel frattempo (per esempio via sync da un altro
+  dispositivo).
+  - **Causa**: i cinque metodi `update*` dei DAO usavano `replace()`, che
+    riporta al default ogni colonna non passata **che ha un default**, tra
+    cui `isDeleted`.
+  - **Fix**: ora usano `write()` filtrato per id.
+  - **Insidia da ricordare**: la documentazione di Drift su `replace()`
+    dice che i campi assenti tornano "a default o a null", ma
+    l'implementazione (2.34.3) tocca solo quelli con un default. Per
+    questo `syncId`, che non ne ha, non è mai stato a rischio.
+  - **Regola per il futuro**: per aggiornare una riga esistente preferire
+    `write()` a `replace()`, a meno di voler davvero riportare ai default
+    tutto ciò che non si passa.
 - **M52 (23 set 2026, v. "Sync (Turso) — dettaglio critico" sopra)**: un
   dispositivo appena installato non resuscita più sul server categorie/
   sottocategorie già unite o eliminate. Verificato con test automatici e
@@ -1349,8 +1363,9 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   analyze` + `flutter test` su ogni push/PR con rigenerazione del codice
   (`android-build.yml`/`windows-build.yml` solo su richiesta manuale, v. sezione dedicata
   sotto).
-- Test in `test/` (34 file, 229 test — M52 ha aggiunto
-  `first_sync_seed_test.dart`): parser CSV, receipt parser, rule
+- Test in `test/` (35 file, 239 test — M52 ha aggiunto
+  `first_sync_seed_test.dart`, M53 `update_preserves_sync_id_test.dart`):
+  parser CSV, receipt parser, rule
   matcher, duplicate finder, sync Turso (incluso **rientranza syncNow()**,
   verifica remota puntuale e migrazione schema remoto), repair
   sottocategorie orfane, widget animati, DAO ricorrenze/categorie/budget/

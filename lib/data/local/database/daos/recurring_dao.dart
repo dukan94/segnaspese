@@ -42,8 +42,14 @@ class RecurringDao extends DatabaseAccessor<AppDatabase>
     return into(recurringTransactions).insert(entry);
   }
 
-  Future<bool> updateRecurring(RecurringTransactionsCompanion entry) {
-    return update(recurringTransactions).replace(entry);
+  /// `write`, non `replace`: v. `TransactionDao.updateTransaction` (M53) —
+  /// `replace()` riportava `isDeleted` a false, resuscitando una ricorrenza
+  /// eliminata mentre il suo form di modifica era aperto.
+  Future<bool> updateRecurring(RecurringTransactionsCompanion entry) async {
+    final updated = await (update(recurringTransactions)
+          ..where((r) => r.id.equals(entry.id.value)))
+        .write(entry);
+    return updated > 0;
   }
 
   /// Soft delete: imposta isDeleted = true e aggiorna updatedAt, così la

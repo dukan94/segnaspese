@@ -39,8 +39,13 @@ class MerchantRuleDao extends DatabaseAccessor<AppDatabase>
     return into(merchantRules).insert(entry);
   }
 
-  Future<bool> updateRule(MerchantRulesCompanion entry) {
-    return update(merchantRules).replace(entry);
+  /// `write`, non `replace`: v. `TransactionDao.updateTransaction` (M53) —
+  /// `replace()` riportava `isDeleted` a false, resuscitando una regola
+  /// eliminata mentre il suo form di modifica era aperto.
+  Future<bool> updateRule(MerchantRulesCompanion entry) async {
+    final updated = await (update(merchantRules)..where((r) => r.id.equals(entry.id.value)))
+        .write(entry);
+    return updated > 0;
   }
 
   Future<int> softDelete(int id) {
