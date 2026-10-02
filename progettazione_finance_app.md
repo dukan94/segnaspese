@@ -2575,14 +2575,16 @@ di modifica non deve resuscitare un elemento eliminato**
   - `flutter analyze` pulito, **239/239 test** invariati (nessun test
     automatico aggiunto: script di configurazione Inno Setup, non logica
     Dart, come previsto).
-  - **Non verificato con una build CI reale** (richiederebbe lanciare
-    `windows-build.yml`, costoso in minuti — v. "Parsimonia minuti"): il
-    percorso `C:\Program Files (x86)\Inno Setup 6\ISCC.exe` usato nel
-    workflow è quello documentato per l'installazione Chocolatey sui
-    runner `windows-latest` (verificato che il pacchetto `innosetup` è
-    presente nel toolset dell'immagine), ma non ancora confermato
-    eseguendo il workflow sul runner reale — primo lancio da fare con
-    attenzione, pronto un fix del percorso se necessario.
+- **Verificato con build CI reale (2 ott 2026)**: lanciato
+  `windows-build.yml` su richiesta di Mario (consapevole del costo in
+  minuti, v. "Parsimonia minuti") subito dopo il merge su `main` — run
+  `36985300474`, entrambi i job verdi (`build` 6m14s, `publish-version`
+  11s), il percorso `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`
+  confermato corretto sul runner reale. Asset `TallySetup.exe` pubblicato
+  sulla release `windows-latest`; rimosso manualmente il vecchio
+  `Tally-Windows.zip` rimasto allegato dalla pubblicazione precedente (il
+  workflow non lo rigenera più ma non lo elimina da solo — pulizia one-off,
+  non serviva più).
 
 ### Processo per nuove milestone (da qui in avanti)
 

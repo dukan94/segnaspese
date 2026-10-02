@@ -1190,7 +1190,10 @@ concordato a voce (v. "Processo per nuove modifiche" più sotto).
   reale, voce corretta in "App e funzionalità", nessun doppione dopo una
   seconda esecuzione dell'installer. `flutter analyze` pulito, 239/239
   test invariati (nessun test automatico nuovo: è configurazione, non
-  logica Dart). Non ancora verificato con una build CI reale.
+  logica Dart). **Verificato anche con build CI reale** (`windows-build.yml`,
+  run `36985300474`, 6m14s): `ISCC.exe` trovato correttamente sul runner,
+  `TallySetup.exe` pubblicato sulla release `windows-latest` (rimosso a
+  mano il vecchio `Tally-Windows.zip` rimasto allegato).
 - **M53 (23 set 2026)**: salvare un form di modifica non resuscita più un
   elemento eliminato nel frattempo (per esempio via sync da un altro
   dispositivo).
