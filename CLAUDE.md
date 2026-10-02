@@ -1181,6 +1181,15 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M55 (2 ott 2026)**: il pannello di dettaglio categoria in Dashboard
+  (card "Dettaglio · <categoria>", quando selezioni una fetta della torta)
+  mostra ora anche il budget assegnato a quella categoria, accanto al
+  titolo — in vista Mese il budget di quel mese, in vista Anno la somma
+  dei 12 mesi (stesso formato "speso / tetto" colorato verde/rosso della
+  card "Budget" generale, M44). Dati già tutti disponibili
+  (`monthlyBudgetByCategory`), nessuna nuova query. `flutter analyze`
+  pulito, 243/243 test (239 + 4 nuovi). Verificato a schermo: caso "nessun
+  budget" e caso "sforato" entrambi corretti.
 - **M54 (2 ott 2026, v. sezione "Distribuzione Windows" sopra per il
   dettaglio completo)**: lo zip Windows da estrarre a mano è diventato un
   vero installer (Inno Setup, `TallySetup.exe`) — riconosce

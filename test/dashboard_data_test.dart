@@ -230,4 +230,89 @@ void main() {
       expect(data.totalBudget, 0);
     });
   });
+
+  group('budget per categoria nel dettaglio Dashboard (M55)', () {
+    BudgetEntity categoryBudget({
+      required double amount,
+      required DateTime month,
+      int categoryId = 1,
+    }) =>
+        BudgetEntity(
+          categoryId: categoryId,
+          period: BudgetPeriodType.monthly,
+          amount: amount,
+          startDate: month,
+        );
+
+    test('vista Mese: il budget della fetta è quello del mese selezionato',
+        () {
+      final txns = [expense(amount: 30, date: DateTime(2026, 3, 15))];
+      final budgets = [
+        categoryBudget(amount: 100, month: DateTime(2026, 3, 1)),
+        categoryBudget(amount: 200, month: DateTime(2026, 4, 1)),
+      ];
+      final data = buildDashboardData(txns, budgets, [
+        category()
+      ], [
+        SubCategoryWithCategory(
+            subCategory: subCategory(), category: category())
+      ], const (year: 2026, month: 3, includeExtra: false));
+
+      expect(data.byCategory.single.budget, 100);
+    });
+
+    test('vista Anno: il budget della fetta è la somma dei 12 mesi', () {
+      final txns = [expense(amount: 30, date: DateTime(2026, 3, 15))];
+      final budgets = [
+        categoryBudget(amount: 100, month: DateTime(2026, 3, 1)),
+        categoryBudget(amount: 200, month: DateTime(2026, 4, 1)),
+      ];
+      final data = buildDashboardData(
+          txns,
+          budgets,
+          [category()],
+          [
+            SubCategoryWithCategory(
+                subCategory: subCategory(), category: category())
+          ],
+          params);
+
+      expect(data.byCategory.single.budget, 300);
+    });
+
+    test('categoria senza alcun budget assegnato: 0, non null/errore', () {
+      final txns = [expense(amount: 30)];
+      final data = buildDashboardData(
+          txns,
+          const <BudgetEntity>[],
+          [category()],
+          [
+            SubCategoryWithCategory(
+                subCategory: subCategory(), category: category())
+          ],
+          params);
+
+      expect(data.byCategory.single.budget, 0);
+    });
+
+    test(
+        'budget di un\'altra categoria non influenza la fetta selezionata',
+        () {
+      final txns = [expense(amount: 30, categoryId: 1)];
+      final budgets = [
+        categoryBudget(amount: 999, month: DateTime(2026, 3, 1), categoryId: 2),
+      ];
+      final data = buildDashboardData(
+          txns,
+          budgets,
+          [category()],
+          [
+            SubCategoryWithCategory(
+                subCategory: subCategory(), category: category())
+          ],
+          params);
+
+      expect(data.byCategory.single.budget, 0);
+    });
+  });
 }

@@ -18,6 +18,7 @@ class CategorySlice {
     required this.color,
     required this.amount,
     required this.count,
+    required this.budget,
   });
 
   final int categoryId;
@@ -35,6 +36,12 @@ class CategorySlice {
   /// (50-25)/2). 0 se [count] è 0 (mai per una fetta effettivamente mostrata:
   /// [amount] > 0 implica almeno una spesa non-rimborso).
   double get average => count == 0 ? 0 : amount / count;
+
+  /// Budget assegnato a questa categoria nel periodo (M55): nel mese
+  /// selezionato è il budget di quel mese, nell'intero anno è la somma dei
+  /// 12 mesi — stessa logica di [DashboardData.totalBudget], applicata alla
+  /// singola categoria invece che al totale. 0 se non impostato.
+  final double budget;
 }
 
 /// Fetta di spesa per sottocategoria (per le barre orizzontali).
@@ -219,6 +226,8 @@ DashboardData buildDashboardData(
           color: catById[entry.key]?.color ?? 0xFF9E9E9E,
           amount: entry.value,
           count: countByCategory[entry.key] ?? 0,
+          budget: _categoryBudgetForPeriod(
+              monthlyBudgetByCategory[entry.key], params.month),
         ),
   ]..sort((a, b) => b.amount.compareTo(a.amount));
 
@@ -260,6 +269,16 @@ DashboardData buildDashboardData(
     monthlyExpenseByCategory: monthlyExpenseByCategory,
     monthlyBudgetByCategory: monthlyBudgetByCategory,
   );
+}
+
+/// Budget di una categoria per il periodo selezionato (M55): il valore del
+/// mese se [month] è impostato, altrimenti la somma dei 12 mesi. [monthly]
+/// è `null` se la categoria non ha mai avuto un budget assegnato.
+double _categoryBudgetForPeriod(List<double>? monthly, int? month) {
+  if (monthly == null) return 0;
+  return month == null
+      ? monthly.fold<double>(0, (s, v) => s + v)
+      : monthly[month - 1];
 }
 
 // --- Helper: combinazione di 4 AsyncValue ---
