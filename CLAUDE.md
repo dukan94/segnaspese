@@ -1181,6 +1181,18 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M56 (2 ott 2026)**: bug reale segnalato da Mario — un budget impostato
+  su un PC non arrivava sul telefono. Causa: M32 (sync immediata dopo il
+  salvataggio) non aveva mai coperto i tre provider di scrittura dei
+  budget (`setMonthlyBudgetProvider`/`setCategoryBudgetProvider`/
+  `deleteBudgetProvider`, `core/di/budget_providers.dart`), solo le
+  transazioni — gap esistente da sempre, non una regressione. Stesso gap
+  verificato anche su Categorie/Sottocategorie/Regole Merchant/Ricorrenze,
+  ma Mario ha scelto di correggere solo i Budget per ora. Fix: stesso
+  pattern di M32 (`unawaited(syncService.syncNow()...)` dopo il
+  salvataggio locale). Verificato anche dal vivo: relanciata l'app dopo il
+  fix, il watermark `sync_push_budgets` è avanzato dal 23 set al 2 ott,
+  spingendo su Turso i budget di ottobre rimasti bloccati in locale.
 - **M55 (2 ott 2026)**: il pannello di dettaglio categoria in Dashboard
   (card "Dettaglio · <categoria>", quando selezioni una fetta della torta)
   mostra ora anche il budget assegnato a quella categoria, accanto al

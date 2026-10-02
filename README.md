@@ -178,6 +178,7 @@ continua attiva
 | **M53** | Fix: salvare un form di modifica non resuscita più un elemento eliminato nel frattempo (es. via sync da un altro dispositivo) | ✅ Completata |
 | **M54** | Installer Windows (Inno Setup) al posto dello zip manuale: aggiornamento in-place come un APK Android | ✅ Completata |
 | **M55** | Dashboard: budget assegnato nel dettaglio categoria (mese selezionato o somma dell'anno) | ✅ Completata |
+| **M56** | Fix: sync immediata anche sui budget (gap in M32, un budget impostato restava bloccato in locale) | ✅ Completata |
 
 ## Struttura del database
 
