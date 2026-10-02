@@ -79,9 +79,10 @@ bool shouldShowUpdateBanner({
 }
 
 /// Link fisso della release (M37/M46) da aprire per scaricare
-/// l'aggiornamento, per la piattaforma corrente.
+/// l'aggiornamento, per la piattaforma corrente. Windows: installer Inno
+/// Setup (M54), non più uno zip da estrarre a mano.
 String updateDownloadUrl() {
   return Platform.isAndroid
       ? 'https://github.com/dukan94/segnaspese/releases/download/android-latest/Tally-Android.apk'
-      : 'https://github.com/dukan94/segnaspese/releases/download/windows-latest/Tally-Windows.zip';
+      : 'https://github.com/dukan94/segnaspese/releases/download/windows-latest/TallySetup.exe';
 }
