@@ -108,6 +108,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               categoryName: selectedSlice.name,
               color: selectedSlice.color,
               slices: data.subByCategory[selectedId] ?? const [],
+              amount: selectedSlice.amount,
+              budget: selectedSlice.budget,
               onOpenHistory: (name) => _openHistory(context, name),
             ),
           );

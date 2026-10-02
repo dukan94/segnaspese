@@ -16,25 +16,52 @@ class SubcategoryBars extends StatelessWidget {
     required this.categoryName,
     required this.color,
     required this.slices,
+    required this.amount,
+    required this.budget,
     required this.onOpenHistory,
   });
 
   final String categoryName;
   final int color;
   final List<SubcategorySlice> slices;
+
+  /// Speso e budget assegnato alla categoria nel periodo selezionato (M55),
+  /// mostrati accanto al titolo — stesso formato "speso / tetto" della card
+  /// "Budget" generale in cima alla Dashboard (M44).
+  final double amount;
+  final double budget;
   final ValueChanged<String> onOpenHistory;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    if (slices.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Text(
-          'Nessuna spesa per "$categoryName" nel periodo.',
-          style: theme.textTheme.bodyMedium
-              ?.copyWith(color: theme.colorScheme.outline),
+    final header = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Text('Dettaglio · $categoryName',
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleSmall),
         ),
+        const SizedBox(width: 8),
+        _CategoryBudgetSummary(amount: amount, budget: budget),
+      ],
+    );
+
+    if (slices.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          header,
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Text(
+              'Nessuna spesa per "$categoryName" nel periodo.',
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.outline),
+            ),
+          ),
+        ],
       );
     }
 
@@ -44,7 +71,7 @@ class SubcategoryBars extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Dettaglio · $categoryName', style: theme.textTheme.titleSmall),
+        header,
         const SizedBox(height: 12),
         for (final slice in slices)
           InkWell(
@@ -108,6 +135,47 @@ class SubcategoryBars extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+      ],
+    );
+  }
+}
+
+/// "Speso / budget" della categoria selezionata, accanto al titolo del
+/// pannello (M55) — stesso formato e stessa logica colore della card
+/// "Budget" generale in cima alla Dashboard (`AnnualTotals`/`_StatCard`,
+/// M44): nessun budget impostato → solo lo speso, senza "/"; altrimenti
+/// verde se nei limiti, rosso se sforato.
+class _CategoryBudgetSummary extends StatelessWidget {
+  const _CategoryBudgetSummary({required this.amount, required this.budget});
+
+  final double amount;
+  final double budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isOverBudget = budget > 0 && amount > budget;
+    final color = budget <= 0
+        ? colorScheme.outline
+        : (isOverBudget ? colorScheme.error : Colors.green.shade600);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        Text(
+          AppFormatters.currencyRounded(amount),
+          style: AppTheme.amountStyle(theme.textTheme.bodyMedium
+              ?.copyWith(color: color, fontWeight: FontWeight.w700)),
+        ),
+        if (budget > 0)
+          Text(
+            ' / ${AppFormatters.currencyRounded(budget)}',
+            style: AppTheme.amountStyle(theme.textTheme.bodySmall
+                ?.copyWith(color: color, fontWeight: FontWeight.w400)),
           ),
       ],
     );

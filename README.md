@@ -177,6 +177,7 @@ continua attiva
 | **M52** | Fix: un dispositivo appena installato non resuscita più sul server categorie/sottocategorie già unite o eliminate (timestamp di seed fisso + tassonomia presa dal server al primo collegamento) | ✅ Completata |
 | **M53** | Fix: salvare un form di modifica non resuscita più un elemento eliminato nel frattempo (es. via sync da un altro dispositivo) | ✅ Completata |
 | **M54** | Installer Windows (Inno Setup) al posto dello zip manuale: aggiornamento in-place come un APK Android | ✅ Completata |
+| **M55** | Dashboard: budget assegnato nel dettaglio categoria (mese selezionato o somma dell'anno) | ✅ Completata |
 
 ## Struttura del database
 

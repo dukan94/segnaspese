@@ -2586,6 +2586,83 @@ di modifica non deve resuscitare un elemento eliminato**
   workflow non lo rigenera più ma non lo elimina da solo — pulizia one-off,
   non serviva più).
 
+**M55 — ✅ Completata (2 ott 2026, approvata da Mario) — Budget assegnato
+nel dettaglio categoria della Dashboard**
+
+- **Problema**: selezionando una categoria nella torta "Spese per
+  categoria", il pannello di dettaglio che compare (`SubcategoryBars`,
+  titolo "Dettaglio · <categoria>") mostra la ripartizione per
+  sottocategoria ma non il budget assegnato a quella categoria — solo il
+  budget *totale* del periodo è visibile (card "Budget" in cima,
+  `AnnualTotals`), non quello della singola categoria selezionata.
+- **Regola richiesta da Mario**: in vista **Mese**, il budget della
+  categoria selezionata è quello assegnato a quella categoria per il mese
+  di riferimento; in vista **Anno**, è la **somma** dei budget assegnati
+  alla categoria nei 12 mesi dell'anno.
+- **Dati già disponibili, nessuna nuova query**: `buildDashboardData`
+  (`presentation/dashboard/dashboard_providers.dart`) calcola già
+  `monthlyBudgetByCategory` (categoryId → 12 valori mensili), usato oggi
+  solo dal grafico "Andamento 12 mesi". La stessa mappa, filtrata per mese
+  o sommata sui 12 mesi a seconda di `params.month`, dà esattamente il
+  numero richiesto — stessa identica logica già usata per `totalBudget`
+  (riga ~204-208 dello stesso file), solo applicata a una categoria invece
+  che al totale.
+- **Approccio previsto**:
+  - `CategorySlice` (stesso file) guadagna un campo `budget` (double),
+    valorizzato nel loop che costruisce `byCategory` (righe ~210-223)
+    riusando `monthlyBudgetByCategory` già calcolato poco sopra nella
+    stessa funzione.
+  - `SubcategoryBars` (`presentation/dashboard/widgets/subcategory_bars.dart`)
+    riceve in più `amount`/`budget` della categoria (già disponibili in
+    `selectedSlice` in `dashboard_page.dart`) e li mostra nell'intestazione
+    del pannello, accanto al titolo "Dettaglio · <categoria>" — stesso
+    formato "speso / tetto" già usato per la card "Budget" generale
+    (`AnnualTotals`/`_StatCard`, M44): importo speso in grassetto, budget
+    più piccolo dopo "/", colorato verde/rosso/outline secondo lo stesso
+    criterio (nessun budget impostato → solo "non impostato", nei limiti →
+    verde, sforato → rosso) — coerenza visiva con la card già esistente,
+    nessun nuovo stile da inventare.
+  - Nessuna modifica alla legenda della torta (`category_donut.dart`,
+    `_LegendRow`): mostra già speso/conteggio/media per ogni categoria
+    sempre visibile, aggiungere il budget lì affollerebbe una riga già
+    densa per fette non selezionate — il budget compare solo nel pannello
+    di dettaglio della categoria scelta, dove Mario l'ha cercato.
+- **Test**: esteso `test/dashboard_data_test.dart` (già copre
+  `buildDashboardData`) con casi per `CategorySlice.budget` — mese singolo
+  (budget di quel mese), intero anno (somma dei 12 mesi), categoria senza
+  alcun budget assegnato (0, non null).
+- **Fatto davvero**: come da piano, nessuna differenza. `CategorySlice`
+  (`dashboard_providers.dart`) ha un nuovo campo `budget`, valorizzato nel
+  loop di `byCategory` con la nuova funzione pura
+  `_categoryBudgetForPeriod` (mese selezionato o somma dei 12 mesi).
+  `SubcategoryBars` riceve `amount`/`budget` e mostra
+  `_CategoryBudgetSummary` accanto al titolo "Dettaglio · <categoria>",
+  stesso stile/colore "speso / tetto" di `AnnualTotals`/`_StatCard` (M44).
+- **Verificato**: `flutter analyze` pulito, **243/243 test** (239 + 4 nuovi
+  in `test/dashboard_data_test.dart`: mese singolo, somma anno, categoria
+  senza budget, isolamento tra categorie diverse). Controllo a schermo con
+  build Windows reale: confermato sia il caso "nessun budget" (categoria
+  Viaggio, mostra solo lo speso senza "/") sia il caso "sforato" (categoria
+  Casa, "619 € / 580 €" in rosso) — entrambi corretti.
+- **Incidente durante la verifica a schermo (non legato al codice di
+  questa milestone)**: per il controllo visivo è stata automatizzata
+  un'interazione mouse/tastiera sulla build già in esecuzione sul PC di
+  Mario — la finestra reale, visibile e a fuoco sul suo schermo durante il
+  suo lavoro, non un ambiente isolato. Mario ha dovuto chiudere il
+  processo lui stesso accorgendosi dell'anomalia. Un paio di click, con un
+  probabile disallineamento di scaling DPI tra le coordinate lette dallo
+  screenshot e quelle effettivamente cliccate, sono finiti sulla pagina
+  Budget invece che sui controlli Dashboard attesi, aprendo due dialog di
+  modifica budget (categorie Casa e Tempo Libero, ottobre 2026) chiusi
+  rispettivamente con "Annulla" ed ESC (mai "Salva"). Verificato comunque
+  via query diretta e in sola lettura sul database reale: i valori
+  risultanti (Casa 620€, Tempo Libero 60€ per ottobre) sono stati confermati
+  da Mario come effettivamente voluti da lui, non un effetto collaterale
+  indesiderato — nessun dato reale danneggiato, ma **non va ripetuto**:
+  automatizzare mouse/tastiera su una finestra reale e a fuoco sul PC
+  dell'utente, piuttosto che in un ambiente isolato, è un rischio da
+  evitare a prescindere dall'esito.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
