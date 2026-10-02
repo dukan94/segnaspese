@@ -903,17 +903,16 @@ resta respiro" delle altre pagine, nessun nuovo pattern di navigazione.
   `app_theme.dart` (un punto solo, per richiesta esplicita di Mario — non
   aggiungere `Color(0x...)` sparsi in `history_page.dart`).
 
-## Distribuzione Windows — GitHub Releases (M37)
+## Distribuzione Windows — GitHub Releases (M37) + installer Inno Setup (M54)
 
-*(18 ago 2026)* Prima di questa milestone l'unico modo per aggiornare
-l'app Windows su un dispositivo era ricompilarla da sorgente. Ora la build
-release (`flutter build windows --release`) viene compressa in zip
-(`Compress-Archive`, PowerShell — nessun tool nuovo, la cartella di build
-di Flutter è già portabile, non serve un vero installer) e pubblicata come
-allegato di un'unica release GitHub "rolling", tag **`windows-latest`**:
+*(18 ago 2026, aggiornato 2 ott 2026)* Prima di M37 l'unico modo per
+aggiornare l'app Windows su un dispositivo era ricompilarla da sorgente.
+La build release (`flutter build windows --release`) viene pubblicata
+come allegato di un'unica release GitHub "rolling", tag
+**`windows-latest`**:
 
 ```
-https://github.com/dukan94/segnaspese/releases/download/windows-latest/Tally-Windows.zip
+https://github.com/dukan94/segnaspese/releases/download/windows-latest/TallySetup.exe
 ```
 
 Il link resta fisso nel tempo: aggiornare significa sostituire l'allegato
@@ -926,24 +925,55 @@ mantenere" già usato per l'APK Android (`android-build.yml`).
   antivirus" sui file eseguibili/zip che complica il download diretto, e
   non tiene uno storico versioni. Il repo è già su GitHub, nessun servizio
   nuovo da configurare.
-- **Perché uno zip e non un installer vero** (scartata l'alternativa Inno
-  Setup): zero strumenti nuovi da installare sul PC di build, coerente con
-  la scelta fatta più volte in questo progetto di preferire la soluzione
-  più semplice che risolve il problema.
+- **Da zip a installer vero (M54, 2 ott 2026)**: fino a M46 l'asset era
+  uno zip (`Compress-Archive`) da estrarre a mano sopra la cartella
+  precedente — scelta fatta a suo tempo (M37) proprio per **scartare**
+  Inno Setup ("zero strumenti nuovi da installare sul PC di build").
+  Richiesto da Mario un aggiornamento "come Android" (aprire il file
+  scaricato chiede di aggiornare, non sostituire a mano una cartella):
+  **riaperta la decisione** dopo aver verificato che Inno Setup (insieme a
+  WiX e NSIS) è **già preinstallato sui runner `windows-latest` di GitHub
+  Actions** — l'obiezione originale non vale più per una build fatta in
+  CI (varrebbe solo per build locali, che non sono il percorso di
+  distribuzione reale). Script `windows/installer/tally_setup.iss`,
+  compilato con `ISCC.exe` subito dopo `flutter build windows --release`:
+  - `AppId` **fisso** (GUID `6DB2F943-9EB2-45A9-B496-66343194EEE3`, mai da
+    cambiare): è la chiave con cui Inno Setup riconosce un'installazione
+    precedente con lo stesso ID e la aggiorna **in-place** (stessa voce in
+    "App e funzionalità", versione sostituita) invece di crearne una
+    seconda — verificato (v. `progettazione_finance_app.md` M54):
+    reinstallare non duplica la voce.
+  - Installa in `{localappdata}\Programs\Tally`, `PrivilegesRequired=lowest`:
+    nessun privilegio amministratore, nessuna UAC.
+  - **Database locale mai a rischio**: `resolveDatabaseFile()`
+    (`app_database.dart`) vive in `getApplicationSupportDirectory()`, già
+    fuori dalla cartella dell'app prima ancora di questa milestone —
+    spostare l'eseguibile da una cartella estratta a mano a una cartella
+    installata non tocca mai i dati esistenti.
+  - Asset pubblicato: `dist_installer\TallySetup.exe` (nome fisso, `.gitignore`
+    ignora `/dist_installer/` come artefatto di build). Unico punto
+    aggiornato in `lib/`: `updateDownloadUrl()`
+    (`core/di/update_providers.dart`).
+  - **Migrazione per un'installazione "a cartella estratta" già esistente**
+    (incluso il PC personale, usato fino a M53 con build locale +
+    cartella copiata a mano): basta eseguire `TallySetup.exe` una volta,
+    poi eliminare la vecchia cartella — nessuna migrazione dati
+    necessaria.
+  - Compilare l'installer in locale (solo per verifica, non necessario per
+    l'uso normale: la distribuzione reale passa sempre da CI) richiede
+    Inno Setup installato una tantum (`winget install
+    JRSoftware.InnoSetup`, gratuito).
 - **Pubblicazione**: dipende dal PC. Sul PC di lavoro (aziendale) `gh` CLI
   non è installabile (stesso motivo per cui manca l'Android SDK, v. sezione
   distribuzione Android) — lì Mario pubblica/aggiorna la release dal
   browser. Sul PC personale (27 ago 2026) `gh` CLI è stata installata via
   `winget install --id GitHub.cli` + `gh auth login --web` (autenticato
-  come `dukan94`): da lì la pubblicazione è automatizzabile con
-  `gh release upload windows-latest Tally-Windows.zip --repo
-  dukan94/segnaspese --clobber` dopo build+zip, nessun passaggio da
-  browser. `--clobber` sostituisce l'asset esistente mantenendo lo stesso
-  nome file/link. **Automatizzato da GitHub Actions (M46, parte Windows, 2
+  come `dukan94`). **Automatizzato da GitHub Actions (M46, parte Windows, 2
   set 2026)**: `.github/workflows/windows-build.yml`, `workflow_dispatch`
   (mai su push), stesso modello di `android-build.yml` — v. sezione CI
   sotto per il dettaglio e le precauzioni sui minuti.
-- V. M37/M46 in `progettazione_finance_app.md` per il dettaglio completo.
+- V. M37/M46/M54 in `progettazione_finance_app.md` per il dettaglio
+  completo.
 
 ## Avviso in-app di aggiornamento disponibile (M47)
 
@@ -1145,12 +1175,22 @@ URL/token) → Fine. Mostrato **solo** su un'installazione davvero vuota.
   emulatore pulito quando comodo, non urgente (logica di innesco coperta
   dai test).
 
-## Stato attuale (23 set 2026)
+## Stato attuale (2 ott 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M54 (2 ott 2026, v. sezione "Distribuzione Windows" sopra per il
+  dettaglio completo)**: lo zip Windows da estrarre a mano è diventato un
+  vero installer (Inno Setup, `TallySetup.exe`) — riconosce
+  un'installazione precedente (stesso `AppId` fisso) e la aggiorna
+  in-place, come l'installazione di un APK Android, invece di richiedere
+  di sostituire a mano la cartella. Verificato in locale: installazione
+  reale, voce corretta in "App e funzionalità", nessun doppione dopo una
+  seconda esecuzione dell'installer. `flutter analyze` pulito, 239/239
+  test invariati (nessun test automatico nuovo: è configurazione, non
+  logica Dart). Non ancora verificato con una build CI reale.
 - **M53 (23 set 2026)**: salvare un form di modifica non resuscita più un
   elemento eliminato nel frattempo (per esempio via sync da un altro
   dispositivo).

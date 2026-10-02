@@ -2488,6 +2488,102 @@ di modifica non deve resuscitare un elemento eliminato**
   lo scenario (eliminazione via sync con un form aperto) non è
   riproducibile a mano in modo affidabile.
 
+**M54 — ✅ Completata (2 ott 2026, approvata da Mario) — Installer Windows
+(Inno Setup) al posto dello zip manuale**
+
+- **Problema**: oggi aggiornare l'app Windows richiede scaricare
+  `Tally-Windows.zip` (M37/M46) ed estrarlo a mano sopra la cartella di
+  installazione precedente — niente di comparabile al flusso Android, dove
+  aprire l'APK scaricato lo riconosce subito come aggiornamento della
+  stessa app e lo installa guidando l'utente. Chiesto da Mario il 2 ott
+  2026 dopo l'ennesima sostituzione manuale della cartella.
+- **Perché si può riaprire la decisione di M37** ("scartata l'alternativa
+  Inno Setup... zero strumenti nuovi da installare sul PC di build"):
+  verificato ora (`runner-images` di GitHub, immagine `windows-latest`) che
+  **Inno Setup 6, WiX Toolset e NSIS sono già preinstallati sul runner**
+  — l'obiezione originale non si applica a una build fatta in CI, solo a
+  un'eventuale build locale sul PC di Mario (dove Inno Setup andrebbe
+  installato una tantum, ma non è il caso d'uso principale: la
+  distribuzione reale passa da `windows-build.yml`, v. M46).
+- **Dati utente già al sicuro indipendentemente da dove viene installato
+  l'eseguibile**: verificato `resolveDatabaseFile()` (`app_database.dart`)
+  — il `.sqlite` vive in `getApplicationSupportDirectory()` (scelta
+  apposta per evitare il reindirizzamento OneDrive di "Documenti", v.
+  commento nel file), **mai dentro la cartella dell'app**. Spostare
+  l'eseguibile da una cartella estratta a mano a una cartella installata
+  da un installer non tocca il database esistente.
+- **Approccio previsto**:
+  - Nuovo script `windows/installer/tally_setup.iss`, compilato da
+    `windows-build.yml` con `ISCC.exe` (già sul runner) subito dopo
+    `flutter build windows --release`, al posto dello step
+    `Compress-Archive` attuale.
+  - Installazione in `{localappdata}\Programs\Tally` (nessun privilegio
+    amministratore richiesto, stesso principio di app moderne come VS
+    Code) — nessuna differenza di permessi rispetto a oggi.
+  - `AppId` fisso (GUID generato una volta, mai più cambiato): è la chiave
+    con cui Inno Setup riconosce un'installazione precedente e la
+    sovrascrive in-place (versione/icona aggiornate in "App e
+    funzionalità" di Windows), invece di crearne una seconda.
+  - Collegamento Desktop/Menu Start creato dall'installer (spuntato di
+    default, deselezionabile nel wizard — comportamento standard Inno
+    Setup, nessun codice da scrivere apposta).
+  - L'asset pubblicato sulla release fissa `windows-latest` cambia da
+    `Tally-Windows.zip` a `TallySetup.exe` (stesso principio "stesso nome
+    file, link fisso nel tempo" di M37) — **un solo punto da aggiornare in
+    `lib/`**: l'URL in `core/di/update_providers.dart:86`.
+  - Migrazione per le installazioni "a cartella estratta" già esistenti
+    (incluso questo PC, aggiornato oggi con build locale +
+    `flutter build windows --release`): un'esecuzione di `TallySetup.exe`
+    in parallelo, poi eliminazione manuale della vecchia cartella — nessun
+    codice di migrazione necessario, i dati non sono nella cartella
+    dell'app.
+  - Non risolto da questa milestone (fuori scope): l'app non scarica/avvia
+    da sola l'installer — il banner M47 continua solo ad aprire il link di
+    download nel browser, come oggi; l'utente lancia `TallySetup.exe` a
+    mano una volta scaricato. Un "clic sul banner → scarica e avvia
+    l'installer in automatico" sarebbe un'estensione futura separata, non
+    necessaria per risolvere il problema posto ("niente più sostituzione
+    manuale della cartella").
+- **Fatto davvero**: come da piano, nessuna differenza.
+  `windows/installer/tally_setup.iss` (AppId
+  `6DB2F943-9EB2-45A9-B496-66343194EEE3`, mai da cambiare),
+  `windows-build.yml` aggiornato (step "Comprimi la build in zip" →
+  "Compila l'installer (Inno Setup)" con `ISCC.exe`, asset pubblicato
+  `dist_installer\TallySetup.exe` invece di `Tally-Windows.zip`),
+  `update_providers.dart` (`updateDownloadUrl`, unico punto da toccare in
+  `lib/`) aggiornato allo stesso nome file. `.gitignore`: aggiunta
+  `/dist_installer/` (artefatto di build, stesso principio di `/build/`).
+- **Verificato in locale (2 ott 2026)**, prima di toccare il workflow CI
+  per non sprecare minuti `windows-latest` su uno script sbagliato: Inno
+  Setup installato temporaneamente su questo PC (`winget install
+  JRSoftware.InnoSetup`, versione 6.7.3 — stessa major version del runner
+  CI). Compilato `tally_setup.iss` contro una build locale reale
+  (`flutter build windows --release`):
+  - Installazione silenziosa (`/VERYSILENT /CURRENTUSER`) riuscita in
+    `%LOCALAPPDATA%\Programs\Tally`, nessun privilegio amministratore
+    richiesto.
+  - Voce registrata in "App e funzionalità" (`HKCU\...\Uninstall`):
+    "Tally version 0.1.0", `UninstallString` verso `unins000.exe`.
+  - App installata avviata con successo (finestra "Responding"); il
+    blocco seconda istanza (M38) ha correttamente riconosciuto l'istanza
+    già aperta dalla cartella di build e ha rifiutato di aprirne una
+    seconda — comportamento atteso, non un bug di questo test.
+  - **Aggiornamento in-place verificato**: rieseguito l'installer una
+    seconda volta (stessa versione, per limiti del test — non c'era una
+    build "successiva" da usare) — risultato: ancora **una sola voce**
+    "Tally version 0.1.0" in "App e funzionalità", nessun doppione creato.
+  - `flutter analyze` pulito, **239/239 test** invariati (nessun test
+    automatico aggiunto: script di configurazione Inno Setup, non logica
+    Dart, come previsto).
+  - **Non verificato con una build CI reale** (richiederebbe lanciare
+    `windows-build.yml`, costoso in minuti — v. "Parsimonia minuti"): il
+    percorso `C:\Program Files (x86)\Inno Setup 6\ISCC.exe` usato nel
+    workflow è quello documentato per l'installazione Chocolatey sui
+    runner `windows-latest` (verificato che il pacchetto `innosetup` è
+    presente nel toolset dell'immagine), ma non ancora confermato
+    eseguendo il workflow sul runner reale — primo lancio da fare con
+    attenzione, pronto un fix del percorso se necessario.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

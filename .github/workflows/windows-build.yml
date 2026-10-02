@@ -5,7 +5,16 @@ name: Build Windows App
 # PC (M46, parte Windows, ripresa il 2 set 2026 dopo il reset della quota
 # minuti Actions). Stesso link fisso già esistente da M37, solo la
 # pubblicazione diventa automatica:
-# https://github.com/dukan94/segnaspese/releases/download/windows-latest/Tally-Windows.zip
+# https://github.com/dukan94/segnaspese/releases/download/windows-latest/TallySetup.exe
+#
+# M54 (2 ott 2026): l'asset pubblicato non è più uno zip da estrarre a
+# mano sopra la cartella precedente, ma un vero installer (Inno Setup,
+# windows/installer/tally_setup.iss) — AppId fisso nello script, quindi
+# un'esecuzione successiva di TallySetup.exe riconosce l'installazione
+# precedente e la aggiorna in-place (stessa voce in "App e funzionalità",
+# versione sostituita), come l'installazione di un APK Android. Compilato
+# con ISCC.exe, già preinstallato sui runner windows-latest (insieme a WiX
+# e NSIS) — nessun nuovo strumento da installare in CI.
 #
 # COSTO IN MINUTI — runner windows-latest conta 2x sul totale mensile
 # (2.000 min gratis/mese): una run qui costa quanto ~2 run equivalenti su
@@ -92,12 +101,13 @@ jobs:
       # version.json per mostrare il banner di aggiornamento.
       - run: flutter build windows --release --dart-define=BUILD_NUMBER=${{ github.run_number }}
 
-      # Stesso contenuto/percorso che Mario comprime a mano da M37: la
-      # cartella build di Flutter è già portabile, non serve un installer
-      # (v. CLAUDE.md "Distribuzione Windows").
-      - name: Comprimi la build in zip
+      # M54: installer Inno Setup al posto dello zip — v. commento in testa
+      # al file e windows/installer/tally_setup.iss per il dettaglio
+      # (AppId fisso, nessun privilegio amministratore, dati utente già
+      # fuori dalla cartella dell'app).
+      - name: Compila l'installer (Inno Setup)
         run: |
-          Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath Tally-Windows.zip -Force
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\installer\tally_setup.iss
 
       # gh CLI è già preinstallata sui runner GitHub-hosted (a differenza
       # del PC aziendale di Mario, v. CLAUDE.md "Distribuzione Windows").
@@ -111,10 +121,10 @@ jobs:
           $notes = "Build Windows, pubblicata automaticamente da CI. Ultimo aggiornamento: commit ${{ github.sha }}."
           gh release view windows-latest --repo "${{ github.repository }}" 2>$null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload windows-latest Tally-Windows.zip --repo "${{ github.repository }}" --clobber
+            gh release upload windows-latest dist_installer\TallySetup.exe --repo "${{ github.repository }}" --clobber
             gh release edit windows-latest --repo "${{ github.repository }}" --notes "$notes"
           } else {
-            gh release create windows-latest Tally-Windows.zip --repo "${{ github.repository }}" `
+            gh release create windows-latest dist_installer\TallySetup.exe --repo "${{ github.repository }}" `
               --title "Tally per Windows" --notes "$notes"
           }
 

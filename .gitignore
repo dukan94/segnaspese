@@ -33,6 +33,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Installer Windows compilato (Inno Setup, M54) — artefatto di build,
+# pubblicato su GitHub Releases da windows-build.yml, non versionato.
+/dist_installer/
+
 # Symbolication related
 app.*.symbols
 
