@@ -3,12 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/di/category_providers.dart';
 import '../../../core/di/transaction_providers.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_snackbar.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../data/local/database/app_database.dart';
 import '../../../domain/entities/transaction_entity.dart';
 import '../../shared_widgets/linked_expense_sheet.dart';
+import '../../shared_widgets/transaction_row.dart';
 import '../../transaction/add_transaction_page.dart';
 import '../home_providers.dart';
 
@@ -44,16 +44,17 @@ class RecentTransactionsList extends ConsumerWidget {
 
     return Column(
       children: [
-        for (final transaction in transactions)
+        for (var i = 0; i < transactions.length; i++) ...[
+          if (i > 0) transactionRowDivider,
           _TransactionTile(
-            transaction: transaction,
-            categoryIcon: categoriesById[transaction.categoryId]?.icon,
-            categoryName: categoriesById[transaction.categoryId]?.name,
-            linkedExpense: transaction.refundOfId != null
-                ? txById[transaction.refundOfId]
+            transaction: transactions[i],
+            category: categoriesById[transactions[i].categoryId],
+            linkedExpense: transactions[i].refundOfId != null
+                ? txById[transactions[i].refundOfId]
                 : null,
             categoriesById: categoriesById,
           ),
+        ],
       ],
     );
   }
@@ -62,15 +63,13 @@ class RecentTransactionsList extends ConsumerWidget {
 class _TransactionTile extends ConsumerWidget {
   const _TransactionTile({
     required this.transaction,
-    required this.categoryIcon,
-    required this.categoryName,
+    required this.category,
     this.linkedExpense,
     this.categoriesById = const {},
   });
 
   final TransactionEntity transaction;
-  final String? categoryIcon;
-  final String? categoryName;
+  final Category? category;
 
   /// Spesa originale a cui un eventuale rimborso è collegato.
   final TransactionEntity? linkedExpense;
@@ -78,64 +77,54 @@ class _TransactionTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isIncome = transaction.type == TransactionType.income;
     final hasNote = transaction.note?.isNotEmpty == true;
-    final date = AppFormatters.dayMonth(transaction.date);
-    // Se il titolo è la nota (es. il negozio), mostra comunque la categoria nel
-    // sottotitolo; altrimenti il titolo è già la categoria e basta la data.
-    final base = (hasNote && categoryName != null) ? '$categoryName · $date' : date;
-    final subtitle = transaction.isRefund ? 'Rimborso · $base' : base;
+    // Se il titolo è la nota (es. il negozio), mostra comunque la categoria
+    // nella riga sotto; altrimenti il titolo è già la categoria e la riga
+    // sotto mostrerebbe un'inutile ripetizione, quindi resta vuota (a meno
+    // di tag di stato, es. "Rimborso").
+    final leadingMeta = hasNote ? category?.name : null;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        // Stesso comportamento dello Storico: tocca la riga per modificare
-        // l'operazione (le icone in trailing restano tappabili a parte).
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => AddTransactionPage(existing: transaction)),
-        ),
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.surfaceContainerHighest,
-          child: Text(categoryIcon ?? '💶', style: const TextStyle(fontSize: 18)),
-        ),
-        title: Text(hasNote ? transaction.note! : (categoryName ?? 'Senza categoria')),
-        subtitle: Text(subtitle),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (linkedExpense != null)
-              IconButton(
-                icon: const Icon(Icons.link, size: 20),
-                tooltip: 'Spesa collegata',
-                color: theme.colorScheme.primary,
-                visualDensity: VisualDensity.compact,
-                onPressed: () => showLinkedExpenseSheet(
-                  context,
-                  linkedExpense!,
-                  categoriesById[linkedExpense!.categoryId],
-                ),
-              ),
-            Text(
-              AppFormatters.signedCurrency(transaction.signedAmount),
-              style: AppTheme.amountStyle(theme.textTheme.titleSmall?.copyWith(
-                color:
-                    isIncome ? theme.colorScheme.primary : theme.colorScheme.error,
-                fontWeight: FontWeight.w600,
-              )),
-            ),
-            const SizedBox(width: 4),
+    return TransactionRow(
+      icon: category?.icon ?? '💶',
+      iconColor: category?.color ?? 0xFF9E9E9E,
+      title: hasNote ? transaction.note! : (category?.name ?? 'Senza categoria'),
+      meta: buildMetaLine(
+        context,
+        leading: leadingMeta,
+        isRefund: transaction.isRefund,
+      ),
+      date: AppFormatters.dayMonth(transaction.date),
+      amount: transaction.signedAmount,
+      // Stesso comportamento dello Storico: tocca la riga per modificare
+      // l'operazione (le icone in trailing restano tappabili a parte).
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => AddTransactionPage(existing: transaction)),
+      ),
+      trailingActions: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (linkedExpense != null)
             IconButton(
-              icon: const Icon(Icons.delete_outline, size: 20),
-              tooltip: 'Elimina',
-              color: theme.colorScheme.outline,
+              icon: const Icon(Icons.link, size: 20),
+              tooltip: 'Spesa collegata',
+              color: Theme.of(context).colorScheme.primary,
               visualDensity: VisualDensity.compact,
-              onPressed: transaction.id == null
-                  ? null
-                  : () => _confirmDelete(context, ref, transaction),
+              onPressed: () => showLinkedExpenseSheet(
+                context,
+                linkedExpense!,
+                categoriesById[linkedExpense!.categoryId],
+              ),
             ),
-          ],
-        ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline, size: 20),
+            tooltip: 'Elimina',
+            color: Theme.of(context).colorScheme.outline,
+            visualDensity: VisualDensity.compact,
+            onPressed: transaction.id == null
+                ? null
+                : () => _confirmDelete(context, ref, transaction),
+          ),
+        ],
       ),
     );
   }

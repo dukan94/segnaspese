@@ -179,6 +179,7 @@ continua attiva
 | **M54** | Installer Windows (Inno Setup) al posto dello zip manuale: aggiornamento in-place come un APK Android | ✅ Completata |
 | **M55** | Dashboard: budget assegnato nel dettaglio categoria (mese selezionato o somma dell'anno) | ✅ Completata |
 | **M56** | Fix: sync immediata anche sui budget (gap in M32, un budget impostato restava bloccato in locale) | ✅ Completata |
+| **M57** | Elenco transazioni (Storico + Home): lista piatta stile estratto conto, widget condiviso, icona colorata per categoria | ✅ Completata |
 
 ## Struttura del database
 
