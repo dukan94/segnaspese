@@ -16,6 +16,7 @@ import '../shared_widgets/empty_state.dart';
 import '../shared_widgets/fade_in_item.dart';
 import '../shared_widgets/linked_expense_sheet.dart';
 import '../shared_widgets/linked_refunds_sheet.dart';
+import '../shared_widgets/transaction_row.dart';
 import '../transaction/add_transaction_page.dart';
 import '../transaction/widgets/split_refund_sheet.dart';
 
@@ -183,9 +184,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                                   : 'Nessun risultato',
                     );
                   }
-                  return ListView.builder(
+                  return ListView.separated(
                     padding: const EdgeInsets.only(bottom: 16),
                     itemCount: filtered.length,
+                    separatorBuilder: (context, i) => transactionRowDivider,
                     itemBuilder: (context, i) {
                       final tx = filtered[i];
                       final linked =
@@ -494,173 +496,86 @@ class _HistoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final positive = tx.signedAmount >= 0;
     final hasNote = tx.note?.isNotEmpty == true;
     final catName = category?.name ?? 'Senza categoria';
 
-    final tags = <String>[
-      if (tx.isRefund) 'Rimborso',
-      if (tx.isExtraordinary) 'Straordinaria',
-    ];
-    // Sottocategoria sotto la Nota (M30): se non impostata, il nome
-    // categoria resta un'informazione di ripiego valida (l'icona a sinistra
-    // già comunica la categoria, ma il testo non deve restare vuoto).
-    final secondLine = [subCategoryName ?? catName, ...tags].join(' · ');
-
-    // Un rimborso non ha più uno sfondo dedicato (deciso da Mario dopo aver
-    // visto la prima versione a schermo): resta identico a una spesa
-    // normale, solo il badge sotto su "spesa già rimborsata" usa un colore.
-    Color? cardColor;
-    Color? onCardColor;
-    if (tx.type == TransactionType.income) {
-      cardColor = AppTheme.incomeContainer(context);
-      onCardColor = AppTheme.onIncomeContainer(context);
-    }
-
-    // Card ricostruita su due righe invece di un ListTile (M36, 18 ago 2026):
-    // in un ListTile, trailing (importo + menu azioni) sottrae larghezza
-    // condivisa sia a title sia a subtitle, anche se solo la prima riga
-    // (Nota) ha davvero bisogno di stare accanto all'importo — su schermo
-    // stretto (telefono) la sottocategoria in subtitle restava comunque
-    // schiacciata dallo stesso trailing, indipendentemente dal numero di
-    // icone. Qui la riga 2 (sottocategoria/tag) ha la larghezza piena della
-    // card, non condivisa con l'importo.
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-      color: cardColor,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onEdit,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Data sotto l'icona invece che accanto (M36): sulla riga
-                  // 1 restava poco spazio per la Nota tra icona+data e
-                  // importo+menu, specie su schermo stretto — qui il blocco
-                  // icona+data è largo solo quanto l'icona.
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircleAvatar(
-                        radius: 18,
-                        backgroundColor:
-                            theme.colorScheme.surfaceContainerHighest,
-                        child: Text(category?.icon ?? '💶',
-                            style: const TextStyle(fontSize: 18)),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        AppFormatters.dayMonth(tx.date),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color:
-                              onCardColor ?? theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
+    // Sottocategoria sotto la Nota (M30, invariato in M57): se non
+    // impostata, il nome categoria resta un'informazione di ripiego valida
+    // (l'icona a sinistra già comunica la categoria, ma il testo non deve
+    // restare vuoto).
+    return TransactionRow(
+      icon: category?.icon ?? '💶',
+      iconColor: category?.color ?? 0xFF9E9E9E,
+      title: hasNote ? tx.note! : catName,
+      meta: buildMetaLine(
+        context,
+        leading: subCategoryName ?? catName,
+        isRefund: tx.isRefund,
+        isExtraordinary: tx.isExtraordinary,
+      ),
+      date: AppFormatters.dayMonth(tx.date),
+      amount: tx.signedAmount,
+      onTap: onEdit,
+      badge: onShowLinkedRefunds == null
+          ? null
+          : Tooltip(
+              message: 'Rimborsi collegati',
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onShowLinkedRefunds,
+                child: const CircleAvatar(
+                  radius: 10,
+                  backgroundColor: AppTheme.refundedBadgeColor,
+                  child: Icon(
+                    Icons.link,
+                    size: 13,
+                    color: AppTheme.onRefundedBadgeColor,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      hasNote ? tx.note! : catName,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: onCardColor),
-                    ),
-                  ),
-                  if (onShowLinkedRefunds != null)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: Tooltip(
-                        message: 'Rimborsi collegati',
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: onShowLinkedRefunds,
-                          child: const CircleAvatar(
-                            radius: 11,
-                            backgroundColor: AppTheme.refundedBadgeColor,
-                            child: Icon(
-                              Icons.link,
-                              size: 14,
-                              color: AppTheme.onRefundedBadgeColor,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(width: 8),
-                  Text(
-                    AppFormatters.signedCurrency(tx.signedAmount),
-                    style:
-                        AppTheme.amountStyle(theme.textTheme.titleSmall?.copyWith(
-                      color: positive
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.error,
-                      fontWeight: FontWeight.w600,
-                    )),
-                  ),
-                  // Azioni raccolte in un menu a comparsa (M36): con
-                  // rimborsa + rimborso con divisore + elimina come icone
-                  // separate, questa riga arrivava a occupare gran parte
-                  // della larghezza disponibile su schermo stretto. Un solo
-                  // pulsante "⋮" resta sempre largo importo + un'icona sola.
-                  PopupMenuButton<VoidCallback>(
-                    icon: const Icon(Icons.more_vert, size: 20),
-                    tooltip: 'Altre azioni',
-                    onSelected: (action) => action(),
-                    itemBuilder: (context) => [
-                      if (onShowLinked != null)
-                        PopupMenuItem<VoidCallback>(
-                          value: onShowLinked!,
-                          child: const _MenuItemContent(
-                            icon: Icons.link,
-                            label: 'Spesa collegata',
-                          ),
-                        ),
-                      if (onRefund != null)
-                        PopupMenuItem<VoidCallback>(
-                          value: onRefund!,
-                          child: const _MenuItemContent(
-                            icon: Icons.currency_exchange,
-                            label: 'Rimborsa',
-                          ),
-                        ),
-                      if (onSplitRefund != null)
-                        PopupMenuItem<VoidCallback>(
-                          value: onSplitRefund!,
-                          child: const _MenuItemContent(
-                            icon: Icons.call_split,
-                            label: 'Rimborso con divisore',
-                          ),
-                        ),
-                      PopupMenuItem<VoidCallback>(
-                        value: onDelete,
-                        child: const _MenuItemContent(
-                          icon: Icons.delete_outline,
-                          label: 'Elimina',
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              // Riga 2: allineata sotto la Nota (dopo icona categoria + data
-              // + spaziatura), larghezza piena non condivisa con l'importo.
-              Padding(
-                padding: const EdgeInsets.only(left: 44),
-                child: Text(
-                  secondLine,
-                  style: TextStyle(color: onCardColor),
                 ),
               ),
-            ],
+            ),
+      // Azioni raccolte in un menu a comparsa (M36, invariato in M57): con
+      // rimborsa + rimborso con divisore + elimina come icone separate,
+      // questa riga arrivava a occupare gran parte della larghezza
+      // disponibile su schermo stretto. Un solo pulsante "⋮" resta sempre
+      // largo importo + un'icona sola.
+      trailingActions: PopupMenuButton<VoidCallback>(
+        icon: const Icon(Icons.more_vert, size: 20),
+        tooltip: 'Altre azioni',
+        onSelected: (action) => action(),
+        itemBuilder: (context) => [
+          if (onShowLinked != null)
+            PopupMenuItem<VoidCallback>(
+              value: onShowLinked!,
+              child: const _MenuItemContent(
+                icon: Icons.link,
+                label: 'Spesa collegata',
+              ),
+            ),
+          if (onRefund != null)
+            PopupMenuItem<VoidCallback>(
+              value: onRefund!,
+              child: const _MenuItemContent(
+                icon: Icons.currency_exchange,
+                label: 'Rimborsa',
+              ),
+            ),
+          if (onSplitRefund != null)
+            PopupMenuItem<VoidCallback>(
+              value: onSplitRefund!,
+              child: const _MenuItemContent(
+                icon: Icons.call_split,
+                label: 'Rimborso con divisore',
+              ),
+            ),
+          PopupMenuItem<VoidCallback>(
+            value: onDelete,
+            child: const _MenuItemContent(
+              icon: Icons.delete_outline,
+              label: 'Elimina',
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

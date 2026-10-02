@@ -1181,6 +1181,22 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M57 (2 ott 2026)**: elenco transazioni (Storico + Home) ridisegnato
+  come lista piatta senza card/isolamento per riga (stile estratto conto/
+  PayPal, scelto da Mario dopo un confronto A/B su mockup HTML) — nuovo
+  widget condiviso `TransactionRow` (`presentation/shared_widgets/
+  transaction_row.dart`) usato da entrambe le pagine, che prima avevano
+  due design diversi e incoerenti tra loro (Home era rimasta al vecchio
+  `ListTile` pre-M36). Icona categoria ora colorata per categoria
+  (prima grigio neutro fisso), tag "Rimborso"/"Straordinaria" colorati
+  inline invece di testo semplice. Rimosso lo sfondo verde per le entrate
+  di M30 (`AppTheme.incomeContainer`/`onIncomeContainer` eliminati): in
+  una lista piatta un rettangolo colorato per riga reintrodurrebbe
+  l'isolamento che questo redesign vuole evitare. `flutter analyze`
+  pulito, 243/243 test invariati. **Verifica a schermo rimandata a
+  Mario**: un'istanza dell'app rimasta bloccata nella sessione ha
+  impedito di vedere la build nuova senza ricorrere a click automatici
+  sullo schermo reale — deliberatamente evitato (v. "M55" sopra).
 - **M56 (2 ott 2026)**: bug reale segnalato da Mario — un budget impostato
   su un PC non arrivava sul telefono. Causa: M32 (sync immediata dopo il
   salvataggio) non aveva mai coperto i tre provider di scrittura dei

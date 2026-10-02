@@ -2699,6 +2699,62 @@ anche sui budget (gap in M32)**
   quello già coperto per le transazioni — stesso principio per cui M32
   stesso non aveva aggiunto test dedicati).
 
+**M57 — ✅ Completata (2 ott 2026, approvata da Mario) — Elenco
+transazioni: lista piatta invece della card, Storico e Home allineate**
+
+- **Problema segnalato da Mario**: la leggibilità dell'elenco transazioni
+  in Storico/Home non lo convinceva. Indagato il codice prima di
+  proporre qualcosa: Home usava ancora il vecchio `ListTile` pre-M36,
+  Storico aveva già la card a due righe di M36 — le due pagine erano
+  visivamente incoerenti tra loro, un problema di per sé.
+- **Due direzioni mostrate con un mockup HTML** (card migliorata vs lista
+  piatta senza isolamento per riga, stile PayPal/estratto conto, stessi
+  dati di esempio in entrambe): Mario ha scelto la **lista piatta**.
+- **Approccio**: nuovo widget condiviso `TransactionRow`
+  (`presentation/shared_widgets/transaction_row.dart`) usato da **sia**
+  Storico sia Home — risolve in un colpo solo sia la richiesta di stile
+  sia l'incoerenza tra le due pagine, invece di implementare lo stile due
+  volte con variazioni. Nessuna `Card`/elevazione per riga: un filo
+  sottile (`transactionRowDivider`, `Divider` condiviso) separa una
+  transazione dalla successiva, come un estratto conto.
+  - Icona categoria ora colorata con il colore reale della categoria
+    (`category.color`) invece del grigio neutro fisso di prima — stessa
+    logica già usata per le fette della torta in Dashboard, mai applicata
+    qui prima.
+  - Data spostata sotto l'importo (colonna a destra), non più sotto
+    l'icona (M36) — stessa posizione in entrambe le pagine.
+  - Tag di stato ("Rimborso", "Straordinaria") come testo colorato inline
+    nella riga sotto il titolo (`buildMetaLine`, stesso file) invece di
+    testo semplice unito con "·": "Rimborso" nel colore primario del tema,
+    "Straordinaria" riusa `AppTheme.onWarningContainer` (già esistente per
+    gli avvisi non critici, nessun nuovo colore inventato).
+  - Badge "spesa già rimborsata" (M30) invariato nel concetto (cerchietto
+    con icona 🔗, tocca per vedere i rimborsi collegati), solo riposizionato
+    accanto al titolo invece che dentro una riga di card.
+  - **Sfondo verde per le entrate (M30) rimosso**: in una lista piatta un
+    intero rettangolo colorato per riga reintrodurrebbe esattamente
+    l'isolamento visivo che questo redesign vuole evitare. Il segno resta
+    comunicato solo dal colore dell'importo (verde/rosso), come in un vero
+    estratto conto — `AppTheme.incomeContainer`/`onIncomeContainer`
+    rimossi da `app_theme.dart` (nessun altro chiamante rimasto).
+  - Home guadagna la colorazione per categoria (prima assente) "gratis"
+    condividendo lo stesso widget; Storico mantiene tutte le azioni
+    esistenti invariate (menu "⋮" con rimborsa/rimborso con
+    divisore/elimina, rimasto diverso dai due soli pulsanti diretti di
+    Home — differenza di repertorio azioni voluta, non toccata).
+- **Verificato**: `flutter analyze` pulito, **243/243 test** invariati
+  (nessuna logica di dominio toccata, solo presentazione — nessun nuovo
+  test necessario). **Verifica a schermo non completata in questa
+  sessione**: build Windows ricompilata, ma un'istanza del processo
+  avviata in precedenza nella sessione è rimasta bloccata (stesso
+  "Accesso negato" nel tentativo di chiuderla incontrato durante
+  l'incidente M55) e il blocco seconda istanza (M38) ha riportato in
+  primo piano quella vecchia invece di aprirne una con la build nuova —
+  deliberatamente non risolto cliccando sulla finestra per chiuderla (v.
+  memoria sull'incidente M55, da evitare l'automazione di mouse/tastiera
+  sullo schermo reale dell'utente). Da controllare a schermo da Mario alla
+  prossima apertura dell'app.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
