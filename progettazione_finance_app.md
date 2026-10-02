@@ -2663,6 +2663,42 @@ nel dettaglio categoria della Dashboard**
   dell'utente, piuttosto che in un ambiente isolato, è un rischio da
   evitare a prescindere dall'esito.
 
+**M56 — ✅ Completata (2 ott 2026, approvata da Mario) — Sync immediata
+anche sui budget (gap in M32)**
+
+- **Bug reale segnalato da Mario**: impostato un budget per ottobre su un
+  PC, aperto da telefono poco dopo: il nuovo budget non c'era ancora.
+- **Causa**: M32 (17 ago 2026) ha aggiunto `unawaited(syncService.syncNow()
+  ...)` dopo il salvataggio locale solo a
+  `addTransactionProvider`/`updateTransactionProvider`/
+  `deleteTransactionProvider` (`core/di/transaction_providers.dart`) — i
+  tre provider di scrittura dei budget (`setMonthlyBudgetProvider`,
+  `setCategoryBudgetProvider`, `deleteBudgetProvider`,
+  `core/di/budget_providers.dart`) non hanno mai avuto lo stesso
+  trattamento, da sempre (non una regressione recente). Un budget
+  impostato e non ancora sincronizzato (timer ogni 5 minuti, o cambi di
+  stato dell'app) resta solo locale finché non scatta uno di quei trigger
+  o l'app non viene chiusa (sync di chiusura) — se nel frattempo un altro
+  dispositivo fa un pull, non lo vede.
+- **Scope**: verificato lo stesso identico gap anche su Categorie/
+  Sottocategorie, Regole Merchant e Ricorrenze (nessuno di questi provider
+  di scrittura ha il trigger M32) — stesso rischio residuo, ma Mario ha
+  scelto di risolvere **solo i Budget** ora (il bug concreto riscontrato),
+  rimandando gli altri a un giro separato se/quando si ripresenta lo
+  stesso sintomo altrove.
+- **Fix**: stesso pattern di M32, applicato a
+  `setMonthlyBudgetProvider`/`setCategoryBudgetProvider`/
+  `deleteBudgetProvider` — da `Provider<SetMonthlyBudget>` (etc.) a
+  `Provider<Future<void> Function(...)>` che chiama lo usecase e poi lancia
+  `unawaited(syncService.syncNow().catchError(...))`, stessa firma
+  nominale dei parametri (nessuna modifica ai chiamanti in
+  `budget_amount_dialog.dart`, che continuano a fare
+  `ref.read(xProvider).call(...)`).
+- **Verificato**: `flutter analyze` + `flutter test` invariati (nessuna
+  logica nuova da testare, solo un side-effect fire-and-forget identico a
+  quello già coperto per le transazioni — stesso principio per cui M32
+  stesso non aveva aggiunto test dedicati).
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
