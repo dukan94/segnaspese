@@ -181,6 +181,7 @@ continua attiva
 | **M56** | Fix: sync immediata anche sui budget (gap in M32, un budget impostato restava bloccato in locale) | ✅ Completata |
 | **M57** | Elenco transazioni (Storico + Home): lista piatta stile estratto conto, widget condiviso, icona colorata per categoria | ✅ Completata |
 | **M58** | Sync immediata anche su categorie/sottocategorie, regole e ricorrenze (resto del gap M32/M56) | ✅ Completata |
+| **M59** | Pagina di dettaglio transazione (tocca la riga) + riga unica con menu ⋮ (con "Modifica") in Home e Storico | ✅ Completata |
 
 ## Struttura del database
 

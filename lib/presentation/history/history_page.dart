@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/di/category_providers.dart';
-import '../../core/di/transaction_providers.dart';
-import '../../core/theme/app_theme.dart';
-import '../../core/utils/app_snackbar.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
-import '../../data/local/database/tables/categories_table.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/services/money_rounding.dart';
 import '../home/home_providers.dart';
 import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/empty_state.dart';
 import '../shared_widgets/fade_in_item.dart';
-import '../shared_widgets/linked_expense_sheet.dart';
-import '../shared_widgets/linked_refunds_sheet.dart';
+import '../shared_widgets/transaction_list_item.dart';
 import '../shared_widgets/transaction_row.dart';
-import '../transaction/add_transaction_page.dart';
-import '../transaction/widgets/split_refund_sheet.dart';
+import '../transaction/transaction_lookups.dart';
 
 /// Storico: elenco completo delle operazioni con ricerca, modifica ed
 /// eliminazione. Raggiungibile dalla barra di navigazione.
@@ -56,22 +49,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final txAsync = ref.watch(allTransactionsProvider);
-    final categories = ref.watch(allCategoriesProvider).valueOrNull ?? const [];
-    final catById = {for (final c in categories) c.id: c};
-    // Sottocategorie di entrambi i tipi, solo per il nome nella ricerca (non
-    // serve la categoria padre qui, quella è già in catById).
-    final expenseSubs = ref
-            .watch(subCategoriesForTypeProvider(TransactionKind.expense))
-            .valueOrNull ??
-        const [];
-    final incomeSubs = ref
-            .watch(subCategoriesForTypeProvider(TransactionKind.income))
-            .valueOrNull ??
-        const [];
-    final subNameById = {
-      for (final s in [...expenseSubs, ...incomeSubs])
-        s.subCategory.id: s.subCategory.name,
-    };
+    // Categorie e sottocategorie per la ricerca per nome (M59: stessi
+    // lookup usati dalla riga e dal dettaglio, non più ricostruiti qui).
+    final lookups = ref.watch(transactionLookupsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Storico')),
@@ -149,24 +129,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             Expanded(
               child: txAsync.when(
                 data: (all) {
-                  final filtered = _filter(all, catById, subNameById);
-                  // Lookup id → transazione, per risolvere la spesa collegata a
-                  // un rimborso (refundOfId).
-                  final byId = {
-                    for (final t in all)
-                      if (t.id != null) t.id!: t,
-                  };
-                  // Direzione opposta: spesa → rimborsi collegati (una spesa
-                  // può averne più di uno, v. M25 "nessun tetto sui rimborsi").
-                  final refundsByExpenseId = <int, List<TransactionEntity>>{};
-                  for (final t in all) {
-                    final expenseId = t.refundOfId;
-                    if (expenseId != null) {
-                      refundsByExpenseId
-                          .putIfAbsent(expenseId, () => [])
-                          .add(t);
-                    }
-                  }
+                  final filtered = _filter(
+                    all,
+                    lookups.categoriesById,
+                    lookups.subCategoryNamesById,
+                  );
                   if (filtered.isEmpty) {
                     final hasAnyFilter = _query.isNotEmpty ||
                         _hasDateFilter ||
@@ -190,48 +157,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     separatorBuilder: (context, i) => transactionRowDivider,
                     itemBuilder: (context, i) {
                       final tx = filtered[i];
-                      final linked =
-                          tx.refundOfId != null ? byId[tx.refundOfId] : null;
-                      final linkedRefunds =
-                          tx.id != null ? refundsByExpenseId[tx.id!] : null;
-                      final canRefund =
-                          tx.type == TransactionType.expense && !tx.isRefund;
                       return FadeInItem(
                         key: ValueKey(tx.id),
-                        child: _HistoryTile(
-                          tx: tx,
-                          category: catById[tx.categoryId],
-                          subCategoryName: tx.subCategoryId != null
-                              ? subNameById[tx.subCategoryId]
-                              : null,
-                          onEdit: () => _edit(tx),
-                          onDelete: () => _confirmDelete(tx),
-                          onRefund: canRefund ? () => _refund(tx) : null,
-                          onSplitRefund: canRefund
-                              ? () => showSplitRefundSheet(
-                                    context,
-                                    tx,
-                                    catById[tx.categoryId],
-                                  )
-                              : null,
-                          linkedExpense: linked,
-                          onShowLinked: linked == null
-                              ? null
-                              : () => showLinkedExpenseSheet(
-                                    context,
-                                    linked,
-                                    catById[linked.categoryId],
-                                  ),
-                          linkedRefunds: linkedRefunds,
-                          onShowLinkedRefunds:
-                              (linkedRefunds == null || linkedRefunds.isEmpty)
-                                  ? null
-                                  : () => showLinkedRefundsSheet(
-                                        context,
-                                        linkedRefunds,
-                                        catById[tx.categoryId],
-                                      ),
-                        ),
+                        child: TransactionListItem(transaction: tx),
                       );
                     },
                   );
@@ -404,199 +332,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         _maxAmount = result.$2;
       });
     }
-  }
-
-  Future<void> _edit(TransactionEntity tx) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AddTransactionPage(existing: tx)),
-    );
-  }
-
-  /// Avvia un rimborso collegato a questa spesa: apre la schermata di
-  /// inserimento già impostata come rimborso, con categoria e data ereditate.
-  Future<void> _refund(TransactionEntity tx) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => AddTransactionPage(refundOf: tx)),
-    );
-  }
-
-  Future<void> _confirmDelete(TransactionEntity tx) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Elimina operazione'),
-        content: const Text('Sei sicuro di voler eliminare questa spesa?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annulla'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Elimina'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || tx.id == null || !mounted) return;
-    try {
-      await ref.read(deleteTransactionProvider).call(tx.id!);
-      if (mounted) showSuccessSnackBar(context, 'Operazione eliminata');
-    } catch (e) {
-      if (mounted) showErrorSnackBar(context, 'Errore: $e');
-    }
-  }
-}
-
-class _HistoryTile extends StatelessWidget {
-  const _HistoryTile({
-    required this.tx,
-    required this.category,
-    required this.onEdit,
-    required this.onDelete,
-    this.subCategoryName,
-    this.onRefund,
-    this.onSplitRefund,
-    this.linkedExpense,
-    this.onShowLinked,
-    this.linkedRefunds,
-    this.onShowLinkedRefunds,
-  });
-
-  final TransactionEntity tx;
-  final Category? category;
-
-  /// Nome della sottocategoria, se impostata (mostrato sotto la Nota, M30).
-  final String? subCategoryName;
-
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
-
-  /// Avvia un rimborso collegato a questa spesa (solo per le uscite normali).
-  final VoidCallback? onRefund;
-
-  /// Rimborso con divisore (M25): quota rapida di questa spesa, senza
-  /// passare dal form completo. Stessa condizione di visibilità di
-  /// [onRefund] (solo uscite normali, mai un rimborso di un rimborso).
-  final VoidCallback? onSplitRefund;
-
-  /// Spesa originale a cui questo rimborso è collegato (se presente).
-  final TransactionEntity? linkedExpense;
-
-  /// Mostra i dettagli della spesa collegata (icona 🔗).
-  final VoidCallback? onShowLinked;
-
-  /// Rimborsi già collegati a questa spesa (direzione opposta di
-  /// [linkedExpense]), se presenti — una spesa può averne più di uno (M25).
-  final List<TransactionEntity>? linkedRefunds;
-
-  /// Mostra il/i rimborsi collegati a questa spesa (icona 🔗 accanto alla
-  /// Nota, M30) — non null solo se [linkedRefunds] non è vuota.
-  final VoidCallback? onShowLinkedRefunds;
-
-  @override
-  Widget build(BuildContext context) {
-    final hasNote = tx.note?.isNotEmpty == true;
-    final catName = category?.name ?? 'Senza categoria';
-
-    // Sottocategoria sotto la Nota (M30, invariato in M57): se non
-    // impostata, il nome categoria resta un'informazione di ripiego valida
-    // (l'icona a sinistra già comunica la categoria, ma il testo non deve
-    // restare vuoto).
-    return TransactionRow(
-      icon: category?.icon ?? '💶',
-      iconColor: category?.color ?? 0xFF9E9E9E,
-      title: hasNote ? tx.note! : catName,
-      meta: buildMetaLine(
-        context,
-        leading: subCategoryName ?? catName,
-        isRefund: tx.isRefund,
-        isExtraordinary: tx.isExtraordinary,
-      ),
-      date: AppFormatters.dayMonth(tx.date),
-      amount: tx.signedAmount,
-      onTap: onEdit,
-      badge: onShowLinkedRefunds == null
-          ? null
-          : Tooltip(
-              message: 'Rimborsi collegati',
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: onShowLinkedRefunds,
-                child: const CircleAvatar(
-                  radius: 10,
-                  backgroundColor: AppTheme.refundedBadgeColor,
-                  child: Icon(
-                    Icons.link,
-                    size: 13,
-                    color: AppTheme.onRefundedBadgeColor,
-                  ),
-                ),
-              ),
-            ),
-      // Azioni raccolte in un menu a comparsa (M36, invariato in M57): con
-      // rimborsa + rimborso con divisore + elimina come icone separate,
-      // questa riga arrivava a occupare gran parte della larghezza
-      // disponibile su schermo stretto. Un solo pulsante "⋮" resta sempre
-      // largo importo + un'icona sola.
-      trailingActions: PopupMenuButton<VoidCallback>(
-        icon: const Icon(Icons.more_vert, size: 20),
-        tooltip: 'Altre azioni',
-        onSelected: (action) => action(),
-        itemBuilder: (context) => [
-          if (onShowLinked != null)
-            PopupMenuItem<VoidCallback>(
-              value: onShowLinked!,
-              child: const _MenuItemContent(
-                icon: Icons.link,
-                label: 'Spesa collegata',
-              ),
-            ),
-          if (onRefund != null)
-            PopupMenuItem<VoidCallback>(
-              value: onRefund!,
-              child: const _MenuItemContent(
-                icon: Icons.currency_exchange,
-                label: 'Rimborsa',
-              ),
-            ),
-          if (onSplitRefund != null)
-            PopupMenuItem<VoidCallback>(
-              value: onSplitRefund!,
-              child: const _MenuItemContent(
-                icon: Icons.call_split,
-                label: 'Rimborso con divisore',
-              ),
-            ),
-          PopupMenuItem<VoidCallback>(
-            value: onDelete,
-            child: const _MenuItemContent(
-              icon: Icons.delete_outline,
-              label: 'Elimina',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MenuItemContent extends StatelessWidget {
-  const _MenuItemContent({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 20, color: Theme.of(context).colorScheme.outline),
-        const SizedBox(width: 12),
-        Text(label),
-      ],
-    );
   }
 }
 

@@ -1183,6 +1183,19 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M59 (8 ott 2026)**: toccare una transazione (Home o Storico) apre
+  ora una pagina di **dettaglio** in sola lettura
+  (`transaction/transaction_detail_page.dart`) con matita in AppBar per
+  la modifica; il menu "⋮" della riga ha la nuova voce **Modifica**.
+  Home e Storico usano la **stessa riga** (`shared_widgets/
+  transaction_list_item.dart`, `TransactionListItem`): niente più
+  wrapper per pagina. Azioni in `transaction/transaction_actions.dart`,
+  menu in `transaction/widgets/transaction_actions_menu.dart`, mappe di
+  lookup in `transaction/transaction_lookups.dart`
+  (`transactionLookupsProvider`). **Se serve mostrare una transazione in
+  un nuovo elenco, usare `TransactionListItem`**, non un nuovo wrapper
+  attorno a `TransactionRow`. `flutter analyze` pulito, 243/243 test.
+  Verifica a schermo rimandata a Mario.
 - **M58 (8 ott 2026)**: chiuso il resto del gap di M56 — sync immediata
   in background dopo ogni scrittura anche su Categorie/Sottocategorie
   (inclusi "Unisci con..."), Regole Merchant e Ricorrenze (incluso lo
