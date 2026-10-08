@@ -2755,6 +2755,43 @@ transazioni: lista piatta invece della card, Storico e Home allineate**
   sullo schermo reale dell'utente). Da controllare a schermo da Mario alla
   prossima apertura dell'app.
 
+**M58 — ✅ Completata (8 ott 2026, approvata da Mario) — Sync immediata anche su Categorie,
+Regole Merchant e Ricorrenze (resto del gap M32/M56)**
+
+- **Problema**: M56 ha chiuso il gap solo per i Budget. Restano senza sync
+  immediata dopo il salvataggio (stesso rischio: la modifica resta solo
+  locale fino al timer di 5 minuti / cambio di stato / chiusura app) tutti
+  gli altri provider di scrittura di tabelle sincronizzate:
+  - Categorie/Sottocategorie (`core/di/category_providers.dart`): add/
+    update/delete categoria, add/update/delete sottocategoria, "Unisci
+    con..." categoria e sottocategoria — 8 provider.
+  - Regole Merchant (`merchant_rule_providers.dart`): add/update/delete —
+    3 provider.
+  - Ricorrenze (`recurring_providers.dart`): add/update/delete e switch
+    Attiva/Pausa — 4 provider.
+- **Esclusi apposta**:
+  - Riordino categorie/sottocategorie (`reorder*Provider`): scrive solo
+    l'ordine in `Settings`, che resta volutamente locale (non è nella
+    whitelist `_syncedSettingsKeys` di `turso_sync_service.dart`) — una
+    sync lì non spingerebbe nulla.
+  - `generateDueRecurringProvider`: gira all'avvio, già coperto dalla
+    sync di avvio (stessa esclusione documentata in M32).
+- **Approccio**: identico a M56 — ogni provider passa da
+  `Provider<UsecaseX>` a `Provider<Future<T> Function(...)>` che chiama lo
+  usecase e poi `unawaited(syncService.syncNow().catchError(...))`.
+  Stessa firma dei parametri, i chiamanti (`ref.read(x).call(...)`) non
+  cambiano. Nessun errore mostrato all'utente, nessun blocco della UI.
+- **Fatto come previsto**, 15 provider in `category_providers.dart`/
+  `merchant_rule_providers.dart`/`recurring_providers.dart`, nessun
+  chiamante modificato. Unica nota: in `category_providers.dart`
+  l'import di `package:flutter/foundation.dart` è ristretto a
+  `show debugPrint`, perché `foundation` esporta un'annotazione
+  `Category` che va in conflitto con la classe Drift `Category`.
+- **Verificato**: `flutter analyze` pulito (exit code 0), **243/243
+  test**; nessun test nuovo (stesso principio di M32/M56: side-effect
+  fire-and-forget identico a quello già in uso). Verifica dal vivo tra
+  due dispositivi lasciata a Mario.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database/daos/merchant_rule_dao.dart';
@@ -10,6 +13,14 @@ import '../../domain/usecases/merchant_rule/add_merchant_rule.dart';
 import '../../domain/usecases/merchant_rule/delete_merchant_rule.dart';
 import '../../domain/usecases/merchant_rule/update_merchant_rule.dart';
 import 'database_provider.dart';
+import 'sync_providers.dart';
+
+/// Logga un fallimento della sync scatenata dopo un salvataggio (M58) —
+/// stesso pattern fire-and-forget di `transaction_providers.dart` (M32),
+/// mai mostrato all'utente.
+void _logPostSaveSyncError(Object error, StackTrace stackTrace) {
+  debugPrint('Sync Turso fallita (dopo salvataggio regola): $error\n$stackTrace');
+}
 
 final merchantRuleDaoProvider = Provider<MerchantRuleDao>((ref) {
   final db = ref.watch(appDatabaseProvider);
@@ -28,16 +39,39 @@ final merchantRulesProvider =
 
 // --- Usecase ---
 
-final addMerchantRuleProvider = Provider<AddMerchantRule>((ref) {
-  return AddMerchantRule(ref.watch(merchantRuleRepositoryProvider));
+/// M58: dopo il salvataggio locale lancia anche una sync Turso in
+/// background — stesso trattamento di transazioni (M32) e budget (M56),
+/// mancante qui da sempre.
+final addMerchantRuleProvider =
+    Provider<Future<int> Function(MerchantRuleEntity)>((ref) {
+  final useCase = AddMerchantRule(ref.watch(merchantRuleRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (rule) async {
+    final id = await useCase.call(rule);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+    return id;
+  };
 });
 
-final updateMerchantRuleProvider = Provider<UpdateMerchantRule>((ref) {
-  return UpdateMerchantRule(ref.watch(merchantRuleRepositoryProvider));
+/// M58: v. [addMerchantRuleProvider].
+final updateMerchantRuleProvider =
+    Provider<Future<void> Function(MerchantRuleEntity)>((ref) {
+  final useCase = UpdateMerchantRule(ref.watch(merchantRuleRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (rule) async {
+    await useCase.call(rule);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
-final deleteMerchantRuleProvider = Provider<DeleteMerchantRule>((ref) {
-  return DeleteMerchantRule(ref.watch(merchantRuleRepositoryProvider));
+/// M58: v. [addMerchantRuleProvider].
+final deleteMerchantRuleProvider = Provider<Future<void> Function(int)>((ref) {
+  final useCase = DeleteMerchantRule(ref.watch(merchantRuleRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (id) async {
+    await useCase.call(id);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
 // --- Servizi puri (stateless, condivisibili come singleton) ---

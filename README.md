@@ -180,6 +180,7 @@ continua attiva
 | **M55** | Dashboard: budget assegnato nel dettaglio categoria (mese selezionato o somma dell'anno) | ✅ Completata |
 | **M56** | Fix: sync immediata anche sui budget (gap in M32, un budget impostato restava bloccato in locale) | ✅ Completata |
 | **M57** | Elenco transazioni (Storico + Home): lista piatta stile estratto conto, widget condiviso, icona colorata per categoria | ✅ Completata |
+| **M58** | Sync immediata anche su categorie/sottocategorie, regole e ricorrenze (resto del gap M32/M56) | ✅ Completata |
 
 ## Struttura del database
 
