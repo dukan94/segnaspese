@@ -56,3 +56,7 @@ app.*.map.json
 /ListaMovimenti*.xlsx
 /export.csv
 /import_*.csv
+
+# File locali di prova (scontrino di esempio, vecchio zip Windows pre-M54)
+/312_n_Clementine_scontrino-536x386.jpeg
+/Tally-Windows.zip
