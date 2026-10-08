@@ -2792,6 +2792,108 @@ Regole Merchant e Ricorrenze (resto del gap M32/M56)**
   fire-and-forget identico a quello già in uso). Verifica dal vivo tra
   due dispositivi lasciata a Mario.
 
+**M59 — ✅ Completata (8 ott 2026, approvata da Mario) — Pagina di dettaglio transazione +
+riga transazione unica tra Home e Storico**
+
+- **Richiesta di Mario**:
+  1. Toccare una transazione non deve più aprire subito la modifica, ma
+     una pagina di **dettaglio** in sola lettura, con l'icona matita in
+     alto a destra per passare alla modifica.
+  2. La modifica deve essere raggiungibile anche dal menu "⋮" della riga
+     (nuova voce **Modifica**).
+  3. Home ("Ultime operazioni") e Storico devono mostrare le transazioni
+     in un modo solo, quello dello Storico (Home oggi non ha il "⋮"), con
+     codice semplificato.
+- **Stato attuale (indagato)**: M57 ha già unificato l'aspetto
+  (`TransactionRow`), ma restano due wrapper diversi con logica
+  duplicata:
+  - `_HistoryTile` (`history_page.dart`): menu "⋮" con Spesa collegata /
+    Rimborsa / Rimborso con divisore / Elimina, badge "rimborsi
+    collegati", sottotitolo = sottocategoria + tag Rimborso/Straordinaria.
+  - `_TransactionTile` (`recent_transactions_list.dart`): icone dirette
+    🔗/🗑, niente badge, sottotitolo = solo nome categoria, niente tag
+    Straordinaria, e un proprio `_confirmDelete` copiato da Storico.
+  - Entrambi: tap → `AddTransactionPage(existing: tx)`.
+- **Approccio**:
+  1. **Nuovo widget condiviso `TransactionListItem`**
+     (`presentation/shared_widgets/transaction_list_item.dart`): prende
+     la transazione + i lookup (categorie, sottocategorie, transazioni per
+     id) e costruisce da solo `TransactionRow`, badge e menu "⋮" — è
+     l'attuale `_HistoryTile` reso pubblico. Storico e Home lo usano
+     entrambi; spariscono `_HistoryTile`, `_TransactionTile` e il
+     `_confirmDelete` duplicato.
+  2. **Azioni in un unico file** (`presentation/transaction/
+     transaction_actions.dart`): apri dettaglio, modifica, rimborsa,
+     rimborso con divisore, conferma+elimina — funzioni usate sia dal menu
+     "⋮" della riga sia dalla pagina di dettaglio.
+  3. **Menu "⋮"** (riga): **Modifica** (nuova, prima voce), Spesa
+     collegata (se rimborso collegato), Rimborsa / Rimborso con divisore
+     (solo spese normali), Elimina.
+  4. **Tap sulla riga → nuova `TransactionDetailPage`**
+     (`presentation/transaction/transaction_detail_page.dart`), apertura
+     con `Navigator.push` come oggi per la modifica (nessuna nuova route
+     go_router):
+     - Intestazione: icona categoria colorata, importo grande col segno
+       (verde/rosso), nota (o nome categoria se vuota).
+     - Righe di dettaglio: Data (estesa, es. "8 ott 2026"), Tipo
+       (Uscita/Entrata), Categoria, Sottocategoria, tag Straordinaria /
+       Rimborso, "Generata da ricorrenza" se `recurringId` valorizzato.
+     - Se è un rimborso collegato: riga "Spesa collegata" tappabile
+       (apre il foglio già esistente). Se è una spesa con rimborsi:
+       elenco dei rimborsi collegati + totale rimborsato / netto.
+     - AppBar: **matita** (Modifica) + "⋮" con le altre azioni (Rimborsa,
+       Rimborso con divisore, Elimina) — stesse funzioni del punto 2.
+     - La pagina osserva la transazione per id
+       (`allTransactionsProvider`): dopo una modifica mostra subito i
+       dati aggiornati; se la transazione viene eliminata (da qui o via
+       sync) la pagina si chiude da sola.
+     - Desktop: `ContentWidthLimiter` 640, come le altre pagine form
+       (M31).
+  5. **Home allineata allo Storico**: sottotitolo = sottocategoria (o
+     categoria) + tag Rimborso/Straordinaria, badge rimborsi collegati,
+     "⋮" al posto delle icone 🔗/🗑.
+- **Fuori scope**: foto scontrino nel dettaglio (scan disabilitato da
+  M48, nessuna transazione recente ne ha una — si può aggiungere quando
+  lo scan torna attivo); nessuna modifica a `AddTransactionPage`.
+- **Mockup approvato da Mario** (8 ott 2026), poi sviluppato.
+- **Cosa è stato fatto davvero** (file nuovi):
+  - `presentation/transaction/transaction_lookups.dart`:
+    `transactionLookupsProvider` calcola una volta sola categoria per id,
+    nome sottocategoria per id, transazione per id e rimborsi per spesa.
+    Prima Storico e Home costruivano ciascuna le proprie mappe; ora le
+    usano riga, dettaglio e la ricerca dello Storico.
+  - `presentation/transaction/transaction_actions.dart`: apri dettaglio,
+    modifica, rimborsa, rimborso con divisore, conferma+elimina (testo del
+    dialog ora "questa operazione", non più "questa spesa": vale anche per
+    le entrate).
+  - `presentation/transaction/widgets/transaction_actions_menu.dart`:
+    menu "⋮" unico. Con `inDetailPage: true` omette Modifica (già matita)
+    e Spesa collegata (già sezione nel dettaglio).
+  - `presentation/shared_widgets/transaction_list_item.dart`:
+    `TransactionListItem`, la riga unica di Home e Storico.
+  - `presentation/transaction/transaction_detail_page.dart`: la pagina di
+    dettaglio.
+  - Rimossi `_HistoryTile`, `_MenuItemContent`, `_edit`/`_refund`/
+    `_confirmDelete` da `history_page.dart` e `_TransactionTile` +
+    `_confirmDelete` da `recent_transactions_list.dart` (ora un semplice
+    `StatelessWidget` che impila `TransactionListItem`).
+- **Differenze rispetto al mockup/proposta**:
+  - Spesa collegata (nel dettaglio di un rimborso) e rimborsi collegati
+    (nel dettaglio di una spesa) sono mostrati con la stessa
+    `TransactionListItem` dell'elenco, non con una riga "etichetta/valore":
+    toccandoli si apre il loro dettaglio, e hanno lo stesso "⋮".
+  - Se la transazione sparisce mentre il dettaglio è aperto (eliminata
+    via sync da un altro dispositivo), la pagina mostra "Questa operazione
+    non esiste più" invece di chiudersi da sola (un `pop` durante il
+    build è fragile). Eliminandola dal "⋮" del dettaglio, invece, la
+    pagina si chiude.
+- **Verificato**: `flutter analyze` pulito (exit code 0), **243/243
+  test** (solo presentazione, nessuna logica di dominio nuova).
+  Build Windows release compilata; **verifica a schermo non fatta**: la
+  cattura del solo rettangolo della finestra ha preso un'altra
+  applicazione in primo piano sopra l'app (immagine cancellata subito,
+  nessun nuovo tentativo) — da controllare a schermo da Mario.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con
