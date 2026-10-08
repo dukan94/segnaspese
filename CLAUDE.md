@@ -244,7 +244,9 @@ macchina. Non reintrodurre `libsql_dart`.
   `deleteTransactionProvider` in `core/di/transaction_providers.dart`,
   `unawaited(syncService.syncNow().catchError(...))` — stesso pattern
   fire-and-forget del resto, nessun blocco della UI, nessun errore mostrato
-  all'utente). Fuori da questo trigger: l'import CSV bulk (Admin) e le
+  all'utente). Esteso ai budget in M56 e a categorie/sottocategorie,
+  regole merchant e ricorrenze in M58 (stessi provider in `core/di/`).
+  Fuori da questo trigger: l'import CSV bulk (Admin) e le
   transazioni generate dalle ricorrenze all'avvio, che chiamano
   repository/DAO direttamente.
 - Ogni tabella sincronizzata ha campi `updatedAt`, `isDeleted` (soft delete) e
@@ -1181,6 +1183,16 @@ Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
 
+- **M58 (8 ott 2026)**: chiuso il resto del gap di M56 — sync immediata
+  in background dopo ogni scrittura anche su Categorie/Sottocategorie
+  (inclusi "Unisci con..."), Regole Merchant e Ricorrenze (incluso lo
+  switch Attiva/Pausa), stesso pattern di M32/M56 (15 provider in
+  `core/di/`, chiamanti invariati). Esclusi apposta il riordino categorie
+  (ordine solo locale in `Settings`, non sincronizzato) e la generazione
+  ricorrenze all'avvio (già coperta dalla sync di avvio). Ora **ogni
+  scrittura utente su una tabella sincronizzata** lancia la sync
+  immediata: se aggiungi un nuovo provider di scrittura, segui lo stesso
+  pattern. `flutter analyze` pulito, 243/243 test.
 - **M57 (2 ott 2026)**: elenco transazioni (Storico + Home) ridisegnato
   come lista piatta senza card/isolamento per riga (stile estratto conto/
   PayPal, scelto da Mario dopo un confronto A/B su mockup HTML) — nuovo

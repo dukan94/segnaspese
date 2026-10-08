@@ -1,9 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/local/database/app_database.dart';
 import '../../data/local/database/daos/category_dao.dart';
 import '../../data/local/database/tables/categories_table.dart';
 import '../../data/repositories_impl/category_repository_impl.dart';
+import '../../domain/entities/category_entity.dart';
 import '../../domain/repositories/category_repository.dart';
 import '../../domain/usecases/category/add_category.dart';
 import '../../domain/usecases/category/add_subcategory.dart';
@@ -16,6 +20,14 @@ import '../../domain/usecases/category/reorder_subcategories.dart';
 import '../../domain/usecases/category/update_category.dart';
 import '../../domain/usecases/category/update_subcategory.dart';
 import 'database_provider.dart';
+import 'sync_providers.dart';
+
+/// Logga un fallimento della sync scatenata dopo un salvataggio (M58) —
+/// stesso pattern fire-and-forget di `transaction_providers.dart` (M32) e
+/// `budget_providers.dart` (M56), mai mostrato all'utente.
+void _logPostSaveSyncError(Object error, StackTrace stackTrace) {
+  debugPrint('Sync Turso fallita (dopo salvataggio categoria): $error\n$stackTrace');
+}
 
 final categoryDaoProvider = Provider<CategoryDao>((ref) {
   final db = ref.watch(appDatabaseProvider);
@@ -55,30 +67,78 @@ final categoryRepositoryProvider = Provider<CategoryRepository>((ref) {
   return CategoryRepositoryImpl(ref.watch(categoryDaoProvider));
 });
 
-final addCategoryProvider = Provider<AddCategory>((ref) {
-  return AddCategory(ref.watch(categoryRepositoryProvider));
+/// M58: dopo il salvataggio locale lancia anche una sync Turso in
+/// background — stesso trattamento di transazioni (M32) e budget (M56),
+/// mancante qui da sempre. Vale per tutte le scritture su categorie/
+/// sottocategorie tranne il riordino (v. [reorderCategoriesProvider]).
+final addCategoryProvider =
+    Provider<Future<int> Function(CategoryEntity)>((ref) {
+  final useCase = AddCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (category) async {
+    final id = await useCase.call(category);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+    return id;
+  };
 });
 
-final updateCategoryProvider = Provider<UpdateCategory>((ref) {
-  return UpdateCategory(ref.watch(categoryRepositoryProvider));
+/// M58: v. [addCategoryProvider].
+final updateCategoryProvider =
+    Provider<Future<void> Function(CategoryEntity)>((ref) {
+  final useCase = UpdateCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (category) async {
+    await useCase.call(category);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
-final deleteCategoryProvider = Provider<DeleteCategory>((ref) {
-  return DeleteCategory(ref.watch(categoryRepositoryProvider));
+/// M58: v. [addCategoryProvider].
+final deleteCategoryProvider = Provider<Future<void> Function(int)>((ref) {
+  final useCase = DeleteCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (categoryId) async {
+    await useCase.call(categoryId);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
-final addSubCategoryProvider = Provider<AddSubCategory>((ref) {
-  return AddSubCategory(ref.watch(categoryRepositoryProvider));
+/// M58: v. [addCategoryProvider].
+final addSubCategoryProvider =
+    Provider<Future<int> Function(SubCategoryEntity)>((ref) {
+  final useCase = AddSubCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (subCategory) async {
+    final id = await useCase.call(subCategory);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+    return id;
+  };
 });
 
-final updateSubCategoryProvider = Provider<UpdateSubCategory>((ref) {
-  return UpdateSubCategory(ref.watch(categoryRepositoryProvider));
+/// M58: v. [addCategoryProvider].
+final updateSubCategoryProvider =
+    Provider<Future<void> Function(SubCategoryEntity)>((ref) {
+  final useCase = UpdateSubCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (subCategory) async {
+    await useCase.call(subCategory);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
-final deleteSubCategoryProvider = Provider<DeleteSubCategory>((ref) {
-  return DeleteSubCategory(ref.watch(categoryRepositoryProvider));
+/// M58: v. [addCategoryProvider].
+final deleteSubCategoryProvider = Provider<Future<void> Function(int)>((ref) {
+  final useCase = DeleteSubCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return (subCategoryId) async {
+    await useCase.call(subCategoryId);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
+/// Niente sync dopo il riordino (M58, escluso apposta): l'ordine vive solo
+/// in `Settings`, che resta locale (v. `_syncedSettingsKeys` in
+/// `turso_sync_service.dart`) — una sync qui non spingerebbe nulla.
 final reorderCategoriesProvider = Provider<ReorderCategories>((ref) {
   return ReorderCategories(ref.watch(categoryRepositoryProvider));
 });
@@ -87,10 +147,26 @@ final reorderSubCategoriesProvider = Provider<ReorderSubCategories>((ref) {
   return ReorderSubCategories(ref.watch(categoryRepositoryProvider));
 });
 
-final mergeCategoryProvider = Provider<MergeCategory>((ref) {
-  return MergeCategory(ref.watch(categoryRepositoryProvider));
+/// M58: v. [addCategoryProvider].
+final mergeCategoryProvider = Provider<
+    Future<void> Function({required int sourceId, required int targetId})>(
+    (ref) {
+  final useCase = MergeCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return ({required sourceId, required targetId}) async {
+    await useCase.call(sourceId: sourceId, targetId: targetId);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
 
-final mergeSubCategoryProvider = Provider<MergeSubCategory>((ref) {
-  return MergeSubCategory(ref.watch(categoryRepositoryProvider));
+/// M58: v. [addCategoryProvider].
+final mergeSubCategoryProvider = Provider<
+    Future<void> Function({required int sourceId, required int targetId})>(
+    (ref) {
+  final useCase = MergeSubCategory(ref.watch(categoryRepositoryProvider));
+  final syncService = ref.watch(syncServiceProvider);
+  return ({required sourceId, required targetId}) async {
+    await useCase.call(sourceId: sourceId, targetId: targetId);
+    unawaited(syncService.syncNow().catchError(_logPostSaveSyncError));
+  };
 });
