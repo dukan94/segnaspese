@@ -71,7 +71,11 @@ class TransactionRow extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 11),
+        // Margine sinistro per non far partire l'icona a filo schermo, poco
+        // margine verticale tra una riga e la successiva (richiesto da
+        // Mario dopo aver visto la prima versione a schermo, M57 — 5
+        // iniziale aumentato a 8, ancora troppo poco al primo giro).
+        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
