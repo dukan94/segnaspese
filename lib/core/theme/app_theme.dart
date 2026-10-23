@@ -55,11 +55,16 @@ class AppTheme {
   /// di una spesa con almeno un rimborso collegato): un rimborso in sé non
   /// ha più uno sfondo card dedicato (deciso da Mario dopo aver visto la
   /// card colorata a schermo — resta identica a una spesa normale), solo
-  /// questo cerchietto. Colore fisso scelto da Mario (17 ago 2026), non
-  /// differenziato chiaro/scuro: è un badge piccolo, non un intero sfondo
-  /// card, la stessa tonalità resta leggibile su entrambi i temi.
-  static const Color refundedBadgeColor = Color(0xFFE5E39F);
-  static const Color onRefundedBadgeColor = Color(0xFF6B6806);
+  /// questo badge. Colori scelti da Mario (17 ago 2026). Dal 23 ott 2026 il
+  /// badge è solo l'icona, senza cerchietto di sfondo (troppo evidente,
+  /// richiesta di Mario): senza il cerchio a fare da contrasto serve una
+  /// tonalità per tema — la scura su chiaro, la chiara su scuro (le stesse
+  /// due che prima erano icona e sfondo del cerchietto).
+  static Color refundedBadgeIcon(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFE5E39F)
+        : const Color(0xFF6B6806);
+  }
 
   static ThemeData get light {
     // "medium contrast" M3 (testo più leggibile) come base per secondary/

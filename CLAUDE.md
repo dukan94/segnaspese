@@ -892,7 +892,10 @@ resta respiro" delle altre pagine, nessun nuovo pattern di navigazione.
   **non differenziato chiaro/scuro** (a differenza dell'entrata sopra: un
   cerchietto piccolo resta leggibile sia su chiaro sia su scuro):
   `AppTheme.refundedBadgeColor` (`#E5E39F`) / `onRefundedBadgeColor`
-  (`#6B6806`). Al tap, nuovo `linked_refunds_sheet.dart` (direzione
+  (`#6B6806`). **Aggiornato 23 ott 2026** (richiesta di Mario, "troppo
+  evidente"): ora è **solo l'icona, senza cerchietto**, quindi il colore
+  è per tema — `AppTheme.refundedBadgeIcon(context)`: `#6B6806` su chiaro,
+  `#E5E39F` su scuro (le due costanti sopra non esistono più). Al tap, nuovo `linked_refunds_sheet.dart` (direzione
   opposta di `linked_expense_sheet.dart`, che risale dal rimborso alla
   spesa): mostra tutti i rimborsi collegati a questa spesa, non solo il
   primo.

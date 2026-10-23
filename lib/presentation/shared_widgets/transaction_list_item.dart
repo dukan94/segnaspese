@@ -53,13 +53,13 @@ class TransactionListItem extends ConsumerWidget {
                 customBorder: const CircleBorder(),
                 onTap: () =>
                     showLinkedRefundsSheet(context, linkedRefunds, category),
-                child: const CircleAvatar(
-                  radius: 10,
-                  backgroundColor: AppTheme.refundedBadgeColor,
+                // Solo l'icona, niente cerchietto di sfondo (23 ott 2026).
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
                   child: Icon(
                     Icons.link,
-                    size: 13,
-                    color: AppTheme.onRefundedBadgeColor,
+                    size: 16,
+                    color: AppTheme.refundedBadgeIcon(context),
                   ),
                 ),
               ),
