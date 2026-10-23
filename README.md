@@ -182,6 +182,7 @@ continua attiva
 | **M57** | Elenco transazioni (Storico + Home): lista piatta stile estratto conto, widget condiviso, icona colorata per categoria | ✅ Completata |
 | **M58** | Sync immediata anche su categorie/sottocategorie, regole e ricorrenze (resto del gap M32/M56) | ✅ Completata |
 | **M59** | Pagina di dettaglio transazione (tocca la riga) + riga unica con menu ⋮ (con "Modifica") in Home e Storico | ✅ Completata |
+| **M60** | Icone categoria vettoriali nel colore della categoria al posto delle emoji, selettore a griglia nei form | ✅ Completata |
 
 ## Struttura del database
 

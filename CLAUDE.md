@@ -1177,11 +1177,26 @@ URL/token) → Fine. Mostrato **solo** su un'installazione davvero vuota.
   emulatore pulito quando comodo, non urgente (logica di innesco coperta
   dai test).
 
-## Stato attuale (2 ott 2026)
+## Stato attuale (23 ott 2026)
 
 Sviluppo per **milestone incrementali** con **design approvato prima di
 scrivere codice**, ora messo per iscritto in modo strutturato invece che solo
 concordato a voce (v. "Processo per nuove modifiche" più sotto).
+
+- **M60 (23 ott 2026)**: le icone di categorie/sottocategorie non sono
+  più emoji ma icone Material tinte col colore della categoria (cerchio
+  tenue + icona piena; sottocategorie col colore del padre). Tutto in
+  `presentation/shared_widgets/category_icon.dart` (catalogo, widget
+  `CategoryIcon`) e `category_icon_picker.dart` (selettore a griglia nei
+  form). La colonna `icon` salva ora una **chiave** (es. `"home"`):
+  nessuna modifica di schema né di sync. Le emoji già salvate **non sono
+  state riscritte** (regola M52 su `updatedAt`): vengono tradotte al volo
+  da una tabella emoji → chiave. **Regole**: mai mostrare `icon` con
+  `Text(...)`, usare sempre `CategoryIcon`; mai rinominare una chiave del
+  catalogo (si possono solo aggiungere). Un dispositivo con un'app
+  precedente a M60 mostra la chiave come testo per le categorie
+  modificate col nuovo selettore. `flutter analyze` pulito, 250/250
+  test. Form/selettore da verificare a schermo da Mario.
 
 - **M59 (8 ott 2026)**: toccare una transazione (Home o Storico) apre
   ora una pagina di **dettaglio** in sola lettura

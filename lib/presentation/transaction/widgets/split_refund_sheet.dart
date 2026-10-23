@@ -9,6 +9,7 @@ import '../../../data/local/database/app_database.dart';
 import '../../../domain/entities/transaction_entity.dart';
 import '../../../domain/services/money_rounding.dart';
 import '../../../domain/usecases/transaction/build_split_refund.dart';
+import '../../shared_widgets/category_icon.dart';
 
 /// Bottom sheet "Rimborso con divisore" (M25): da una spesa esistente, crea
 /// un rimborso pari a 1/N dell'importo con una nota facoltativa (di solito
@@ -124,10 +125,10 @@ class _SplitRefundSheetContentState
               const SizedBox(height: 12),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  child: Text(widget.category?.icon ?? '💶',
-                      style: const TextStyle(fontSize: 18)),
+                leading: CategoryIcon(
+                  icon: widget.category?.icon ?? 'euro',
+                  color: widget.category?.color ?? 0xFF9E9E9E,
+                  radius: 20,
                 ),
                 title: Text(
                     expense.note?.isNotEmpty == true ? expense.note! : catName),

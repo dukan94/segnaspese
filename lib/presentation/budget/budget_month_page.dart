@@ -8,6 +8,7 @@ import '../shared_widgets/content_width_limiter.dart';
 import 'budget_providers.dart';
 import 'widgets/add_icon.dart';
 import 'widgets/budget_amount_dialog.dart';
+import '../shared_widgets/category_icon.dart';
 
 /// Dettaglio del budget di un mese: totale del mese e suddivisione tra le
 /// categorie di uscita. Raggiungibile per qualsiasi mese (anche futuri), così
@@ -295,10 +296,10 @@ class _GridHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            CircleAvatar(
+            CategoryIcon(
+              icon: category.icon,
+              color: category.color,
               radius: 14,
-              backgroundColor: Color(category.color).withValues(alpha: 0.2),
-              child: Text(category.icon, style: const TextStyle(fontSize: 14)),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -382,10 +383,10 @@ class _CategoryBudgetTile extends StatelessWidget {
               else
                 Row(
                   children: [
-                    CircleAvatar(
+                    CategoryIcon(
+                      icon: category.icon,
+                      color: category.color,
                       radius: 16,
-                      backgroundColor: Color(category.color).withValues(alpha: 0.2),
-                      child: Text(category.icon, style: const TextStyle(fontSize: 16)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(

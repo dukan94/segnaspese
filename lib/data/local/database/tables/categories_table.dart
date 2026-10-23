@@ -13,7 +13,8 @@ class Categories extends Table {
 
   TextColumn get name => text().withLength(min: 1, max: 60)();
 
-  /// Emoji o codice icona (es. "🏠").
+  /// Chiave dell'icona (es. "home", M60 — v. `category_icon.dart`); le
+  /// righe create prima di M60 possono contenere ancora un'emoji.
   TextColumn get icon => text()();
 
   /// income / expense

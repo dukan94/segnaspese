@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../dashboard_providers.dart';
 import 'count_badge.dart';
+import '../../shared_widgets/category_icon.dart';
 
 /// Barre orizzontali "classiche" della ripartizione per sottocategoria della
 /// categoria selezionata nella torta.
@@ -85,7 +86,11 @@ class SubcategoryBars extends StatelessWidget {
                   Row(
                     children: [
                       if (slice.icon.isNotEmpty) ...[
-                        Text(slice.icon, style: const TextStyle(fontSize: 14)),
+                        CategoryIcon(
+                            icon: slice.icon,
+                            color: color,
+                            circle: false,
+                            radius: 8),
                         const SizedBox(width: 6),
                       ],
                       Expanded(

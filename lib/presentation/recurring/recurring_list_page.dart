@@ -10,6 +10,7 @@ import '../../data/local/database/app_database.dart';
 import '../../domain/entities/recurring_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../shared_widgets/fade_in_item.dart';
+import '../shared_widgets/category_icon.dart';
 
 /// Lista dei movimenti ricorrenti (Milestone M5).
 ///
@@ -93,9 +94,7 @@ class _RecurringTile extends ConsumerWidget {
     final amountColor =
         isIncome ? Colors.green.shade700 : theme.colorScheme.onSurface;
 
-    final categoryLabel = category == null
-        ? ''
-        : '${category!.icon.isNotEmpty ? '${category!.icon} ' : ''}${category!.name}';
+    final categoryLabel = category?.name ?? '';
 
     final subtitle = [
       if (categoryLabel.isNotEmpty) categoryLabel,
@@ -128,6 +127,10 @@ class _RecurringTile extends ConsumerWidget {
           opacity: item.active ? 1 : 0.5,
           child: ListTile(
             onTap: () => context.push('/recurring/edit', extra: item),
+            leading: CategoryIcon(
+              icon: category?.icon ?? 'euro',
+              color: category?.color ?? 0xFF9E9E9E,
+            ),
             title: Text(
               item.description,
               maxLines: 1,

@@ -13,6 +13,7 @@ import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/empty_state.dart';
 import 'widgets/amount_keypad.dart';
 import 'widgets/category_picker.dart';
+import '../shared_widgets/category_icon.dart';
 
 /// Schermata "Nuova Operazione" (inserimento manuale), v. wireframe
 /// progettazione. Obiettivo: 3-4 tap per salvare un movimento.
@@ -612,8 +613,10 @@ class _ExpensePickerSheetState extends State<_ExpensePickerSheet> {
                         final hasNote = t.note?.isNotEmpty == true;
                         final catName = cat?.name ?? 'Senza categoria';
                         return ListTile(
-                          leading: Text(cat?.icon ?? '💶',
-                              style: const TextStyle(fontSize: 20)),
+                          leading: CategoryIcon(
+                            icon: cat?.icon ?? 'euro',
+                            color: cat?.color ?? 0xFF9E9E9E,
+                          ),
                           title: Text(hasNote ? t.note! : catName),
                           subtitle: Text(
                             '$catName · ${AppFormatters.shortDate(t.date)}',

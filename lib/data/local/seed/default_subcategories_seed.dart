@@ -20,52 +20,52 @@ Future<void> seedDefaultSubCategories(AppDatabase db) async {
   // (categoria padre, nome sottocategoria, icona)
   final subCategories = <(String, String, String)>[
     // --- Uscite ---
-    ('Casa', 'Affitto / Mutuo', '🏠'),
-    ('Casa', 'Bollette', '🧾'),
-    ('Casa', 'Pulizie / Manutenzione', '🧹'),
-    ('Casa', 'Tasse', '💶'),
-    ('Casa', 'Arredamento / Elettrodomestici', '🛋️'),
+    ('Casa', 'Affitto / Mutuo', 'home'),
+    ('Casa', 'Bollette', 'receipt'),
+    ('Casa', 'Pulizie / Manutenzione', 'cleaning'),
+    ('Casa', 'Tasse', 'euro'),
+    ('Casa', 'Arredamento / Elettrodomestici', 'sofa'),
 
-    ('Spesa', 'Supermercato', '🛒'),
-    ('Spesa', 'Mercato / Negozi Alimentari', '🥖'),
+    ('Spesa', 'Supermercato', 'cart'),
+    ('Spesa', 'Mercato / Negozi Alimentari', 'bakery'),
 
-    ('Fuori Casa', 'Colazione / Bar', '🥐'),
-    ('Fuori Casa', 'Ristorante / Uscita', '🍔'),
-    ('Fuori Casa', 'Delivery', '🍕'),
+    ('Fuori Casa', 'Colazione / Bar', 'coffee'),
+    ('Fuori Casa', 'Ristorante / Uscita', 'burger'),
+    ('Fuori Casa', 'Delivery', 'pizza'),
 
-    ('Veicoli & Trasporti', 'Carburante', '⛽'),
-    ('Veicoli & Trasporti', 'Assicurazione', '🛡️'),
-    ('Veicoli & Trasporti', 'Manutenzione', '🧼'),
-    ('Veicoli & Trasporti', 'Bollo', '✉️'),
-    ('Veicoli & Trasporti', 'Multa', '💸'),
-    ('Veicoli & Trasporti', 'Rata / Finanziamento', '🧧'),
-    ('Veicoli & Trasporti', 'Mezzi Pubblici / Taxi', '🚇'),
+    ('Veicoli & Trasporti', 'Carburante', 'fuel'),
+    ('Veicoli & Trasporti', 'Assicurazione', 'shield'),
+    ('Veicoli & Trasporti', 'Manutenzione', 'wrench'),
+    ('Veicoli & Trasporti', 'Bollo', 'mail'),
+    ('Veicoli & Trasporti', 'Multa', 'payments'),
+    ('Veicoli & Trasporti', 'Rata / Finanziamento', 'loan'),
+    ('Veicoli & Trasporti', 'Mezzi Pubblici / Taxi', 'metro'),
 
-    ('Salute', 'Medico / Farmaci', '💊'),
-    ('Salute', 'Dentista / Specialisti', '🦷'),
+    ('Salute', 'Medico / Farmaci', 'pill'),
+    ('Salute', 'Dentista / Specialisti', 'doctor'),
 
-    ('Self Care', 'Parrucchiere / Estetista', '💆'),
-    ('Self Care', 'Cura Personale', '💅'),
+    ('Self Care', 'Parrucchiere / Estetista', 'spa'),
+    ('Self Care', 'Cura Personale', 'beauty'),
 
-    ('Shopping', 'Abbigliamento', '👗'),
-    ('Shopping', 'Tecnologia', '💻'),
-    ('Shopping', 'Regalo (fatto)', '🎁'),
-    ('Shopping', 'Acquisti Extra / Altro', '📦'),
+    ('Shopping', 'Abbigliamento', 'clothes'),
+    ('Shopping', 'Tecnologia', 'laptop'),
+    ('Shopping', 'Regalo (fatto)', 'gift'),
+    ('Shopping', 'Acquisti Extra / Altro', 'box'),
 
-    ('Tempo Libero', 'Svago (cinema, eventi)', '🎬'),
-    ('Tempo Libero', 'Hobby', '📸'),
-    ('Tempo Libero', 'Abbonamenti', '🖊️'),
-    ('Tempo Libero', 'Sport / Palestra', '🏌️'),
+    ('Tempo Libero', 'Svago (cinema, eventi)', 'movie'),
+    ('Tempo Libero', 'Hobby', 'camera'),
+    ('Tempo Libero', 'Abbonamenti', 'subscription'),
+    ('Tempo Libero', 'Sport / Palestra', 'golf'),
 
-    ('Viaggio', 'Voli / Hotel', '✈️'),
-    ('Viaggio', 'Trasporti di Viaggio', '🧳'),
+    ('Viaggio', 'Voli / Hotel', 'plane'),
+    ('Viaggio', 'Trasporti di Viaggio', 'luggage'),
 
     // --- Entrate ---
-    ('Stipendio', 'Stipendio', '💳'),
-    ('Stipendio', 'Stipendio Extra', '💳'),
-    ('Stipendio', 'Guadagno Extra', '💳'),
+    ('Stipendio', 'Stipendio', 'card'),
+    ('Stipendio', 'Stipendio Extra', 'card'),
+    ('Stipendio', 'Guadagno Extra', 'card'),
 
-    ('Regalo', 'Regalo (ricevuto)', '🎁'),
+    ('Regalo', 'Regalo (ricevuto)', 'gift'),
   ];
 
   await db.transaction(() async {
