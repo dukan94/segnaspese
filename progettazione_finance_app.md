@@ -2894,6 +2894,84 @@ riga transazione unica tra Home e Storico**
   applicazione in primo piano sopra l'app (immagine cancellata subito,
   nessun nuovo tentativo) — da controllare a schermo da Mario.
 
+**M60 — ✅ Completata (23 ott 2026, approvata da Mario) — Icone categoria
+vettoriali colorabili al posto delle emoji**
+
+- **Richiesta di Mario**: le icone di categorie/sottocategorie non devono
+  essere emoji, ma icone di cui si può cambiare il colore.
+- **Stato attuale (indagato)**: la colonna `icon` (testo) di `Categories`
+  e `SubCategories` contiene un'emoji, scritta a mano in un campo di testo
+  nel form (`categories_manage_page.dart`) e mostrata come `Text(icon)` in
+  una dozzina di punti (riga transazione, torta e barre Dashboard, Budget,
+  picker sottocategoria, gestione categorie, dettaglio, fogli rimborso,
+  ricorrenze). Il colore della categoria (`color`, palette fissa nel form)
+  oggi è solo lo sfondo del cerchietto: un'emoji ha i suoi colori e non si
+  può tingere. Sul database reale di Mario sono in uso ~45 emoji diverse.
+- **Scelte confermate da Mario (23 ott 2026)**:
+  1. Stile: **icona nel colore pieno della categoria su cerchio dello
+     stesso colore molto tenue** (~15%), leggibile su tema chiaro e scuro.
+  2. Sottocategorie: **colore ereditato dalla categoria padre**, ognuna
+     sceglie solo la propria icona — nessuna colonna nuova.
+  3. Colore categoria: **palette attuale invariata**.
+- **Approccio**:
+  1. **Catalogo icone** (`presentation/shared_widgets/category_icon.dart`):
+     mappa chiave testuale → `IconData` con ~60 icone Material già incluse
+     in Flutter (`Icons.*_outlined`, nessuna dipendenza nuova), raggruppate
+     per tema (casa, cibo, trasporti, salute, shopping, svago, viaggio,
+     denaro...).
+  2. **Nessuna modifica di schema né di sync**: la colonna `icon` continua a
+     esistere ma contiene la chiave (es. `"home"`, `"cart"`) invece
+     dell'emoji. Turso sincronizza già `icon` come testo.
+  3. **Emoji esistenti convertite in fase di visualizzazione, non nel
+     database**: una tabella emoji → chiave copre tutte le emoji oggi in uso
+     (le 45 del database reale + quelle dei seed); emoji sconosciuta o campo
+     vuoto → icona di ripiego (sottocategoria senza icona → icona della
+     categoria padre). Niente migrazione dati: riscrivere le righe
+     richiederebbe `updatedAt` = adesso su categorie già sincronizzate (v.
+     regola generale M52). Una riga passa alla chiave nuova quando la si
+     modifica dal form.
+  4. **Widget unico `CategoryIcon`** (chiave/emoji + colore + dimensione)
+     al posto di ogni `Text(icon)`; le stringhe "emoji + nome" (picker
+     sottocategoria, ricorrenze) diventano icona + testo.
+  5. **Form categoria/sottocategoria**: il campo di testo "Icona" diventa un
+     selettore a griglia (anteprima nel colore scelto); nella sottocategoria
+     l'anteprima usa il colore della categoria padre.
+  6. **Seed**: i default per le installazioni nuove usano direttamente le
+     chiavi (stessi `syncId`, `updatedAt` invariato a `kDefaultSeedUpdatedAt`).
+- **Avvertenza**: un dispositivo con una versione **vecchia** dell'app
+  mostrerebbe la chiave come testo (es. "home") per le categorie modificate
+  col nuovo selettore — aggiornare sia Windows sia Android.
+- **Test**: unit test sul risolutore (chiave nota, emoji legacy, emoji
+  sconosciuta, vuoto) + `flutter analyze`/`flutter test`.
+- **Cosa è stato fatto davvero**:
+  - `presentation/shared_widgets/category_icon.dart`: catalogo
+    `categoryIcons` (79 chiavi, **mai rinominarne una**: le righe che la
+    usano finirebbero sull'icona di ripiego), gruppi del selettore,
+    tabella emoji → chiave, `resolveCategoryIcon`, `subCategoryIconOr`
+    (sottocategoria senza icona → icona del padre), widget `CategoryIcon`
+    (cerchio tenue al 15% + icona; `circle: false` per l'uso in linea col
+    testo). Su tema scuro l'icona è schiarita del 40% verso il bianco
+    (`categoryIconForeground`): i colori scuri della palette sparivano
+    sullo sfondo.
+  - `presentation/shared_widgets/category_icon_picker.dart`:
+    `CategoryIconField` (campo "Icona" del form) +
+    `showCategoryIconPicker` (griglia per gruppi; nella sottocategoria
+    anche "Usa l'icona della categoria").
+  - Sostituito ogni `Text(icon)`: riga transazione, dettaglio, fogli
+    spesa collegata/rimborsi/rimborso con divisore, ricerca spesa in
+    Nuova Operazione, picker sottocategoria (anche le intestazioni di
+    gruppo), legenda torta e barre Dashboard, Budget (lista e griglia),
+    Categorie (riga, sottocategorie, dialog "Unisci con..."), Ricorrenze
+    (prima l'emoji era nel sottotitolo, ora è un'icona a sinistra).
+  - Seed convertiti alle chiavi; nuova categoria dal form: icona
+    predefinita `category`.
+  - `test/category_icon_test.dart` (7 test).
+- **Verificato**: `flutter analyze` pulito (exit code 0), **250/250
+  test**. Build Windows release avviata sul database reale: Home mostra
+  le icone nuove (emoji esistenti convertite al volo, nessun dato
+  riscritto). Form categoria/selettore icone non provati a schermo
+  (evitati click automatici sullo schermo reale): da controllare da Mario.
+
 ### Processo per nuove milestone (da qui in avanti)
 
 Deciso con Mario il 16 ago 2026, per non perdere il filo come è successo con

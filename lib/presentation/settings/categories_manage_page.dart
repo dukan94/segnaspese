@@ -13,6 +13,8 @@ import '../../domain/entities/category_entity.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../shared_widgets/content_width_limiter.dart';
 import '../shared_widgets/empty_state.dart';
+import '../shared_widgets/category_icon.dart';
+import '../shared_widgets/category_icon_picker.dart';
 
 /// Palette di colori proposta per le categorie (usata nei grafici futuri
 /// della Dashboard, M4). Solo un punto di partenza: l'utente sceglie tra
@@ -176,10 +178,7 @@ class _CategoryTile extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ExpansionTile(
-        leading: CircleAvatar(
-          backgroundColor: Color(category.color).withValues(alpha: 0.2),
-          child: Text(category.icon, style: const TextStyle(fontSize: 18)),
-        ),
+        leading: CategoryIcon(icon: category.icon, color: category.color),
         title: Text(category.name),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
@@ -210,7 +209,7 @@ class _CategoryTile extends ConsumerWidget {
           ],
         ),
         children: [
-          _SubCategoryList(categoryId: category.id, type: category.type),
+          _SubCategoryList(parent: category),
         ],
       ),
     );
@@ -220,10 +219,11 @@ class _CategoryTile extends ConsumerWidget {
 /// Lista sottocategorie di una categoria, anch'essa riordinabile via drag &
 /// drop, annidata dentro l'`ExpansionTile` della categoria padre.
 class _SubCategoryList extends ConsumerStatefulWidget {
-  const _SubCategoryList({required this.categoryId, required this.type});
+  const _SubCategoryList({required this.parent});
 
-  final int categoryId;
-  final TransactionKind type;
+  final Category parent;
+  int get categoryId => parent.id;
+  TransactionKind get type => parent.type;
 
   @override
   ConsumerState<_SubCategoryList> createState() => _SubCategoryListState();
@@ -284,10 +284,13 @@ class _SubCategoryListState extends ConsumerState<_SubCategoryList> {
                     ),
                     title: Row(
                       children: [
-                        if (sub.icon.isNotEmpty) ...[
-                          Text(sub.icon, style: const TextStyle(fontSize: 18)),
-                          const SizedBox(width: 8),
-                        ],
+                        CategoryIcon(
+                          icon: subCategoryIconOr(sub.icon, widget.parent.icon),
+                          color: widget.parent.color,
+                          circle: false,
+                          radius: 10,
+                        ),
+                        const SizedBox(width: 8),
                         Expanded(child: Text(sub.name)),
                       ],
                     ),
@@ -300,7 +303,7 @@ class _SubCategoryListState extends ConsumerState<_SubCategoryList> {
                           onPressed: () => showSubCategoryEditor(
                             context,
                             ref,
-                            categoryId: widget.categoryId,
+                            parent: widget.parent,
                             existing: sub,
                           ),
                         ),
@@ -327,7 +330,7 @@ class _SubCategoryListState extends ConsumerState<_SubCategoryList> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: () => showSubCategoryEditor(context, ref,
-                      categoryId: widget.categoryId),
+                      parent: widget.parent),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Aggiungi sottocategoria'),
                 ),
@@ -435,7 +438,7 @@ Future<void> _mergeCategory(
             onPressed: () => Navigator.of(context).pop(c),
             child: Row(
               children: [
-                Text(c.icon, style: const TextStyle(fontSize: 18)),
+                CategoryIcon(icon: c.icon, color: c.color, radius: 14),
                 const SizedBox(width: 8),
                 Text(c.name),
               ],
@@ -599,8 +602,7 @@ class _CategoryEditorDialog extends ConsumerStatefulWidget {
 class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
   late final _nameController =
       TextEditingController(text: widget.existing?.name ?? '');
-  late final _iconController =
-      TextEditingController(text: widget.existing?.icon ?? '');
+  late String _icon = widget.existing?.icon ?? 'category';
   late int _color = widget.existing?.color ?? _colorPalette.first;
   bool _saving = false;
   String? _nameError;
@@ -610,7 +612,6 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
   @override
   void dispose() {
     _nameController.dispose();
-    _iconController.dispose();
     super.dispose();
   }
 
@@ -648,7 +649,7 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
     final entity = CategoryEntity(
       id: widget.existing?.id,
       name: name,
-      icon: _iconController.text.trim(),
+      icon: _icon,
       type: widget.existing?.type.toDomain() ?? widget.type!,
       color: _color,
       isDefault: widget.existing?.isDefault ?? false,
@@ -690,12 +691,10 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
               },
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _iconController,
-              decoration: const InputDecoration(
-                labelText: 'Icona (emoji)',
-                hintText: 'Es. 🏠',
-              ),
+            CategoryIconField(
+              value: _icon,
+              color: _color,
+              onChanged: (v) => setState(() => _icon = v),
             ),
             const SizedBox(height: 16),
             const Align(
@@ -748,20 +747,21 @@ class _CategoryEditorDialogState extends ConsumerState<_CategoryEditorDialog> {
 Future<void> showSubCategoryEditor(
   BuildContext context,
   WidgetRef ref, {
-  required int categoryId,
+  required Category parent,
   SubCategory? existing,
 }) {
   return showDialog<void>(
     context: context,
-    builder: (_) =>
-        _SubCategoryEditorDialog(categoryId: categoryId, existing: existing),
+    builder: (_) => _SubCategoryEditorDialog(parent: parent, existing: existing),
   );
 }
 
 class _SubCategoryEditorDialog extends ConsumerStatefulWidget {
-  const _SubCategoryEditorDialog({required this.categoryId, this.existing});
+  const _SubCategoryEditorDialog({required this.parent, this.existing});
 
-  final int categoryId;
+  /// Categoria padre: l'icona della sottocategoria ne usa il colore (M60).
+  final Category parent;
+  int get categoryId => parent.id;
   final SubCategory? existing;
 
   @override
@@ -773,8 +773,7 @@ class _SubCategoryEditorDialogState
     extends ConsumerState<_SubCategoryEditorDialog> {
   late final _nameController =
       TextEditingController(text: widget.existing?.name ?? '');
-  late final _iconController =
-      TextEditingController(text: widget.existing?.icon ?? '');
+  late String _icon = widget.existing?.icon ?? '';
   bool _saving = false;
   String? _nameError;
 
@@ -783,7 +782,6 @@ class _SubCategoryEditorDialogState
   @override
   void dispose() {
     _nameController.dispose();
-    _iconController.dispose();
     super.dispose();
   }
 
@@ -819,7 +817,7 @@ class _SubCategoryEditorDialogState
       id: widget.existing?.id,
       categoryId: widget.categoryId,
       name: name,
-      icon: _iconController.text.trim(),
+      icon: _icon,
     );
 
     try {
@@ -857,12 +855,12 @@ class _SubCategoryEditorDialogState
             },
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _iconController,
-            decoration: const InputDecoration(
-              labelText: 'Icona (emoji, opzionale)',
-              hintText: 'Es. 🛒',
-            ),
+          CategoryIconField(
+            value: _icon,
+            color: widget.parent.color,
+            allowNone: true,
+            noneIcon: widget.parent.icon,
+            onChanged: (v) => setState(() => _icon = v),
           ),
         ],
       ),

@@ -21,20 +21,20 @@ Future<void> seedDefaultCategories(AppDatabase db) async {
   // originale (v. Transactions.refundOfId). Per questo qui non c'è più la
   // vecchia categoria d'entrata "Rimborsi".
   final incomeCategories = <(String, String, int)>[
-    ('Stipendio', '💳', 0xFF2E7D5B),
-    ('Regalo', '🎁', 0xFF9BC1A8),
+    ('Stipendio', 'card', 0xFF2E7D5B),
+    ('Regalo', 'gift', 0xFF9BC1A8),
   ];
 
   final expenseCategories = <(String, String, int)>[
-    ('Casa', '🏠', 0xFF8D6E63),
-    ('Spesa', '🛒', 0xFF4C8C63),
-    ('Fuori Casa', '🍔', 0xFFEF6C00),
-    ('Veicoli & Trasporti', '🚗', 0xFF546E7A),
-    ('Salute', '💊', 0xFFC62828),
-    ('Self Care', '💆', 0xFFAD1457),
-    ('Shopping', '🛍️', 0xFF4527A0),
-    ('Tempo Libero', '⛷️', 0xFF1976D2),
-    ('Viaggio', '✈️', 0xFF00838F),
+    ('Casa', 'home', 0xFF8D6E63),
+    ('Spesa', 'cart', 0xFF4C8C63),
+    ('Fuori Casa', 'burger', 0xFFEF6C00),
+    ('Veicoli & Trasporti', 'car', 0xFF546E7A),
+    ('Salute', 'pill', 0xFFC62828),
+    ('Self Care', 'spa', 0xFFAD1457),
+    ('Shopping', 'bag', 0xFF4527A0),
+    ('Tempo Libero', 'ski', 0xFF1976D2),
+    ('Viaggio', 'plane', 0xFF00838F),
   ];
 
   await db.transaction(() async {

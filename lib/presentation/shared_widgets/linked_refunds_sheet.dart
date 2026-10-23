@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
+import 'category_icon.dart';
 
 /// Mostra in un bottom sheet i rimborsi già collegati a questa spesa
 /// (v. Transactions.refundOfId) — direzione opposta di
@@ -45,10 +46,10 @@ Future<void> showLinkedRefundsSheet(
               for (final refund in refunds)
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(
-                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                    child: Text(category?.icon ?? '💶',
-                        style: const TextStyle(fontSize: 18)),
+                  leading: CategoryIcon(
+                    icon: category?.icon ?? 'euro',
+                    color: category?.color ?? 0xFF9E9E9E,
+                    radius: 20,
                   ),
                   title: Text(
                       refund.note?.isNotEmpty == true ? refund.note! : catName),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/local/database/app_database.dart';
 import '../../domain/entities/transaction_entity.dart';
+import 'category_icon.dart';
 
 /// Mostra in un bottom sheet i dettagli della spesa originale a cui un
 /// rimborso è collegato (v. Transactions.refundOfId). Usato dall'icona 🔗 sia
@@ -37,10 +38,10 @@ Future<void> showLinkedExpenseSheet(
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                  child: Text(category?.icon ?? '💶',
-                      style: const TextStyle(fontSize: 18)),
+                leading: CategoryIcon(
+                  icon: category?.icon ?? 'euro',
+                  color: category?.color ?? 0xFF9E9E9E,
+                  radius: 20,
                 ),
                 title: Text(hasNote ? expense.note! : catName),
                 subtitle: Text('$catName · ${AppFormatters.shortDate(expense.date)}'),

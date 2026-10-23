@@ -13,6 +13,7 @@ import '../shared_widgets/transaction_row.dart';
 import 'transaction_actions.dart';
 import 'transaction_lookups.dart';
 import 'widgets/transaction_actions_menu.dart';
+import '../shared_widgets/category_icon.dart';
 
 /// Dettaglio di una transazione in sola lettura (M59): si apre toccando una
 /// riga in Home o Storico. Matita in AppBar → modifica, "⋮" → le altre
@@ -98,11 +99,10 @@ class _DetailBody extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
           child: Column(
             children: [
-              CircleAvatar(
+              CategoryIcon(
+                icon: category?.icon ?? 'euro',
+                color: category?.color ?? 0xFF9E9E9E,
                 radius: 28,
-                backgroundColor: Color(category?.color ?? 0xFF9E9E9E),
-                child: Text(category?.icon ?? '💶',
-                    style: const TextStyle(fontSize: 26)),
               ),
               const SizedBox(height: 10),
               Text(

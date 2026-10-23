@@ -33,7 +33,7 @@ class TransactionListItem extends ConsumerWidget {
     // Sottocategoria sotto la Nota (M30): se non impostata, il nome
     // categoria resta un ripiego valido (il testo non deve restare vuoto).
     return TransactionRow(
-      icon: category?.icon ?? '💶',
+      icon: category?.icon ?? 'euro',
       iconColor: category?.color ?? 0xFF9E9E9E,
       title: hasNote ? tx.note! : catName,
       meta: buildMetaLine(

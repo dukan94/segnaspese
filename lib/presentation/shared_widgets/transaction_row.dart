@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/formatters.dart';
+import 'category_icon.dart';
 
 /// Riga transazione "piatta", senza isolamento grafico per riga (M57,
 /// stile scelto da Mario dopo un confronto A/B, v. `progettazione_
@@ -31,10 +32,10 @@ class TransactionRow extends StatelessWidget {
     this.trailingActions,
   });
 
-  /// Emoji della categoria (o 💶 di ripiego).
+  /// Icona della categoria, valore della colonna `icon` (v. [CategoryIcon]).
   final String icon;
 
-  /// Colore della categoria, sfondo del cerchietto icona.
+  /// Colore della categoria (icona + cerchietto tenue).
   final int iconColor;
 
   /// Nota della transazione, o nome categoria se la nota è vuota.
@@ -79,11 +80,7 @@ class TransactionRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: Color(iconColor),
-              child: Text(icon, style: const TextStyle(fontSize: 16)),
-            ),
+            CategoryIcon(icon: icon, color: iconColor),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

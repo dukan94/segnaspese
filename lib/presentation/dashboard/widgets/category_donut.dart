@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../dashboard_providers.dart';
 import 'count_badge.dart';
+import '../../shared_widgets/category_icon.dart';
 
 /// Torta (ciambella) delle spese per categoria, con legenda tappabile: al tap
 /// su una fetta o su una voce di legenda si seleziona la categoria (per il
@@ -150,7 +151,11 @@ class _LegendRow extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             if (slice.icon.isNotEmpty) ...[
-              Text(slice.icon, style: const TextStyle(fontSize: 15)),
+              CategoryIcon(
+                  icon: slice.icon,
+                  color: slice.color,
+                  circle: false,
+                  radius: 8),
               const SizedBox(width: 6),
             ],
             Expanded(

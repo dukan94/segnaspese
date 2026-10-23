@@ -7,6 +7,7 @@ import '../../../data/local/database/daos/category_dao.dart';
 import '../../../data/mappers/transaction_mapper.dart';
 import '../../../domain/entities/transaction_entity.dart';
 import '../../shared_widgets/empty_state.dart';
+import '../../shared_widgets/category_icon.dart';
 
 /// Sottocategoria scelta + categoria derivata automaticamente da essa.
 class SubCategorySelection {
@@ -63,12 +64,21 @@ class SubCategoryPicker extends ConsumerWidget {
             ),
             child: Row(
               children: [
+                if (current != null) ...[
+                  CategoryIcon(
+                    icon: subCategoryIconOr(
+                        current.subCategory.icon, current.category.icon),
+                    color: current.category.color,
+                    circle: false,
+                    radius: 10,
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: Text(
                     current == null
                         ? 'Seleziona sottocategoria'
-                        : '${current.subCategory.icon.isNotEmpty ? '${current.subCategory.icon} ' : ''}'
-                            '${current.subCategory.name}  ·  ${current.category.name}',
+                        : '${current.subCategory.name}  ·  ${current.category.name}',
                     style: current == null
                         ? TextStyle(color: Theme.of(context).hintColor)
                         : null,
@@ -138,12 +148,9 @@ class _SubCategorySheetState extends State<_SubCategorySheet> {
     // L'ordine arriva già raggruppato per categoria/nome dal DAO (query
     // ordinata per categoria poi sottocategoria): qui raggruppiamo solo
     // visivamente, mantenendo l'ordine.
-    final grouped = <String, List<SubCategoryWithCategory>>{};
+    final grouped = <int, List<SubCategoryWithCategory>>{};
     for (final item in filtered) {
-      final header = item.category.icon.isNotEmpty
-          ? '${item.category.icon} ${item.category.name}'
-          : item.category.name;
-      grouped.putIfAbsent(header, () => []).add(item);
+      grouped.putIfAbsent(item.category.id, () => []).add(item);
     }
 
     return SafeArea(
@@ -175,20 +182,33 @@ class _SubCategorySheetState extends State<_SubCategorySheet> {
                         for (final entry in grouped.entries) ...[
                           Padding(
                             padding: const EdgeInsets.only(top: 12, bottom: 4),
-                            child: Text(
-                              entry.key,
-                              style: theme.textTheme.labelLarge?.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Row(
+                              children: [
+                                CategoryIcon(
+                                  icon: entry.value.first.category.icon,
+                                  color: entry.value.first.category.color,
+                                  circle: false,
+                                  radius: 9,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  entry.value.first.category.name,
+                                  style: theme.textTheme.labelLarge?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                           for (final item in entry.value)
                             ListTile(
-                              leading: item.subCategory.icon.isNotEmpty
-                                  ? Text(item.subCategory.icon,
-                                      style: const TextStyle(fontSize: 20))
-                                  : const SizedBox(width: 24),
+                              leading: CategoryIcon(
+                                icon: subCategoryIconOr(
+                                    item.subCategory.icon, item.category.icon),
+                                color: item.category.color,
+                                radius: 16,
+                              ),
                               title: Text(item.subCategory.name),
                               onTap: () => Navigator.of(context).pop(item),
                             ),
